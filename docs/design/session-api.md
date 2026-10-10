@@ -70,15 +70,15 @@ the app's to discard.
 
 ## The refresh cookie
 
-| Attribute | Value |
-| --- | --- |
-| Name | `yagura_refresh` |
-| Value | The GitHub refresh token and its expiry, encrypted by the server with a key only the server holds. Opaque to the browser |
-| `HttpOnly` | yes |
-| `Secure` | yes (browsers treat `localhost` as a secure context, so this also works in development) |
-| `SameSite` | `Lax` |
-| `Path` | `/session` — the cookie is sent only to the endpoints above |
-| `Max-Age` | the refresh token's remaining lifetime (6 months when freshly issued) |
+| Attribute  | Value                                                                                                                    |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Name       | `yagura_refresh`                                                                                                         |
+| Value      | The GitHub refresh token and its expiry, encrypted by the server with a key only the server holds. Opaque to the browser |
+| `HttpOnly` | yes                                                                                                                      |
+| `Secure`   | yes (browsers treat `localhost` as a secure context, so this also works in development)                                  |
+| `SameSite` | `Lax`                                                                                                                    |
+| `Path`     | `/session` — the cookie is sent only to the endpoints above                                                              |
+| `Max-Age`  | the refresh token's remaining lifetime (6 months when freshly issued)                                                    |
 
 Clearing the cookie means setting it with an empty value and `Max-Age=0`.
 
@@ -90,12 +90,12 @@ Every error response is JSON:
 { "error": "invalid_grant", "error_description": "..." }
 ```
 
-| Status | `error` | When |
-| --- | --- | --- |
-| 400 | `invalid_request` | The body is not the documented shape |
-| 400 | `invalid_grant` | GitHub rejected the code or the verifier (expired, reused, mismatched `redirect_uri`) |
-| 401 | `invalid_session` | `POST /session/refresh` without a usable cookie |
-| 502 | `upstream_error` | GitHub did not answer, or answered with something other than a token or a documented error |
+| Status | `error`           | When                                                                                       |
+| ------ | ----------------- | ------------------------------------------------------------------------------------------ |
+| 400    | `invalid_request` | The body is not the documented shape                                                       |
+| 400    | `invalid_grant`   | GitHub rejected the code or the verifier (expired, reused, mismatched `redirect_uri`)      |
+| 401    | `invalid_session` | `POST /session/refresh` without a usable cookie                                            |
+| 502    | `upstream_error`  | GitHub did not answer, or answered with something other than a token or a documented error |
 
 ## CORS
 
