@@ -85,9 +85,9 @@ sign-in, token, or GitHub API code; those are separate tasks.
 
 ### Before merge (verified outside the check command)
 
-- [ ] `make dev` serves the placeholder page at http://localhost:5173 and
+- [x] `make dev` serves the placeholder page at http://localhost:5173 and
       refuses to start when the port is taken instead of moving to another.
-- [ ] The CI workflow runs on the pull request and its `check` job passes.
+- [x] The CI workflow runs on the pull request and its `check` job passes.
 
 ## Out of scope
 
