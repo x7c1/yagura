@@ -17,6 +17,11 @@ The name is Japanese for a watchtower: a place to look over the whole site.
 yagura is in early development and is not yet usable. Nothing about its
 interfaces is stable.
 
+## Documentation
+
+- [Development](docs/guides/development.md) — prerequisites, running the
+  app, and checking changes.
+
 ## License
 
 [AGPL-3.0-only](LICENSE)
