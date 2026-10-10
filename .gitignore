@@ -1,0 +1,16 @@
+# Node / frontend
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Scratch / agent progress logs
+.tmp/
+
+# Local env
+.env
+.env.local
+.envrc
+local.mk
+
+# OS / editor
+.DS_Store
