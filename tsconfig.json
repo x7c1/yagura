@@ -1,4 +1,8 @@
 {
   "files": [],
-  "references": [{ "path": "packages/apps/web" }]
+  "references": [
+    { "path": "packages/gateway/session-api" },
+    { "path": "packages/gateway/github-api" },
+    { "path": "packages/apps/web" }
+  ]
 }
