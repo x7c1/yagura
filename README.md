@@ -21,6 +21,8 @@ interfaces is stable.
 
 - [Development](docs/guides/development.md) — prerequisites, running the
   app, and checking changes.
+- [Deployment](docs/guides/deployment.md) — publishing the app to GitHub
+  Pages, and the settings it needs outside the code.
 
 ## License
 

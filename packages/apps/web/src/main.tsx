@@ -9,7 +9,7 @@ import { SessionApiClient } from "@yagura/session-api";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 import { App, callbackPath } from "./App";
-import { loadConfig } from "./config";
+import { loadConfig, type Config } from "./config";
 import { SessionController } from "./features/session";
 
 // The composition root: the one module that touches `window`, to build the
@@ -21,34 +21,32 @@ import { SessionController } from "./features/session";
  * imported only in that mode, so they stay out of the production bundle.
  */
 async function startApiMock(
-  sessionApiBaseUrl: string,
+  config: Config,
   store: KeyValueStore,
 ): Promise<((url: URL) => URL) | undefined> {
-  if (import.meta.env.VITE_API_MOCK !== "1") {
+  if (!config.apiMock) {
     return undefined;
   }
   const { mockAuthorize, startBrowserApiMock } =
     await import("@yagura/api-mocks/browser");
-  await startBrowserApiMock({ sessionApiBaseUrl, store });
+  await startBrowserApiMock({
+    sessionApiBaseUrl: config.sessionApiBaseUrl,
+    store,
+  });
   return mockAuthorize;
 }
 
-async function main(): Promise<void> {
-  const container = document.getElementById("root");
-  if (!container) {
-    throw new Error("Root element #root not found");
-  }
-
+async function main(container: HTMLElement): Promise<void> {
   const config = loadConfig();
   const storage = new WebStorageStore(() => window.sessionStorage);
   const location = new WindowLocation(window);
-  const authorize = await startApiMock(config.sessionApiBaseUrl, storage);
+  const authorize = await startApiMock(config, storage);
 
   const session = new SessionController({
     sessionApi: new SessionApiClient({ baseUrl: config.sessionApiBaseUrl }),
     githubApi: new GitHubApiClient(),
-    // The mock authorize page accepts any client id.
-    clientId: config.githubClientId || (authorize ? "mock-client-id" : ""),
+    // Empty only in mock mode, whose authorize page accepts any client id.
+    clientId: config.githubClientId || "mock-client-id",
     redirectUri: location.origin + callbackPath,
     storage,
     location,
@@ -63,4 +61,14 @@ async function main(): Promise<void> {
   );
 }
 
-void main();
+const container = document.getElementById("root");
+if (!container) {
+  throw new Error("Root element #root not found");
+}
+// Show why startup failed (a misconfigured build, a failed worker
+// registration) instead of leaving the page blank.
+main(container).catch((error: unknown) => {
+  container.textContent =
+    error instanceof Error ? error.message : String(error);
+  console.error(error);
+});
