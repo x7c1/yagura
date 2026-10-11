@@ -9,7 +9,7 @@ check_command: "make check && grep -q 'actions/deploy-pages' .github/workflows/c
 assignee: null
 branch: task/1011-1323-github-pages-deploy
 created_at: 2026-10-11T13:23:48Z
-updated_at: 2026-10-11T13:33:47Z
+updated_at: 2026-10-11T15:20:07Z
 ---
 
 # feat(web): deploy the app to GitHub Pages from CI
@@ -106,17 +106,17 @@ Link the guide from `README.md` next to the development guide.
 
 ### Before merge (verified outside the check command)
 
-- [ ] GitHub Pages is enabled with Source "GitHub Actions", the custom
+- [x] GitHub Pages is enabled with Source "GitHub Actions", the custom
       domain is set with HTTPS enforced, and the two repository variables
       are set.
-- [ ] `dig +short yagura.module.codes A` returns the GitHub Pages addresses,
+- [x] `dig +short yagura.module.codes A` returns the GitHub Pages addresses,
       and `https://yagura.module.codes/` answers over TLS.
-- [ ] The GitHub App lists `https://yagura.module.codes/callback` as a
+- [x] The GitHub App lists `https://yagura.module.codes/callback` as a
       callback URL — needs a person: the App's settings belong to its owner.
-- [ ] Running the `deploy` job by hand on this branch publishes the app, and
+- [x] Running the `deploy` job by hand on this branch publishes the app, and
       at `https://yagura.module.codes/` "Sign in with GitHub" completes,
       a reload keeps the session, and "Sign out" returns to the button.
-- [ ] The CI `check` job passes on the pull request.
+- [x] The CI `check` job passes on the pull request.
 
 ## Out of scope
 
