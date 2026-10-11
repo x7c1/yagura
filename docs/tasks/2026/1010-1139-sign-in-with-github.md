@@ -110,13 +110,13 @@ packages so `pnpm -r` and dependency-cruiser cover them.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With the backend from the companion repository running on
+- [x] With the backend from the companion repository running on
       `http://localhost:8787` and a real client id/secret, clicking
       "Sign in with GitHub" at `http://localhost:5173` completes the round
       trip and shows the GitHub login; reloading the page keeps the user
       signed in; "Sign out" returns to the button — needs a person: the
       backend's client secret is held by the maintainer.
-- [ ] The CI `check` job passes on the pull request.
+- [x] The CI `check` job passes on the pull request.
 
 ## Out of scope
 
