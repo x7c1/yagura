@@ -1,3 +1,4 @@
+import type { KeyValueStore, PageLocation, Timer } from "@yagura/browser";
 import { GitHubApiError, type GitHubApiClient } from "@yagura/github-api";
 import {
   SessionApiError,
@@ -19,8 +20,17 @@ export interface SessionControllerOptions {
   readonly clientId: string;
   /** Must match the callback URL registered for the GitHub App. */
   readonly redirectUri: string;
-  /** Sends the browser to the GitHub authorize page. */
-  readonly navigate: (url: URL) => void;
+  /** Holds the sign-in handoff across the redirect to GitHub. */
+  readonly storage: KeyValueStore;
+  /** The page's address, read on the callback and left afterwards. */
+  readonly location: PageLocation;
+  /** Schedules the access token's refresh before it expires. */
+  readonly timer: Timer;
+  /**
+   * Sends the browser to the GitHub authorize page. Defaults to assigning
+   * the URL to `location`.
+   */
+  readonly navigate?: (url: URL) => void;
 }
 
 /**
@@ -38,7 +48,15 @@ export class SessionController {
 
   constructor(options: SessionControllerOptions) {
     this.#options = options;
-    this.#tokens = new TokenHolder(() => void this.#refreshOnExpiry());
+    this.#tokens = new TokenHolder(
+      options.timer,
+      () => void this.#refreshOnExpiry(),
+    );
+  }
+
+  /** The page's address. */
+  get location(): PageLocation {
+    return this.#options.location;
   }
 
   get state(): SessionState {
@@ -79,8 +97,14 @@ export class SessionController {
       const url = await prepareSignIn({
         clientId: this.#options.clientId,
         redirectUri: this.#options.redirectUri,
+        storage: this.#options.storage,
       });
-      this.#options.navigate(url);
+      const { navigate, location } = this.#options;
+      if (navigate) {
+        navigate(url);
+      } else {
+        location.assign(url);
+      }
     } catch (error) {
       this.#signedOut(describe(error));
     }
@@ -139,6 +163,7 @@ export class SessionController {
         search,
         redirectUri: this.#options.redirectUri,
         sessionApi: this.#options.sessionApi,
+        storage: this.#options.storage,
       });
       this.#tokens.set(tokens);
       await this.#loadViewer();

@@ -1,0 +1,21 @@
+{
+  "name": "@yagura/api-mocks",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./browser": "./src/browser.ts"
+  },
+  "scripts": {
+    "build": "tsc -b",
+    "typecheck": "tsc -b",
+    "lint": "eslint ."
+  },
+  "dependencies": {
+    "@yagura/browser": "workspace:*",
+    "msw": "^2.15.0"
+  },
+  "devDependencies": {
+    "typescript": "^6.0.3"
+  }
+}

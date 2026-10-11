@@ -1,68 +1,67 @@
+import { mockLogin } from "@yagura/api-mocks";
+import { MemoryStore } from "@yagura/browser";
 import { GitHubApiError } from "@yagura/github-api";
-import { afterEach, describe, expect, it } from "vitest";
-import { callsTo, fakeFetch, json } from "../../testing/fake-fetch";
-import { sessionApi, testController } from "../../testing/session";
-import { clearHandoff, loadHandoff, saveHandoff } from "./handoff";
+import { http, HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
+import {
+  redirectUri,
+  server,
+  sessionApi,
+  testController,
+} from "../../test-support";
+import { loadHandoff, saveHandoff } from "./handoff";
 
-const tokens = {
-  access_token: "ghu_1",
-  token_type: "bearer",
-  expires_in: 28800,
-};
-const viewer = () => json(200, { login: "octocat" });
-
-afterEach(() => {
-  clearHandoff();
-});
+/** A memory store whose `failing` operation throws, as blocked storage does. */
+function failingStore(failing: "get" | "set"): MemoryStore {
+  const store = new MemoryStore();
+  store[failing] = () => {
+    throw new Error("The operation is insecure.");
+  };
+  return store;
+}
 
 describe("SessionController.handleCallback", () => {
   it("rejects a state mismatch without posting the code", async () => {
-    const fetch = fakeFetch({});
-    const { controller } = testController(fetch);
-    saveHandoff({ state: "expected", codeVerifier: "verifier" });
+    const { controller, mock, storage } = testController();
+    saveHandoff(storage, { state: "expected", codeVerifier: "verifier" });
 
     await controller.handleCallback("?code=abc&state=forged");
 
-    expect(fetch).not.toHaveBeenCalled();
+    expect(mock.requests).toEqual([]);
     expect(controller.accessToken).toBeUndefined();
     expect(controller.state).toMatchObject({
       status: "signed-out",
       error: expect.stringContaining("state"),
     });
-    expect(loadHandoff()).toBeUndefined();
+    expect(loadHandoff(storage)).toBeUndefined();
   });
 
   it("exchanges the code, keeps the token in memory, and clears the handoff", async () => {
-    const fetch = fakeFetch({
-      [`POST ${sessionApi}/session`]: () => json(200, tokens),
-      "GET https://api.github.com/user": viewer,
-    });
-    const { controller } = testController(fetch);
-    saveHandoff({ state: "s1", codeVerifier: "verifier" });
+    const { controller, mock, storage } = testController();
+    saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
     await controller.handleCallback("?code=abc&state=s1");
 
-    const [[, init]] = callsTo(fetch, `POST ${sessionApi}/session`) as [
-      [unknown, RequestInit],
-    ];
-    expect(init.credentials).toBe("include");
-    expect(JSON.parse(String(init.body))).toEqual({
+    const [request] = mock.requestsTo("POST", `${sessionApi}/session`);
+    expect(request?.credentials).toBe("include");
+    expect(request?.body).toEqual({
       code: "abc",
       code_verifier: "verifier",
-      redirect_uri: "http://localhost:5173/callback",
+      redirect_uri: redirectUri,
     });
-    expect(controller.accessToken).toBe("ghu_1");
-    expect(controller.state).toEqual({ status: "signed-in", login: "octocat" });
-    expect(loadHandoff()).toBeUndefined();
+    expect(controller.accessToken).toBe("ghu_mock_1");
+    expect(controller.state).toEqual({ status: "signed-in", login: mockLogin });
+    expect(loadHandoff(storage)).toBeUndefined();
   });
 
   it("surfaces invalid_grant from the session API", async () => {
-    const fetch = fakeFetch({
-      [`POST ${sessionApi}/session`]: () =>
-        json(400, { error: "invalid_grant" }),
-    });
-    const { controller } = testController(fetch);
-    saveHandoff({ state: "s1", codeVerifier: "verifier" });
+    const { controller, storage } = testController();
+    server.use(
+      http.post(`${sessionApi}/session`, () =>
+        HttpResponse.json({ error: "invalid_grant" }, { status: 400 }),
+      ),
+    );
+    saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
     await controller.handleCallback("?code=abc&state=s1");
 
@@ -72,40 +71,97 @@ describe("SessionController.handleCallback", () => {
       error: expect.stringContaining("invalid_grant"),
     });
   });
+
+  it("ends signed out without posting the code when the store cannot be read", async () => {
+    const { controller, mock } = testController({
+      storage: failingStore("get"),
+    });
+
+    await controller.handleCallback("?code=abc&state=s1");
+
+    expect(mock.requests).toEqual([]);
+    expect(controller.accessToken).toBeUndefined();
+    expect(controller.state).toMatchObject({
+      status: "signed-out",
+      error: expect.stringContaining("browser storage"),
+    });
+  });
 });
 
 describe("SessionController.signIn", () => {
   it("sends the browser to GitHub with state and an S256 challenge", async () => {
-    const { controller, navigate } = testController(fakeFetch({}));
+    const { controller, location, storage } = testController();
 
     await controller.signIn();
 
-    const url = navigate.mock.calls[0]?.[0];
+    const [url] = location.assigned;
     expect(url?.origin + (url?.pathname ?? "")).toBe(
       "https://github.com/login/oauth/authorize",
     );
     expect(url?.searchParams.get("client_id")).toBe("Iv1.test");
-    expect(url?.searchParams.get("redirect_uri")).toBe(
-      "http://localhost:5173/callback",
-    );
+    expect(url?.searchParams.get("redirect_uri")).toBe(redirectUri);
     expect(url?.searchParams.get("code_challenge_method")).toBe("S256");
-    expect(url?.searchParams.get("state")).toBe(loadHandoff()?.state);
+    expect(url?.searchParams.get("state")).toBe(loadHandoff(storage)?.state);
+  });
+
+  it("ends signed out without navigating when the store cannot be written", async () => {
+    const { controller, location } = testController({
+      storage: failingStore("set"),
+    });
+
+    await controller.signIn();
+
+    expect(location.assigned).toEqual([]);
+    expect(location.href).toBe("http://localhost:5173/");
+    expect(controller.state).toMatchObject({
+      status: "signed-out",
+      error: expect.stringContaining("browser storage"),
+    });
+  });
+});
+
+describe("SessionController token refresh", () => {
+  it("refreshes the access token when the timer reaches its expiry margin", async () => {
+    const { controller, mock, timer } = testController({ signedIn: true });
+    await controller.restore();
+    expect(controller.accessToken).toBe("ghu_mock_1");
+
+    // The mock's tokens live 28800 s; the refresh runs 60 s before that.
+    timer.advance(28_740_000 - 1);
+    expect(
+      mock.requestsTo("POST", `${sessionApi}/session/refresh`),
+    ).toHaveLength(1);
+
+    timer.advance(1);
+    await vi.waitFor(() => {
+      expect(controller.accessToken).toBe("ghu_mock_2");
+    });
+    expect(
+      mock.requestsTo("POST", `${sessionApi}/session/refresh`),
+    ).toHaveLength(2);
+    expect(timer.pending).toBe(1);
+  });
+
+  it("signs out when the refresh on expiry answers 401", async () => {
+    const { controller, mock, timer } = testController({ signedIn: true });
+    await controller.restore();
+    mock.signedIn = false;
+
+    timer.advance(28_740_000);
+
+    await vi.waitFor(() => {
+      expect(controller.state).toEqual({ status: "signed-out" });
+    });
+    expect(controller.accessToken).toBeUndefined();
+    expect(timer.pending).toBe(0);
   });
 });
 
 describe("SessionController.withAccessToken", () => {
   it("refreshes once on a GitHub 401 and retries with the new token", async () => {
-    let refreshes = 0;
-    const fetch = fakeFetch({
-      [`POST ${sessionApi}/session/refresh`]: () => {
-        refreshes += 1;
-        return json(200, { ...tokens, access_token: `ghu_r${refreshes}` });
-      },
-      "GET https://api.github.com/user": viewer,
-    });
-    const { controller } = testController(fetch);
+    const { controller, mock } = testController({ signedIn: true });
     await controller.restore();
-    expect(controller.accessToken).toBe("ghu_r1");
+    expect(controller.accessToken).toBe("ghu_mock_1");
 
     const seen: string[] = [];
     const result = await controller.withAccessToken(async (token) => {
@@ -116,17 +172,15 @@ describe("SessionController.withAccessToken", () => {
       return token;
     });
 
-    expect(result).toBe("ghu_r2");
-    expect(seen).toEqual(["ghu_r1", "ghu_r2"]);
-    expect(refreshes).toBe(2);
+    expect(result).toBe("ghu_mock_2");
+    expect(seen).toEqual(["ghu_mock_1", "ghu_mock_2"]);
+    expect(
+      mock.requestsTo("POST", `${sessionApi}/session/refresh`),
+    ).toHaveLength(2);
   });
 
   it("does not retry a second 401", async () => {
-    const fetch = fakeFetch({
-      [`POST ${sessionApi}/session/refresh`]: () => json(200, tokens),
-      "GET https://api.github.com/user": viewer,
-    });
-    const { controller } = testController(fetch);
+    const { controller } = testController({ signedIn: true });
     await controller.restore();
 
     let calls = 0;

@@ -1,2 +1,6 @@
 packages:
   - "packages/*/*"
+allowBuilds:
+  # The postinstall script only copies mockServiceWorker.js; the generated
+  # worker is committed under packages/apps/web/public/ instead.
+  msw: false

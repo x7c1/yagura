@@ -4,7 +4,11 @@ import { parseSessionTokens, type SessionTokens } from "./tokens";
 export interface SessionApiClientOptions {
   /** Base URL of the session API, without a trailing slash. */
   readonly baseUrl: string;
-  readonly fetch: typeof fetch;
+  /**
+   * Defaults to the global `fetch`, looked up on every request so that a
+   * request interceptor installed later (such as a mock) is honored.
+   */
+  readonly fetch?: typeof fetch;
 }
 
 export interface CreateSessionRequest {
@@ -20,10 +24,10 @@ export class SessionApiClient {
 
   constructor(options: SessionApiClientOptions) {
     this.#baseUrl = options.baseUrl;
-    // Call the injected function unbound: the browser's fetch rejects any
-    // receiver other than the global object.
+    // Call the function unbound: the browser's fetch rejects any receiver
+    // other than the global object.
     const fetchFn = options.fetch;
-    this.#fetch = (input, init) => fetchFn(input, init);
+    this.#fetch = (input, init) => (fetchFn ?? fetch)(input, init);
   }
 
   /** `POST /session`: exchanges the authorization code for tokens. */

@@ -10,7 +10,7 @@ export function CallbackHandler(props: { readonly onDone: () => void }) {
   const { onDone } = props;
 
   useEffect(() => {
-    void controller.handleCallback(window.location.search).then(onDone);
+    void controller.handleCallback(controller.location.search).then(onDone);
   }, [controller, onDone]);
 
   return <p>Signing in…</p>;

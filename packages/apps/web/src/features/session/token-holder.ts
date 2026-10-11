@@ -1,3 +1,4 @@
+import type { CancelTimer, Timer } from "@yagura/browser";
 import type { SessionTokens } from "@yagura/session-api";
 
 /** Refresh this long before the access token actually expires. */
@@ -9,11 +10,13 @@ const refreshMarginMs = 60_000;
  */
 export class TokenHolder {
   #accessToken: string | undefined;
-  #timer: ReturnType<typeof setTimeout> | undefined;
+  #cancelRefresh: CancelTimer | undefined;
+  readonly #timer: Timer;
   readonly #onExpiring: () => void;
 
-  /** `onExpiring` is called shortly before the held token expires. */
-  constructor(onExpiring: () => void) {
+  /** `onExpiring` is called through `timer` shortly before the token expires. */
+  constructor(timer: Timer, onExpiring: () => void) {
+    this.#timer = timer;
     this.#onExpiring = onExpiring;
   }
 
@@ -25,17 +28,15 @@ export class TokenHolder {
     this.clear();
     this.#accessToken = tokens.accessToken;
     const delay = Math.max(0, tokens.expiresIn * 1000 - refreshMarginMs);
-    this.#timer = setTimeout(() => {
-      this.#timer = undefined;
+    this.#cancelRefresh = this.#timer.schedule(() => {
+      this.#cancelRefresh = undefined;
       this.#onExpiring();
     }, delay);
   }
 
   clear(): void {
     this.#accessToken = undefined;
-    if (this.#timer !== undefined) {
-      clearTimeout(this.#timer);
-      this.#timer = undefined;
-    }
+    this.#cancelRefresh?.();
+    this.#cancelRefresh = undefined;
   }
 }
