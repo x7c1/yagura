@@ -124,15 +124,15 @@ cookie.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With no session API server running, `VITE_API_MOCK=1 make dev` serves
+- [x] With no session API server running, `VITE_API_MOCK=1 make dev` serves
       an app where "Sign in with GitHub" completes without leaving
       localhost and shows the mock login; reloading keeps it signed in;
       "Sign out" returns to the button.
-- [ ] With the session API server on `http://localhost:8787` and the real
+- [x] With the session API server on `http://localhost:8787` and the real
       client id/secret, the real round trip still works: sign in shows the
       GitHub login, a reload keeps it, sign out returns to the button —
       needs a person: the server's client secret is held by the maintainer.
-- [ ] The CI `check` job passes on the pull request.
+- [x] The CI `check` job passes on the pull request.
 
 ## Out of scope
 
