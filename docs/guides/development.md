@@ -17,6 +17,16 @@ This installs nothing; run `make deps` first on a fresh checkout. The dev
 server listens on http://localhost:5173 and refuses to start if that port is
 taken, because sign-in redirects back to that exact address.
 
+Sign-in needs the session API server running on http://localhost:8787 (set
+in `packages/apps/web/.env.development`) and the GitHub App's client id.
+Put the client id in `packages/apps/web/.env.local`, which is not committed:
+
+```sh
+VITE_GITHUB_CLIENT_ID=<the GitHub App client id>
+```
+
+`packages/apps/web/.env.example` lists every variable the app reads.
+
 ## Checking changes
 
 ```sh
