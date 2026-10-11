@@ -1,3 +1,4 @@
+import type { KeyValueStore } from "@yagura/browser";
 import { saveHandoff } from "./handoff";
 import {
   deriveCodeChallenge,
@@ -10,6 +11,8 @@ const authorizeUrl = "https://github.com/login/oauth/authorize";
 export interface SignInRequest {
   readonly clientId: string;
   readonly redirectUri: string;
+  /** Where the handoff for the callback is recorded. */
+  readonly storage: KeyValueStore;
 }
 
 /**
@@ -23,7 +26,7 @@ export async function prepareSignIn(request: SignInRequest): Promise<URL> {
   const state = generateState();
   const codeVerifier = generateCodeVerifier();
   const codeChallenge = await deriveCodeChallenge(codeVerifier);
-  saveHandoff({ state, codeVerifier });
+  saveHandoff(request.storage, { state, codeVerifier });
 
   const url = new URL(authorizeUrl);
   url.searchParams.set("client_id", request.clientId);

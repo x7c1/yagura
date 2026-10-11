@@ -9,13 +9,14 @@ import {
 export const callbackPath = "/callback";
 
 export function App(props: { readonly session: SessionController }) {
-  const [pathname, setPathname] = useState(window.location.pathname);
+  const { location } = props.session;
+  const [pathname, setPathname] = useState(location.pathname);
 
   // Drop the code and state from the address bar and the history entry.
   const leaveCallback = useCallback(() => {
-    window.history.replaceState(null, "", "/");
-    setPathname("/");
-  }, []);
+    location.replace("/");
+    setPathname(location.pathname);
+  }, [location]);
 
   return (
     <SessionProvider controller={props.session}>

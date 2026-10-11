@@ -1,8 +1,10 @@
 {
   "files": [],
   "references": [
+    { "path": "packages/gateway/browser" },
     { "path": "packages/gateway/session-api" },
     { "path": "packages/gateway/github-api" },
+    { "path": "packages/testing/api-mocks" },
     { "path": "packages/apps/web" }
   ]
 }

@@ -1,3 +1,4 @@
+import type { KeyValueStore } from "@yagura/browser";
 import type { SessionApiClient, SessionTokens } from "@yagura/session-api";
 import { clearHandoff, loadHandoff } from "./handoff";
 
@@ -10,10 +11,12 @@ export class CallbackError extends Error {
 }
 
 export interface CallbackRequest {
-  /** The callback URL's query string, e.g. `window.location.search`. */
+  /** The callback URL's query string, including its leading `?`. */
   readonly search: string;
   readonly redirectUri: string;
   readonly sessionApi: SessionApiClient;
+  /** Where `prepareSignIn` recorded the handoff. */
+  readonly storage: KeyValueStore;
 }
 
 /**
@@ -25,8 +28,8 @@ export async function completeCallback(
   request: CallbackRequest,
 ): Promise<SessionTokens> {
   const params = new URLSearchParams(request.search);
-  const handoff = loadHandoff();
-  clearHandoff();
+  const handoff = loadHandoff(request.storage);
+  clearHandoff(request.storage);
 
   const error = params.get("error");
   if (error) {

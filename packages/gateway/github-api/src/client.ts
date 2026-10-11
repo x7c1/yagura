@@ -3,7 +3,11 @@ import { GitHubApiError } from "./error";
 const baseUrl = "https://api.github.com";
 
 export interface GitHubApiClientOptions {
-  readonly fetch: typeof fetch;
+  /**
+   * Defaults to the global `fetch`, looked up on every request so that a
+   * request interceptor installed later (such as a mock) is honored.
+   */
+  readonly fetch?: typeof fetch;
 }
 
 /** The signed-in user, as far as the app needs it. */
@@ -15,11 +19,11 @@ export interface Viewer {
 export class GitHubApiClient {
   readonly #fetch: typeof fetch;
 
-  constructor(options: GitHubApiClientOptions) {
-    // Call the injected function unbound: the browser's fetch rejects any
-    // receiver other than the global object.
+  constructor(options: GitHubApiClientOptions = {}) {
+    // Call the function unbound: the browser's fetch rejects any receiver
+    // other than the global object.
     const fetchFn = options.fetch;
-    this.#fetch = (input, init) => fetchFn(input, init);
+    this.#fetch = (input, init) => (fetchFn ?? fetch)(input, init);
   }
 
   /** `GET /user`: the user the access token belongs to. */

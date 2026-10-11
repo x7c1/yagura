@@ -8,7 +8,9 @@
   },
   "include": ["src", "vite.config.ts"],
   "references": [
+    { "path": "../../gateway/browser" },
     { "path": "../../gateway/session-api" },
-    { "path": "../../gateway/github-api" }
+    { "path": "../../gateway/github-api" },
+    { "path": "../../testing/api-mocks" }
   ]
 }

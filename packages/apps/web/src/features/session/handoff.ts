@@ -1,6 +1,9 @@
+import type { KeyValueStore } from "@yagura/browser";
+
 // The `state` and PKCE verifier must survive the round trip through GitHub.
-// sessionStorage is the only browser storage the app uses, and only for these
-// two short-lived values; tokens never go here.
+// In the browser the store is the session-scoped Web Storage area, the only
+// browser storage the app uses, and only for these two short-lived values;
+// tokens never go here.
 
 const storageKey = "yagura.sign-in-handoff";
 
@@ -9,13 +12,37 @@ export interface SignInHandoff {
   readonly codeVerifier: string;
 }
 
-export function saveHandoff(handoff: SignInHandoff): void {
-  sessionStorage.setItem(storageKey, JSON.stringify(handoff));
+/** The store failed; the sign-in cannot carry its state across the redirect. */
+export class HandoffStorageError extends Error {
+  constructor(action: string, cause: unknown) {
+    super(
+      `Could not ${action} the sign-in state in browser storage: ` +
+        (cause instanceof Error ? cause.message : String(cause)),
+      { cause },
+    );
+    this.name = "HandoffStorageError";
+  }
 }
 
-export function loadHandoff(): SignInHandoff | undefined {
-  const raw = sessionStorage.getItem(storageKey);
-  if (raw === null) {
+export function saveHandoff(
+  store: KeyValueStore,
+  handoff: SignInHandoff,
+): void {
+  try {
+    store.set(storageKey, JSON.stringify(handoff));
+  } catch (error) {
+    throw new HandoffStorageError("save", error);
+  }
+}
+
+export function loadHandoff(store: KeyValueStore): SignInHandoff | undefined {
+  let raw: string | undefined;
+  try {
+    raw = store.get(storageKey);
+  } catch (error) {
+    throw new HandoffStorageError("read", error);
+  }
+  if (raw === undefined) {
     return undefined;
   }
   try {
@@ -32,6 +59,10 @@ export function loadHandoff(): SignInHandoff | undefined {
   return undefined;
 }
 
-export function clearHandoff(): void {
-  sessionStorage.removeItem(storageKey);
+export function clearHandoff(store: KeyValueStore): void {
+  try {
+    store.remove(storageKey);
+  } catch (error) {
+    throw new HandoffStorageError("clear", error);
+  }
 }
