@@ -5,6 +5,8 @@ on:
     branches: [main]
   push:
     branches: [main]
+  # Publishes a branch by hand, for verifying a deployment before merging.
+  workflow_dispatch:
 
 jobs:
   check:
@@ -18,3 +20,48 @@ jobs:
           node-version: 24
           cache: pnpm
       - run: make check
+
+  # Publishes the web app to GitHub Pages. See docs/guides/deployment.md.
+  deploy:
+    needs: check
+    if: >-
+      (github.event_name == 'push' && github.ref == 'refs/heads/main') ||
+      github.event_name == 'workflow_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    concurrency:
+      group: github-pages
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: make deps
+      - run: pnpm --filter @yagura/web build
+        env:
+          VITE_GITHUB_CLIENT_ID: ${{ vars.VITE_GITHUB_CLIENT_ID }}
+          VITE_YAGURA_SESSION_API: ${{ vars.VITE_YAGURA_SESSION_API }}
+      # GitHub Pages serves 404.html for any path it has no file for. As a
+      # copy of index.html it loads the app there too, which is how the
+      # sign-in redirect to /callback reaches the app.
+      # mockServiceWorker.js is used only with VITE_API_MOCK=1 in development
+      # (see docs/guides/development.md), so it is left out of the site.
+      - name: Prepare the site
+        working-directory: packages/apps/web/dist
+        run: |
+          cp index.html 404.html
+          rm mockServiceWorker.js
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: packages/apps/web/dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
