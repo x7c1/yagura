@@ -81,9 +81,9 @@ a totals row closes the table.
 
 ### Before merge (verified outside the check command)
 
-- [ ] `VITE_API_MOCK=1 make dev`: after the mock sign-in, the table shows
+- [x] `VITE_API_MOCK=1 make dev`: after the mock sign-in, the table shows
       the mock members with their counts and a totals row, above the list.
-- [ ] Against the dev session API through the proxy, the table's totals
+- [x] Against the dev session API through the proxy, the table's totals
       match the list: the opened and merged counts and the summed lines
       agree with what the list's rows add up to.
 
