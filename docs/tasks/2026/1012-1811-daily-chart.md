@@ -87,10 +87,10 @@ the list (not the summary table), and how it is cleared.
 
 ### Before merge (verified outside the check command)
 
-- [ ] `VITE_API_MOCK=1 make dev`: the chart shows 14 day groups with the
+- [x] `VITE_API_MOCK=1 make dev`: the chart shows 14 day groups with the
       mock counts; clicking a bar narrows the list and "Show all" restores
       it; the bars can be reached and chosen with the keyboard.
-- [ ] Against the dev session API through the proxy, the chart's counts for
+- [x] Against the dev session API through the proxy, the chart's counts for
       a few days match the list narrowed to those days.
 
 ## Out of scope
