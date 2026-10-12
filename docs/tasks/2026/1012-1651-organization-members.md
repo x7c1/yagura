@@ -138,9 +138,9 @@ members request fails.
 
 ### Before merge (verified outside the check command)
 
-- [ ] `VITE_API_MOCK=1 make dev`: after the mock sign-in, the page shows
+- [x] `VITE_API_MOCK=1 make dev`: after the mock sign-in, the page shows
       `mock-org` and its members.
-- [ ] Against the dev session API through the proxy
+- [x] Against the dev session API through the proxy
       (`docs/guides/development.md`, "Using a deployed session API"), signing
       in shows the real organization and its members.
 
