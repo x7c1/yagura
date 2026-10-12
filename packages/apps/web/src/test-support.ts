@@ -6,7 +6,8 @@ import {
   type JsonStore,
   type KeyValueStore,
 } from "@yagura/browser";
-import { ApiMock } from "@yagura/api-mocks";
+import type { PullRequest } from "@yagura/activity";
+import { ApiMock, mockPullRequests } from "@yagura/api-mocks";
 import { GitHubApiClient } from "@yagura/github-api";
 import { SessionApiClient } from "@yagura/session-api";
 import { screen, within } from "@testing-library/react";
@@ -102,4 +103,24 @@ export async function memberSummaryRows(): Promise<string[][]> {
         [...row.children].map((cell) => cell.textContent?.trim() ?? ""),
       ),
   );
+}
+
+/**
+ * The API mock's fixture pull requests at `now`, as the domain sees them,
+ * for working out from the fixtures what the view should show. Their state
+ * is left `open`: the measures go by the dates, not the state.
+ */
+export function mockDomainPullRequests(now: Date): PullRequest[] {
+  return mockPullRequests(now).map((node) => ({
+    id: node.id,
+    title: node.title,
+    url: node.url,
+    repository: node.repository.nameWithOwner,
+    author: node.author.login,
+    state: "open",
+    createdAt: new Date(node.createdAt),
+    mergedAt: node.mergedAt === null ? null : new Date(node.mergedAt),
+    additions: node.additions,
+    deletions: node.deletions,
+  }));
 }

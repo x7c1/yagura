@@ -14,6 +14,9 @@ export type {
   SearchPlan,
   StoredPullRequest,
 } from "./cache";
+export { countByDay, pullRequestsOn } from "./daily";
+export type { DayCounts } from "./daily";
+export { dayKeyOf, startOfDay } from "./days";
 export {
   latestEventIn,
   measures,

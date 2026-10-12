@@ -4,17 +4,14 @@ import {
   wasOpened,
   type PullRequest,
 } from "@yagura/activity";
-import {
-  mockMemberLogins,
-  mockOrganization,
-  mockPullRequests,
-} from "@yagura/api-mocks";
+import { mockMemberLogins, mockOrganization } from "@yagura/api-mocks";
 import { render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
 import {
   memberSummaryRows,
+  mockDomainPullRequests,
   pullRequestRows,
   server,
   testController,
@@ -42,19 +39,7 @@ const emptySearch = () =>
  */
 function expectedRows(): string[][] {
   const period = periodEndingAt(now);
-  const pullRequests: PullRequest[] = mockPullRequests(now).map((node) => ({
-    id: node.id,
-    title: node.title,
-    url: node.url,
-    repository: node.repository.nameWithOwner,
-    author: node.author.login,
-    // The measures go by the dates, not the state.
-    state: "open",
-    createdAt: new Date(node.createdAt),
-    mergedAt: node.mergedAt === null ? null : new Date(node.mergedAt),
-    additions: node.additions,
-    deletions: node.deletions,
-  }));
+  const pullRequests = mockDomainPullRequests(now);
   const counts = (prs: readonly PullRequest[]) => {
     const listed = prs.filter(
       (pr) => wasOpened(pr, period) || wasMerged(pr, period),
