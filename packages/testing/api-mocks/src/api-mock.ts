@@ -1,5 +1,10 @@
 import { MemoryStore, type KeyValueStore } from "@yagura/browser";
 import { http, HttpResponse, type HttpHandler } from "msw";
+import {
+  mockPullRequests,
+  searchMockPullRequests,
+  type MockPullRequestNode,
+} from "./pull-requests";
 
 /** The GitHub login the mock answers `GET /user` with. */
 export const mockLogin = "mock-user";
@@ -61,7 +66,14 @@ export interface RecordedRequest {
  * - `GET /user/installations` answers an installation on each of the
  *   `organizations` option's organizations, by default {@link mockOrganization};
  * - `GET /orgs/{org}/members` answers {@link mockMemberLogins} for any of
- *   those organizations, and `404` for another.
+ *   those organizations, and `404` for another;
+ * - `POST /graphql` answers a pull request `search` with the members'
+ *   fixture pull requests, spread over the 14 days before the mock was
+ *   created (open, merged, one created before the period and merged in it,
+ *   closed, across three repositories), filtered by the query's `author:`,
+ *   `is:merged`, `created:>=` and `merged:>=` qualifiers. It reads the
+ *   search query from the `query` variable and does not parse the GraphQL
+ *   document.
  *
  * The GitHub endpoints answer `401` for a token the mock did not issue while
  * signed in, as GitHub does for a bad token, and fit on a single page.
@@ -72,10 +84,12 @@ export class ApiMock {
   readonly #issued = new Set<string>();
   readonly #requests: RecordedRequest[] = [];
   readonly #organizations: readonly string[];
+  readonly #pullRequests: readonly MockPullRequestNode[];
 
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
     this.#organizations = options.organizations ?? [mockOrganization];
+    this.#pullRequests = mockPullRequests(new Date());
     if (options.signedIn !== undefined) {
       this.signedIn = options.signedIn;
     }
@@ -139,6 +153,28 @@ export class ApiMock {
           );
         },
       ),
+      http.post(`${githubApi}/graphql`, async ({ request }) => {
+        const body = await this.#record(request);
+        if (!this.#authorized(request)) {
+          return badCredentials();
+        }
+        const variables = isRecord(body) ? body.variables : undefined;
+        const query = isRecord(variables) ? variables.query : undefined;
+        if (typeof query !== "string") {
+          return HttpResponse.json({
+            data: null,
+            errors: [{ message: "The API mock answers only searches" }],
+          });
+        }
+        return HttpResponse.json({
+          data: {
+            search: {
+              pageInfo: { hasNextPage: false, endCursor: null },
+              nodes: searchMockPullRequests(this.#pullRequests, query),
+            },
+          },
+        });
+      }),
     ];
   }
 
@@ -204,11 +240,15 @@ export class ApiMock {
   }
 }
 
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
+}
+
 function isCreateSessionBody(body: unknown): boolean {
-  if (typeof body !== "object" || body === null) {
+  if (!isRecord(body)) {
     return false;
   }
-  const { code, code_verifier, redirect_uri } = body as Record<string, unknown>;
+  const { code, code_verifier, redirect_uri } = body;
   return (
     typeof code === "string" &&
     typeof code_verifier === "string" &&

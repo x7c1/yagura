@@ -1,11 +1,13 @@
 import type { Organization } from "@yagura/github-api";
 import { useCallback, useState } from "react";
+import { Failure, useRequest } from "../../shared";
+import { PullRequests } from "../pull-requests";
 import { useSession } from "../session";
-import { useRequest } from "./use-request";
 
 /**
- * The organization the GitHub App is installed on and its members. With
- * several organizations, a selector switches between them.
+ * The organization the GitHub App is installed on, its members, and their
+ * recent pull requests. With several organizations, a selector switches
+ * between them.
  */
 export function OrganizationMembers() {
   const { controller } = useSession();
@@ -99,28 +101,17 @@ function Members(props: { readonly org: string }) {
         return <p>No members of {org} are visible to you.</p>;
       }
       return (
-        <ul aria-label="Members">
-          {state.value.map((member) => (
-            <li key={member.login}>
-              <img src={member.avatarUrl} alt="" width={24} height={24} />{" "}
-              {member.login}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul aria-label="Members">
+            {state.value.map((member) => (
+              <li key={member.login}>
+                <img src={member.avatarUrl} alt="" width={24} height={24} />{" "}
+                {member.login}
+              </li>
+            ))}
+          </ul>
+          <PullRequests org={org} members={state.value} />
+        </>
       );
   }
-}
-
-function Failure(props: {
-  readonly message: string;
-  readonly retry: () => void;
-}) {
-  return (
-    <div>
-      <p role="alert">{props.message}</p>
-      <button type="button" onClick={props.retry}>
-        Retry
-      </button>
-    </div>
-  );
 }

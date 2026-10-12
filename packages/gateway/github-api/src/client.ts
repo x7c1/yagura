@@ -1,9 +1,45 @@
+import type { PullRequest, PullRequestState } from "@yagura/activity";
 import { GitHubApiError } from "./error";
 
 const baseUrl = "https://api.github.com";
 
-/** The largest page size GitHub's REST API accepts. */
+/** The largest page size GitHub's REST and GraphQL APIs accept. */
 const pageSize = 100;
+
+/** The login GitHub shows for the author of a deleted account. */
+const ghostLogin = "ghost";
+
+/**
+ * One page of a pull request search, asking only for the fields
+ * {@link PullRequest} needs.
+ */
+const searchPullRequestsQuery = `
+query SearchPullRequests($query: String!, $after: String) {
+  search(type: ISSUE, query: $query, first: ${pageSize}, after: $after) {
+    pageInfo { hasNextPage endCursor }
+    nodes {
+      __typename
+      ... on PullRequest {
+        id
+        title
+        url
+        repository { nameWithOwner }
+        author { login }
+        state
+        createdAt
+        mergedAt
+        additions
+        deletions
+      }
+    }
+  }
+}`;
+
+const pullRequestStates: Readonly<Record<string, PullRequestState>> = {
+  OPEN: "open",
+  MERGED: "merged",
+  CLOSED: "closed",
+};
 
 export interface GitHubApiClientOptions {
   /**
@@ -117,6 +153,36 @@ export class GitHubApiClient {
   }
 
   /**
+   * The GraphQL `search` for pull requests matching `query` (GitHub's search
+   * syntax), following every page. Results that are not pull requests, such
+   * as issues, are left out.
+   */
+  async searchPullRequests(
+    accessToken: string,
+    query: string,
+  ): Promise<PullRequest[]> {
+    const pullRequests: PullRequest[] = [];
+    let after: string | null = null;
+    do {
+      const { response, data } = await this.#graphql(
+        accessToken,
+        searchPullRequestsQuery,
+        { query, after },
+      );
+      const page = parseSearchPage(data);
+      if (page === undefined) {
+        throw new GitHubApiError(
+          response.status,
+          "GitHub API returned an unexpected body to the pull request search",
+        );
+      }
+      pullRequests.push(...page.pullRequests);
+      after = page.endCursor;
+    } while (after !== null);
+    return pullRequests;
+  }
+
+  /**
    * GETs every page of a list endpoint, following the `Link` header's
    * `rel="next"`. `parse` turns one page's body into its items, or
    * `undefined` when the body is not the expected shape.
@@ -152,8 +218,53 @@ export class GitHubApiClient {
     path: string,
     url = `${baseUrl}${path}`,
   ): Promise<{ response: Response; body: unknown }> {
+    return this.#request(accessToken, `GET ${path}`, url, { method: "GET" });
+  }
+
+  /**
+   * POSTs a GraphQL query and returns its `data`. A response carrying
+   * `errors` is a {@link GitHubApiError} with the first error's message.
+   */
+  async #graphql(
+    accessToken: string,
+    query: string,
+    variables: Record<string, unknown>,
+  ): Promise<{ response: Response; data: unknown }> {
+    const { response, body } = await this.#request(
+      accessToken,
+      "POST /graphql",
+      `${baseUrl}/graphql`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, variables }),
+      },
+    );
+    if (isRecord(body) && Array.isArray(body.errors)) {
+      const [first]: unknown[] = body.errors;
+      const message =
+        isRecord(first) && typeof first.message === "string"
+          ? first.message
+          : "GitHub API returned an error to POST /graphql";
+      throw new GitHubApiError(response.status, message);
+    }
+    return { response, data: isRecord(body) ? body.data : undefined };
+  }
+
+  /**
+   * Sends a request with the access token and reads the JSON body. `name`
+   * (such as `GET /user`) names the endpoint in errors.
+   */
+  async #request(
+    accessToken: string,
+    name: string,
+    url: string,
+    init: { method: string; headers?: Record<string, string>; body?: string },
+  ): Promise<{ response: Response; body: unknown }> {
     const response = await this.#fetch(url, {
+      ...init,
       headers: {
+        ...init.headers,
         Accept: "application/vnd.github+json",
         Authorization: `Bearer ${accessToken}`,
       },
@@ -161,12 +272,101 @@ export class GitHubApiClient {
     if (!response.ok) {
       throw new GitHubApiError(
         response.status,
-        `GitHub API responded ${response.status} to GET ${path}`,
+        `GitHub API responded ${response.status} to ${name}`,
       );
     }
     const body: unknown = await response.json().catch(() => undefined);
     return { response, body };
   }
+}
+
+/**
+ * One page of the pull request search: its pull requests and the cursor of
+ * the next page, `null` on the last. `undefined` when `data` is not the
+ * expected shape.
+ */
+function parseSearchPage(
+  data: unknown,
+): { pullRequests: PullRequest[]; endCursor: string | null } | undefined {
+  const search = isRecord(data) ? data.search : undefined;
+  if (!isRecord(search) || !Array.isArray(search.nodes)) {
+    return undefined;
+  }
+  const { pageInfo } = search;
+  if (!isRecord(pageInfo) || typeof pageInfo.hasNextPage !== "boolean") {
+    return undefined;
+  }
+  let endCursor: string | null = null;
+  if (pageInfo.hasNextPage) {
+    if (typeof pageInfo.endCursor !== "string") {
+      return undefined;
+    }
+    endCursor = pageInfo.endCursor;
+  }
+  const pullRequests: PullRequest[] = [];
+  for (const node of search.nodes) {
+    if (isRecord(node) && node.__typename !== "PullRequest") {
+      continue;
+    }
+    const pullRequest = parsePullRequest(node);
+    if (pullRequest === undefined) {
+      return undefined;
+    }
+    pullRequests.push(pullRequest);
+  }
+  return { pullRequests, endCursor };
+}
+
+function parsePullRequest(node: unknown): PullRequest | undefined {
+  if (!isRecord(node)) {
+    return undefined;
+  }
+  const { id, title, url, repository, author, additions, deletions } = node;
+  const state =
+    typeof node.state === "string" ? pullRequestStates[node.state] : undefined;
+  const createdAt = parseTime(node.createdAt);
+  const mergedAt = node.mergedAt === null ? null : parseTime(node.mergedAt);
+  const repositoryName = isRecord(repository)
+    ? repository.nameWithOwner
+    : undefined;
+  // A deleted account's pull requests have no author.
+  const login =
+    author === null ? ghostLogin : isRecord(author) ? author.login : undefined;
+  if (
+    typeof id !== "string" ||
+    typeof title !== "string" ||
+    typeof url !== "string" ||
+    typeof repositoryName !== "string" ||
+    typeof login !== "string" ||
+    state === undefined ||
+    createdAt === undefined ||
+    mergedAt === undefined ||
+    typeof additions !== "number" ||
+    typeof deletions !== "number"
+  ) {
+    return undefined;
+  }
+  return {
+    id,
+    title,
+    url,
+    repository: repositoryName,
+    author: login,
+    state,
+    createdAt,
+    mergedAt,
+    additions,
+    deletions,
+  };
+}
+
+/** An ISO 8601 timestamp as a `Date`, or `undefined` if it is not one. */
+function parseTime(value: unknown): Date | undefined {
+  if (typeof value !== "string") {
+    return undefined;
+  }
+  const time = new Date(value);
+  return Number.isNaN(time.getTime()) ? undefined : time;
 }
 
 /** The `rel="next"` URL of a `Link` header, if there is one. */

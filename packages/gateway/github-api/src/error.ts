@@ -1,4 +1,7 @@
-/** A non-2xx (or unreadable) response from the GitHub API. */
+/**
+ * A non-2xx (or unreadable) response from the GitHub API, or a GraphQL
+ * response carrying `errors`.
+ */
 export class GitHubApiError extends Error {
   readonly status: number;
 
