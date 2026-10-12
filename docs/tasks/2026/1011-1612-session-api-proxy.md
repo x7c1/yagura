@@ -79,10 +79,10 @@ API belongs to must list `http://localhost:5173/callback` as a callback URL.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `YAGURA_SESSION_API_PROXY` pointing at a deployed session API whose
+- [x] With `YAGURA_SESSION_API_PROXY` pointing at a deployed session API whose
       GitHub App lists the localhost callback, `make dev` signs in, a reload
       keeps the session, and "Sign out" returns to the button.
-- [ ] Without the variable, `make dev` still talks to `localhost:8787` directly
+- [x] Without the variable, `make dev` still talks to `localhost:8787` directly
       (no proxy entry in the dev server's startup output).
 
 ## Out of scope
