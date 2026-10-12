@@ -87,3 +87,19 @@ export async function pullRequestTitles(): Promise<string[]> {
     (row) => within(row).getByRole("link").textContent ?? "",
   );
 }
+
+/**
+ * The cells of the summary table's rows, once it is shown: the member rows
+ * (login and counts, as shown), then the totals row.
+ */
+export async function memberSummaryRows(): Promise<string[][]> {
+  const table = await screen.findByRole("table", { name: "Members" });
+  const [, body, foot] = within(table).getAllByRole("rowgroup");
+  return [body, foot].flatMap((group) =>
+    within(group as HTMLElement)
+      .getAllByRole("row")
+      .map((row) =>
+        [...row.children].map((cell) => cell.textContent?.trim() ?? ""),
+      ),
+  );
+}
