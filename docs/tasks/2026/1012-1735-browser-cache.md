@@ -119,10 +119,10 @@ Through the API mock with a memory store and an injected clock:
 
 ### Before merge (verified outside the check command)
 
-- [ ] Against the dev session API through the proxy: the first load fetches
+- [x] Against the dev session API through the proxy: the first load fetches
       as before; a reload within 10 minutes shows the list without any
       request to `api.github.com/graphql`; the list is identical.
-- [ ] In the browser's IndexedDB, the entries are keyed by the signed-in
+- [x] In the browser's IndexedDB, the entries are keyed by the signed-in
       login, and signing out removes them.
 
 ## Out of scope
