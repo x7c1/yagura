@@ -62,6 +62,14 @@ One page, with:
 Choosing a day's "opened" or "merged" in the chart narrows the list to that
 day's pull requests of that kind.
 
+The summary table and the list cover the same period, shown once above
+them, and the table adds up to the list. A pull request opened and merged in
+the period counts toward both the member's opened and merged, but its lines
+are summed once. Members with no pull requests in the period are listed with
+zeros: a member with nothing in two weeks is what the view is there to show.
+Rows are in login order, not ranked by any measure, and a totals row closes
+the table.
+
 Review counts and review latency are not shown.
 
 ## Fetching

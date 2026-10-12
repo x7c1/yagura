@@ -1,18 +1,17 @@
 import { mockMemberLogins, mockOrganization } from "@yagura/api-mocks";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
-import { server, testController } from "../../test-support";
+import { memberSummaryRows, server, testController } from "../../test-support";
 
 const membersUrl = (org: string) =>
   `https://api.github.com/orgs/${org}/members`;
 
 async function memberLogins(): Promise<string[]> {
-  const list = await screen.findByRole("list", { name: "Members" });
-  return within(list)
-    .getAllByRole("listitem")
-    .map((item) => item.textContent?.trim() ?? "");
+  const rows = await memberSummaryRows();
+  // The last row is the totals.
+  return rows.slice(0, -1).map(([login]) => login ?? "");
 }
 
 describe("OrganizationMembers", () => {
@@ -38,7 +37,7 @@ describe("OrganizationMembers", () => {
     const { controller } = testController({ signedIn: true });
 
     render(<App session={controller} />);
-    await screen.findByRole("list", { name: "Members" });
+    await screen.findByRole("table", { name: "Members" });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await screen.findByRole("button", { name: "Sign in with GitHub" });

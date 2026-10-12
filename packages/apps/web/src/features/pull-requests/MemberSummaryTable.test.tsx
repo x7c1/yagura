@@ -1,0 +1,154 @@
+import {
+  periodEndingAt,
+  wasMerged,
+  wasOpened,
+  type PullRequest,
+} from "@yagura/activity";
+import {
+  mockMemberLogins,
+  mockOrganization,
+  mockPullRequests,
+} from "@yagura/api-mocks";
+import { render, screen } from "@testing-library/react";
+import { http, HttpResponse } from "msw";
+import { describe, expect, it } from "vitest";
+import { App } from "../../App";
+import {
+  memberSummaryRows,
+  pullRequestRows,
+  server,
+  testController,
+} from "../../test-support";
+
+const graphqlUrl = "https://api.github.com/graphql";
+
+/** 15:30 local time, so that the fixtures of the last hours fall on today. */
+const now = new Date(2026, 9, 12, 15, 30);
+
+const emptySearch = () =>
+  HttpResponse.json({
+    data: {
+      search: {
+        pageInfo: { hasNextPage: false, endCursor: null },
+        nodes: [],
+      },
+    },
+  });
+
+/**
+ * The summary table's rows the fixtures make, worked out from the fixtures
+ * themselves: per member, the pull requests opened and merged in the period,
+ * and the lines of each pull request that is either, counted once.
+ */
+function expectedRows(): string[][] {
+  const period = periodEndingAt(now);
+  const pullRequests: PullRequest[] = mockPullRequests(now).map((node) => ({
+    id: node.id,
+    title: node.title,
+    url: node.url,
+    repository: node.repository.nameWithOwner,
+    author: node.author.login,
+    // The measures go by the dates, not the state.
+    state: "open",
+    createdAt: new Date(node.createdAt),
+    mergedAt: node.mergedAt === null ? null : new Date(node.mergedAt),
+    additions: node.additions,
+    deletions: node.deletions,
+  }));
+  const counts = (prs: readonly PullRequest[]) => {
+    const listed = prs.filter(
+      (pr) => wasOpened(pr, period) || wasMerged(pr, period),
+    );
+    return [
+      String(listed.filter((pr) => wasOpened(pr, period)).length),
+      String(listed.filter((pr) => wasMerged(pr, period)).length),
+      `+${listed.reduce((sum, pr) => sum + pr.additions, 0)}`,
+      `−${listed.reduce((sum, pr) => sum + pr.deletions, 0)}`,
+    ];
+  };
+  return [
+    ...mockMemberLogins.map((login) => [
+      login,
+      ...counts(pullRequests.filter((pr) => pr.author === login)),
+    ]),
+    [
+      "Total",
+      ...counts(
+        pullRequests.filter((pr) => mockMemberLogins.includes(pr.author)),
+      ),
+    ],
+  ];
+}
+
+describe("MemberSummaryTable", () => {
+  it("shows each member's counts and lines in login order, and the totals", async () => {
+    const { controller } = testController({
+      signedIn: true,
+      clock: () => now,
+    });
+
+    render(<App session={controller} />);
+
+    expect(await memberSummaryRows()).toEqual(expectedRows());
+  });
+
+  it("shows zeros for a member with no pull requests", async () => {
+    const { controller } = testController({
+      signedIn: true,
+      clock: () => now,
+    });
+    server.use(
+      http.post(graphqlUrl, async ({ request }) => {
+        const body: unknown = await request.clone().json();
+        if (JSON.stringify(body).includes("author:mock-carol")) {
+          return emptySearch();
+        }
+        // Anything else falls through to the API mock.
+        return undefined;
+      }),
+    );
+
+    render(<App session={controller} />);
+
+    const rows = await memberSummaryRows();
+    expect(rows.find(([login]) => login === "mock-carol")).toEqual([
+      "mock-carol",
+      "0",
+      "0",
+      "+0",
+      "−0",
+    ]);
+  });
+
+  it("comes with the list from one fetch of the pull requests", async () => {
+    const { controller, mock } = testController({
+      signedIn: true,
+      clock: () => now,
+    });
+
+    render(<App session={controller} />);
+    await memberSummaryRows();
+    await pullRequestRows();
+
+    // One search per member and measure, not one set each for the table and
+    // the list.
+    expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
+  });
+
+  it("lists every member with zeros above the empty list", async () => {
+    const { controller } = testController({ signedIn: true });
+    server.use(http.post(graphqlUrl, emptySearch));
+
+    render(<App session={controller} />);
+
+    expect(await memberSummaryRows()).toEqual([
+      ...mockMemberLogins.map((login) => [login, "0", "0", "+0", "−0"]),
+      ["Total", "0", "0", "+0", "−0"],
+    ]);
+    expect(
+      screen.getByText(
+        `No pull requests by ${mockOrganization}'s members in the last 14 days.`,
+      ),
+    ).toBeInTheDocument();
+  });
+});

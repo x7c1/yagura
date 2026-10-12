@@ -1,1 +1,1 @@
-export { PullRequests } from "./PullRequests";
+export { MembersActivity } from "./MembersActivity";

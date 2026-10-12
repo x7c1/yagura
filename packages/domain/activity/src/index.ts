@@ -27,3 +27,5 @@ export type { Period } from "./period";
 export type { PullRequest, PullRequestState } from "./pull-request";
 export { searchQuery } from "./queries";
 export type { SearchSpan } from "./queries";
+export { summarizeByMember } from "./summary";
+export type { ActivityCounts, ActivitySummary, MemberSummary } from "./summary";

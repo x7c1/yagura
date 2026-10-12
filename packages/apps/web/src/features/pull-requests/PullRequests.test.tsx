@@ -16,7 +16,7 @@ import {
 
 const graphqlUrl = "https://api.github.com/graphql";
 
-describe("PullRequests", () => {
+describe("MembersActivity", () => {
   it("lists the members' pull requests of the period, newest first", async () => {
     const { controller, mock } = testController({ signedIn: true });
 
