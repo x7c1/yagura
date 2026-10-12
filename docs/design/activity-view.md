@@ -59,16 +59,25 @@ One page, with:
 - a **list of pull requests**: title, repository, author, state, additions,
   deletions, and a link to the pull request on GitHub.
 
+The chart has a group for every day of the period, a day with nothing
+included, so that a quiet day shows as a gap rather than going missing. A
+pull request counts on the day it was opened for "opened" and on the day it
+was merged for "merged", which may be two different days.
+
 Choosing a day's "opened" or "merged" in the chart narrows the list to that
-day's pull requests of that kind.
+day's pull requests of that kind; a day and kind with none cannot be chosen.
+The narrowing applies to the list only: the summary table keeps covering the
+whole period. Above the narrowed list, the view says what it is narrowed to
+("Merged on Oct 3") with a way to show all again; choosing the same bar again
+clears it too.
 
 The summary table and the list cover the same period, shown once above
-them, and the table adds up to the list. A pull request opened and merged in
-the period counts toward both the member's opened and merged, but its lines
-are summed once. Members with no pull requests in the period are listed with
-zeros: a member with nothing in two weeks is what the view is there to show.
-Rows are in login order, not ranked by any measure, and a totals row closes
-the table.
+them, and the table adds up to the list when it is not narrowed. A pull
+request opened and merged in the period counts toward both the member's
+opened and merged, but its lines are summed once. Members with no pull
+requests in the period are listed with zeros: a member with nothing in two
+weeks is what the view is there to show. Rows are in login order, not ranked
+by any measure, and a totals row closes the table.
 
 Review counts and review latency are not shown.
 

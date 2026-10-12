@@ -1,17 +1,17 @@
-import { periodDays, summarizeByMember } from "@yagura/activity";
+import { summarizeByMember } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
 import { useCallback } from "react";
 import { Failure, useRequest } from "../../shared";
 import { useSession } from "../session";
+import { DailyActivity } from "./DailyActivity";
 import { fetchMembersPullRequests } from "./fetch-pull-requests";
 import { formatPeriod } from "./format";
 import { MemberSummaryTable } from "./MemberSummaryTable";
-import { PullRequestList } from "./PullRequestList";
 
 /**
  * What the organization's members opened or merged lately: the period, a
- * summary table with a row per member, and the list of pull requests, all
- * from one fetch.
+ * summary table with a row per member, a chart per day, and the list of
+ * pull requests, all from one fetch.
  */
 export function MembersActivity(props: {
   readonly org: string;
@@ -63,14 +63,11 @@ export function MembersActivity(props: {
               period,
             )}
           />
-          <section>
-            <h3>Pull requests</h3>
-            {pullRequests.length === 0 ? (
-              <p>{`No pull requests by ${org}'s members in the last ${periodDays} days.`}</p>
-            ) : (
-              <PullRequestList pullRequests={pullRequests} period={period} />
-            )}
-          </section>
+          <DailyActivity
+            org={org}
+            pullRequests={pullRequests}
+            period={period}
+          />
         </>
       );
     }
