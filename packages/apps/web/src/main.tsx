@@ -16,9 +16,10 @@ import { SessionController } from "./features/session";
 // browser implementations everything else receives.
 
 /**
- * With `VITE_API_MOCK=1`, serves the session API and GitHub's `GET /user`
- * from Mock Service Worker and skips the GitHub authorize page. The mocks are
- * imported only in that mode, so they stay out of the production bundle.
+ * With `VITE_API_MOCK=1`, serves the session API and the GitHub API
+ * endpoints the app calls from Mock Service Worker, and skips the GitHub
+ * authorize page. The mocks are imported only in that mode, so they stay out
+ * of the production bundle.
  */
 async function startApiMock(
   config: Config,

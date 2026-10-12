@@ -67,11 +67,14 @@ VITE_API_MOCK=1 make dev
 ```
 
 With `VITE_API_MOCK=1`, the app starts [Mock Service Worker](https://mswjs.io/)
-in the browser and answers the session API and GitHub's `GET /user` from the
-handlers in `packages/testing/api-mocks`, the same ones the tests use.
-"Sign in with GitHub" skips the GitHub authorize page and returns straight to
-the callback with a mock code, so sign-in completes without leaving
-localhost and without a client id. The mock session survives a reload in the
+in the browser and answers the session API and the GitHub API from the
+handlers in `packages/testing/api-mocks`, the same ones the tests use:
+`GET /user`, `GET /user/installations` (one organization, `mock-org`), and
+`GET /orgs/mock-org/members` (a few members, including the signed-in
+`mock-user`). "Sign in with GitHub" skips the GitHub authorize page and
+returns straight to the callback with a mock code, so sign-in completes
+without leaving localhost and without a client id, and the page then shows
+`mock-org` and its members. The mock session survives a reload in the
 same tab, as the refresh cookie would, until "Sign out".
 
 The worker script is `packages/apps/web/public/mockServiceWorker.js`,

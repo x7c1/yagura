@@ -1,8 +1,10 @@
 import { useCallback, useState } from "react";
+import { OrganizationMembers } from "./features/members";
 import {
   CallbackHandler,
   SessionProvider,
   SessionStatus,
+  useSession,
   type SessionController,
 } from "./features/session";
 
@@ -24,8 +26,21 @@ export function App(props: { readonly session: SessionController }) {
       {pathname === callbackPath ? (
         <CallbackHandler onDone={leaveCallback} />
       ) : (
-        <SessionStatus />
+        <Home />
       )}
     </SessionProvider>
+  );
+}
+
+/** The session status and, while signed in, the organization's members. */
+function Home() {
+  const { state } = useSession();
+  return (
+    <>
+      <SessionStatus />
+      {state.status === "signed-in" && (
+        <OrganizationMembers key={state.login} />
+      )}
+    </>
   );
 }

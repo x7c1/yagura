@@ -7,8 +7,9 @@ See your organization's development activity on GitHub at a glance.
 - **Nothing to hand over** — the page fetches data from the GitHub API
   directly in your browser with your own token. The server only exchanges
   and refreshes that token and stores nothing.
-- **Built for looking back** — what happened recently across your
-  organization, broken down by member and by repository.
+- **Built for looking back** — the pull requests your organization's
+  members opened and merged over the last two weeks, in any repository you
+  can see, broken down by member.
 
 The name is Japanese for a watchtower: a place to look over the whole site.
 
@@ -23,6 +24,8 @@ interfaces is stable.
   app, and checking changes.
 - [Deployment](docs/guides/deployment.md) — publishing the app to GitHub
   Pages, and the settings it needs outside the code.
+- [Activity view](docs/design/activity-view.md) — what the main view
+  shows, where its numbers come from, and what the browser keeps.
 
 ## License
 
