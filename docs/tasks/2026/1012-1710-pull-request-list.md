@@ -120,9 +120,9 @@ once; the empty state; a failed search shows the error and Retry recovers.
 
 ### Before merge (verified outside the check command)
 
-- [ ] `VITE_API_MOCK=1 make dev`: after the mock sign-in, the list shows the
+- [x] `VITE_API_MOCK=1 make dev`: after the mock sign-in, the list shows the
       mock pull requests with the period above it.
-- [ ] Against the dev session API through the proxy, the list shows real
+- [x] Against the dev session API through the proxy, the list shows real
       pull requests by the organization's members, including ones in a
       member's personal public repository and in a private repository the
       App is installed on. The result is recorded in the "Fetching" section
