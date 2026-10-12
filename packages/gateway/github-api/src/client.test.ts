@@ -140,50 +140,50 @@ describe("GitHubApiClient.listOrganizationMembers", () => {
   });
 });
 
-describe("GitHubApiClient.searchPullRequests", () => {
-  const graphqlUrl = "https://api.github.com/graphql";
+const graphqlUrl = "https://api.github.com/graphql";
 
-  function pullRequestNode(overrides: Record<string, unknown> = {}) {
-    return {
-      __typename: "PullRequest",
-      id: "PR_1",
-      title: "Add the chart",
-      url: "https://github.com/acme/app/pull/1",
-      repository: { nameWithOwner: "acme/app" },
-      author: { login: "octocat" },
-      state: "MERGED",
-      createdAt: "2026-10-01T10:00:00Z",
-      mergedAt: "2026-10-02T11:30:00Z",
-      additions: 12,
-      deletions: 3,
-      ...overrides,
-    };
-  }
+function pullRequestNode(overrides: Record<string, unknown> = {}) {
+  return {
+    __typename: "PullRequest",
+    id: "PR_1",
+    title: "Add the chart",
+    url: "https://github.com/acme/app/pull/1",
+    repository: { nameWithOwner: "acme/app" },
+    author: { login: "octocat" },
+    state: "MERGED",
+    createdAt: "2026-10-01T10:00:00Z",
+    mergedAt: "2026-10-02T11:30:00Z",
+    additions: 12,
+    deletions: 3,
+    ...overrides,
+  };
+}
 
-  function searchPage(
-    nodes: unknown[],
-    endCursor: string | null = null,
-  ): Response {
-    return json({
-      data: {
-        search: {
-          pageInfo: { hasNextPage: endCursor !== null, endCursor },
-          nodes,
-        },
+function searchPage(
+  nodes: unknown[],
+  endCursor: string | null = null,
+): Response {
+  return json({
+    data: {
+      search: {
+        pageInfo: { hasNextPage: endCursor !== null, endCursor },
+        nodes,
       },
-    });
-  }
+    },
+  });
+}
 
-  function requestBody(init: RequestInit | undefined): {
+function requestBody(init: RequestInit | undefined): {
+  query: string;
+  variables: Record<string, unknown>;
+} {
+  return JSON.parse(String(init?.body)) as {
     query: string;
     variables: Record<string, unknown>;
-  } {
-    return JSON.parse(String(init?.body)) as {
-      query: string;
-      variables: Record<string, unknown>;
-    };
-  }
+  };
+}
 
+describe("GitHubApiClient.searchPullRequests", () => {
   it("follows the end cursor and maps the fields", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) =>
       requestBody(init).variables.after === "cursor-1"
@@ -299,5 +299,100 @@ describe("GitHubApiClient.searchPullRequests", () => {
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(GitHubApiError);
+  });
+});
+
+describe("GitHubApiClient.getPullRequests", () => {
+  function nodesPage(nodes: unknown[], errors?: unknown[]): Response {
+    return json({ data: { nodes }, ...(errors && { errors }) });
+  }
+
+  it("looks up 100 ids per request and maps the fields", async () => {
+    const ids = Array.from({ length: 150 }, (_, i) => `PR_${i}`);
+    const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) =>
+      nodesPage(
+        (requestBody(init).variables.ids as string[]).map((id) =>
+          pullRequestNode({ id }),
+        ),
+      ),
+    );
+    const client = new GitHubApiClient({ fetch });
+
+    const pullRequests = await client.getPullRequests("ghu_abc", ids);
+
+    expect(pullRequests.map(({ id }) => id)).toEqual(ids);
+    expect(pullRequests[0]).toEqual({
+      id: "PR_0",
+      title: "Add the chart",
+      url: "https://github.com/acme/app/pull/1",
+      repository: "acme/app",
+      author: "octocat",
+      state: "merged",
+      createdAt: new Date("2026-10-01T10:00:00Z"),
+      mergedAt: new Date("2026-10-02T11:30:00Z"),
+      additions: 12,
+      deletions: 3,
+    });
+    expect(
+      fetch.mock.calls.map(
+        ([, init]) => (requestBody(init).variables.ids as string[]).length,
+      ),
+    ).toEqual([100, 50]);
+    for (const [url, init] of fetch.mock.calls) {
+      expect(url).toBe(graphqlUrl);
+      expect(new Headers(init?.headers).get("Authorization")).toBe(
+        "Bearer ghu_abc",
+      );
+      expect(requestBody(init).query).toContain("nodes(ids: $ids)");
+    }
+  });
+
+  it("leaves out ids that come back null, and other nodes", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      nodesPage(
+        [null, pullRequestNode({ id: "PR_2" }), { __typename: "Issue" }],
+        [
+          {
+            type: "NOT_FOUND",
+            path: ["nodes", 0],
+            message: "Could not resolve to a node with the global id of 'PR_1'",
+          },
+        ],
+      ),
+    );
+    const client = new GitHubApiClient({ fetch });
+
+    const pullRequests = await client.getPullRequests("ghu_abc", [
+      "PR_1",
+      "PR_2",
+      "I_3",
+    ]);
+
+    expect(pullRequests.map(({ id }) => id)).toEqual(["PR_2"]);
+  });
+
+  it("turns other GraphQL errors into an error", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      nodesPage(
+        [null],
+        [{ type: "RATE_LIMITED", message: "API rate limit exceeded" }],
+      ),
+    );
+    const client = new GitHubApiClient({ fetch });
+
+    const error = await client
+      .getPullRequests("ghu_abc", ["PR_1"])
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(GitHubApiError);
+    expect((error as GitHubApiError).message).toBe("API rate limit exceeded");
+  });
+
+  it("makes no request for no ids", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>();
+    const client = new GitHubApiClient({ fetch });
+
+    await expect(client.getPullRequests("ghu_abc", [])).resolves.toEqual([]);
+    expect(fetch).not.toHaveBeenCalled();
   });
 });

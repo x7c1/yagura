@@ -7,21 +7,14 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
-import { server, testController } from "../../test-support";
+import {
+  pullRequestRows,
+  pullRequestTitles,
+  server,
+  testController,
+} from "../../test-support";
 
 const graphqlUrl = "https://api.github.com/graphql";
-
-async function pullRequestRows(): Promise<HTMLElement[]> {
-  const table = await screen.findByRole("table", { name: "Pull requests" });
-  const [, body] = within(table).getAllByRole("rowgroup");
-  return within(body as HTMLElement).getAllByRole("row");
-}
-
-async function pullRequestTitles(): Promise<string[]> {
-  return (await pullRequestRows()).map(
-    (row) => within(row).getByRole("link").textContent ?? "",
-  );
-}
 
 describe("PullRequests", () => {
   it("lists the members' pull requests of the period, newest first", async () => {

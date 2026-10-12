@@ -1,10 +1,16 @@
-import type { KeyValueStore, PageLocation, Timer } from "@yagura/browser";
+import type {
+  JsonStore,
+  KeyValueStore,
+  PageLocation,
+  Timer,
+} from "@yagura/browser";
 import { GitHubApiError, type GitHubApiClient } from "@yagura/github-api";
 import {
   SessionApiError,
   type SessionApiClient,
   type SessionTokens,
 } from "@yagura/session-api";
+import { clearViewerCache, ViewerCache } from "../../shared";
 import { completeCallback } from "./callback";
 import { prepareSignIn } from "./sign-in";
 import { TokenHolder } from "./token-holder";
@@ -27,6 +33,13 @@ export interface SessionControllerOptions {
   /** Schedules the access token's refresh before it expires. */
   readonly timer: Timer;
   /**
+   * The browser cache of fetched activity, shared by every viewer of the
+   * browser and kept apart per login; see {@link viewerCache}.
+   */
+  readonly cache: JsonStore;
+  /** The current time. Defaults to the system clock. */
+  readonly clock?: () => Date;
+  /**
    * Sends the browser to the GitHub authorize page. Defaults to assigning
    * the URL to `location`.
    */
@@ -45,6 +58,7 @@ export class SessionController {
   #restoring: Promise<void> | undefined;
   #callback: Promise<void> | undefined;
   #refreshing: Promise<boolean> | undefined;
+  #signingOut = false;
 
   constructor(options: SessionControllerOptions) {
     this.#options = options;
@@ -62,6 +76,31 @@ export class SessionController {
   /** The GitHub API client; call it through {@link withAccessToken}. */
   get githubApi(): GitHubApiClient {
     return this.#options.githubApi;
+  }
+
+  /** The current time, from the clock the controller was given. */
+  now(): Date {
+    return this.#options.clock?.() ?? new Date();
+  }
+
+  /**
+   * The signed-in viewer's part of the browser cache. It stops storing
+   * once the viewer signs out, whose entries {@link signOut} deletes.
+   */
+  viewerCache(): ViewerCache {
+    const state = this.#state;
+    if (state.status !== "signed-in") {
+      throw new Error("Not signed in");
+    }
+    const { login } = state;
+    return new ViewerCache(
+      this.#options.cache,
+      login,
+      () =>
+        !this.#signingOut &&
+        this.#state.status === "signed-in" &&
+        this.#state.login === login,
+    );
   }
 
   get state(): SessionState {
@@ -115,13 +154,24 @@ export class SessionController {
     }
   }
 
+  /**
+   * Signs out: forgets the access token, deletes the viewer's entries from
+   * the browser cache, and ends the session.
+   */
   async signOut(): Promise<void> {
+    const state = this.#state;
+    this.#signingOut = true;
     this.#tokens.clear();
     try {
+      if (state.status === "signed-in") {
+        await clearViewerCache(this.#options.cache, state.login);
+      }
       await this.#options.sessionApi.deleteSession();
       this.#signedOut();
     } catch (error) {
       this.#signedOut(`Signed out locally, but ${describe(error)}`);
+    } finally {
+      this.#signingOut = false;
     }
   }
 

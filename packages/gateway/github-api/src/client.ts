@@ -9,31 +9,47 @@ const pageSize = 100;
 /** The login GitHub shows for the author of a deleted account. */
 const ghostLogin = "ghost";
 
-/**
- * One page of a pull request search, asking only for the fields
- * {@link PullRequest} needs.
- */
+/** The fields {@link PullRequest} needs, on a node that may be one. */
+const pullRequestFields = `
+  __typename
+  ... on PullRequest {
+    id
+    title
+    url
+    repository { nameWithOwner }
+    author { login }
+    state
+    createdAt
+    mergedAt
+    additions
+    deletions
+  }`;
+
+/** One page of a pull request search. */
 const searchPullRequestsQuery = `
 query SearchPullRequests($query: String!, $after: String) {
   search(type: ISSUE, query: $query, first: ${pageSize}, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes {
-      __typename
-      ... on PullRequest {
-        id
-        title
-        url
-        repository { nameWithOwner }
-        author { login }
-        state
-        createdAt
-        mergedAt
-        additions
-        deletions
-      }
+    nodes {${pullRequestFields}
     }
   }
 }`;
+
+/** Pull requests by node id, at most {@link pageSize} at a time. */
+const pullRequestsByIdQuery = `
+query PullRequests($ids: [ID!]!) {
+  nodes(ids: $ids) {${pullRequestFields}
+  }
+}`;
+
+/**
+ * The GraphQL error types a `nodes` lookup reports for an id it answers
+ * with `null`: one that no longer exists, or that the token cannot see.
+ */
+const missingNodeErrorTypes: ReadonlySet<unknown> = new Set([
+  "NOT_FOUND",
+  "FORBIDDEN",
+]);
 
 const pullRequestStates: Readonly<Record<string, PullRequestState>> = {
   OPEN: "open",
@@ -183,6 +199,36 @@ export class GitHubApiClient {
   }
 
   /**
+   * The GraphQL `nodes` lookup for the pull requests with the given node
+   * ids, {@link pageSize} ids per request. An id that comes back `null`
+   * (deleted, or no longer visible to the token) or as something other
+   * than a pull request is left out; the rest keep the order of `ids`.
+   */
+  async getPullRequests(
+    accessToken: string,
+    ids: readonly string[],
+  ): Promise<PullRequest[]> {
+    const pullRequests: PullRequest[] = [];
+    for (let start = 0; start < ids.length; start += pageSize) {
+      const { response, data } = await this.#graphql(
+        accessToken,
+        pullRequestsByIdQuery,
+        { ids: ids.slice(start, start + pageSize) },
+        (error) => missingNodeErrorTypes.has(error.type),
+      );
+      const page = parseNodes(data);
+      if (page === undefined) {
+        throw new GitHubApiError(
+          response.status,
+          "GitHub API returned an unexpected body to the pull request lookup",
+        );
+      }
+      pullRequests.push(...page);
+    }
+    return pullRequests;
+  }
+
+  /**
    * GETs every page of a list endpoint, following the `Link` header's
    * `rel="next"`. `parse` turns one page's body into its items, or
    * `undefined` when the body is not the expected shape.
@@ -223,12 +269,14 @@ export class GitHubApiClient {
 
   /**
    * POSTs a GraphQL query and returns its `data`. A response carrying
-   * `errors` is a {@link GitHubApiError} with the first error's message.
+   * `errors` is a {@link GitHubApiError} with the first error's message,
+   * unless `tolerate` accepts every one of them and `data` came back.
    */
   async #graphql(
     accessToken: string,
     query: string,
     variables: Record<string, unknown>,
+    tolerate: (error: Record<string, unknown>) => boolean = () => false,
   ): Promise<{ response: Response; data: unknown }> {
     const { response, body } = await this.#request(
       accessToken,
@@ -240,7 +288,14 @@ export class GitHubApiClient {
         body: JSON.stringify({ query, variables }),
       },
     );
-    if (isRecord(body) && Array.isArray(body.errors)) {
+    if (
+      isRecord(body) &&
+      Array.isArray(body.errors) &&
+      !(
+        isRecord(body.data) &&
+        body.errors.every((error) => isRecord(error) && tolerate(error))
+      )
+    ) {
       const [first]: unknown[] = body.errors;
       const message =
         isRecord(first) && typeof first.message === "string"
@@ -315,6 +370,32 @@ function parseSearchPage(
     pullRequests.push(pullRequest);
   }
   return { pullRequests, endCursor };
+}
+
+/**
+ * The pull requests of a `nodes` lookup, leaving out `null` and other
+ * nodes. `undefined` when `data` is not the expected shape.
+ */
+function parseNodes(data: unknown): PullRequest[] | undefined {
+  const nodes = isRecord(data) ? data.nodes : undefined;
+  if (!Array.isArray(nodes)) {
+    return undefined;
+  }
+  const pullRequests: PullRequest[] = [];
+  for (const node of nodes) {
+    if (
+      node === null ||
+      (isRecord(node) && node.__typename !== "PullRequest")
+    ) {
+      continue;
+    }
+    const pullRequest = parsePullRequest(node);
+    if (pullRequest === undefined) {
+      return undefined;
+    }
+    pullRequests.push(pullRequest);
+  }
+  return pullRequests;
 }
 
 function parsePullRequest(node: unknown): PullRequest | undefined {
