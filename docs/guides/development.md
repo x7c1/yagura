@@ -30,6 +30,36 @@ callback URLs; GitHub refuses to redirect anywhere else.
 
 `packages/apps/web/.env.example` lists every variable the app reads.
 
+## Using a deployed session API
+
+The session API keeps the refresh token in a cookie set with `SameSite=Lax`,
+so the browser sends it only to a session API on the same site as the app.
+Against a deployed API on another site, sign-in appears to succeed but the
+session is lost on reload.
+
+Instead, let the dev server proxy the deployed API, so that the app calls
+`/session` on its own origin. Put these lines in
+`packages/apps/web/.env.local`:
+
+```sh
+VITE_GITHUB_CLIENT_ID=<the client id of the GitHub App that API uses>
+YAGURA_SESSION_API_PROXY=https://<host of the deployed session API>
+```
+
+and point the app at the dev server when starting it:
+
+```sh
+VITE_YAGURA_SESSION_API=http://localhost:5173 make dev
+```
+
+`VITE_YAGURA_SESSION_API` goes on the command line rather than in
+`.env.local` because `.env.development` takes precedence over `.env.local`
+and would keep `http://localhost:8787`; a variable set in the environment
+takes precedence over both. `YAGURA_SESSION_API_PROXY` is read by the dev
+server only and never reaches the app or a build. The deployed API must
+allow the origin `http://localhost:5173`, and the GitHub App it belongs to
+must list `http://localhost:5173/callback` as one of its callback URLs.
+
 ## Running without the session API
 
 ```sh
