@@ -21,6 +21,8 @@ export interface TestControllerOptions {
   readonly url?: string;
   /** Starts the mock session signed in, as if a refresh cookie were set. */
   readonly signedIn?: boolean;
+  /** The organizations the mock reports the GitHub App installed on. */
+  readonly organizations?: readonly string[];
   readonly storage?: KeyValueStore;
 }
 
@@ -32,6 +34,7 @@ export function testController(options: TestControllerOptions = {}) {
   const mock = new ApiMock({
     sessionApiBaseUrl: sessionApi,
     signedIn: options.signedIn,
+    organizations: options.organizations,
   });
   server.use(...mock.handlers);
   const storage = options.storage ?? new MemoryStore();

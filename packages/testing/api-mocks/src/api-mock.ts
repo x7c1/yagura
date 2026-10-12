@@ -4,6 +4,17 @@ import { http, HttpResponse, type HttpHandler } from "msw";
 /** The GitHub login the mock answers `GET /user` with. */
 export const mockLogin = "mock-user";
 
+/** The organization the mock reports the GitHub App installed on. */
+export const mockOrganization = "mock-org";
+
+/** The members of {@link mockOrganization}, sorted by login. */
+export const mockMemberLogins: readonly string[] = [
+  "mock-alice",
+  "mock-bob",
+  "mock-carol",
+  mockLogin,
+];
+
 const githubApi = "https://api.github.com";
 const signedInKey = "yagura.api-mock.signed-in";
 const accessTokenLifetimeSeconds = 28800;
@@ -19,6 +30,11 @@ export interface ApiMockOptions {
   readonly store?: KeyValueStore;
   /** Starts the mock session signed in, as if a refresh cookie were set. */
   readonly signedIn?: boolean;
+  /**
+   * The organizations `GET /user/installations` reports the GitHub App
+   * installed on. Defaults to {@link mockOrganization} alone.
+   */
+  readonly organizations?: readonly string[];
 }
 
 /** A request the mock answered, for assertions on what the app sent. */
@@ -31,9 +47,9 @@ export interface RecordedRequest {
 }
 
 /**
- * MSW handlers for the session API (docs/design/session-api.md) and
- * GitHub's `GET /user`, sharing enough state for the sign-in flow to
- * complete:
+ * MSW handlers for the session API (docs/design/session-api.md) and the
+ * GitHub API endpoints the app calls, sharing enough state for the sign-in
+ * flow to complete:
  *
  * - `POST /session` with any code signs the mock session in and issues an
  *   access token;
@@ -41,16 +57,25 @@ export interface RecordedRequest {
  *   answers `401 invalid_session` otherwise;
  * - `DELETE /session` signs out;
  * - `GET /user` answers {@link mockLogin} for a token the mock issued while
- *   signed in, and `401` for any other.
+ *   signed in, and `401` for any other;
+ * - `GET /user/installations` answers an installation on each of the
+ *   `organizations` option's organizations, by default {@link mockOrganization};
+ * - `GET /orgs/{org}/members` answers {@link mockMemberLogins} for any of
+ *   those organizations, and `404` for another.
+ *
+ * The GitHub endpoints answer `401` for a token the mock did not issue while
+ * signed in, as GitHub does for a bad token, and fit on a single page.
  */
 export class ApiMock {
   readonly handlers: readonly HttpHandler[];
   readonly #store: KeyValueStore;
   readonly #issued = new Set<string>();
   readonly #requests: RecordedRequest[] = [];
+  readonly #organizations: readonly string[];
 
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
+    this.#organizations = options.organizations ?? [mockOrganization];
     if (options.signedIn !== undefined) {
       this.signedIn = options.signedIn;
     }
@@ -78,17 +103,42 @@ export class ApiMock {
       }),
       http.get(`${githubApi}/user`, async ({ request }) => {
         await this.#record(request);
-        const token = request.headers
-          .get("Authorization")
-          ?.replace(/^Bearer /, "");
-        if (!this.signedIn || token === undefined || !this.#issued.has(token)) {
-          return HttpResponse.json(
-            { message: "Bad credentials" },
-            { status: 401 },
-          );
+        if (!this.#authorized(request)) {
+          return badCredentials();
         }
         return HttpResponse.json({ login: mockLogin });
       }),
+      http.get(`${githubApi}/user/installations`, async ({ request }) => {
+        await this.#record(request);
+        if (!this.#authorized(request)) {
+          return badCredentials();
+        }
+        return HttpResponse.json({
+          total_count: this.#organizations.length,
+          installations: this.#organizations.map((login, index) => ({
+            id: index + 1,
+            account: { login, type: "Organization" },
+          })),
+        });
+      }),
+      http.get(
+        `${githubApi}/orgs/:org/members`,
+        async ({ request, params }) => {
+          await this.#record(request);
+          if (!this.#authorized(request)) {
+            return badCredentials();
+          }
+          if (!this.#organizations.includes(String(params.org))) {
+            return HttpResponse.json({ message: "Not Found" }, { status: 404 });
+          }
+          return HttpResponse.json(
+            mockMemberLogins.map((login) => ({
+              login,
+              avatar_url: avatarUrl(login),
+            })),
+          );
+        },
+      ),
     ];
   }
 
@@ -116,6 +166,12 @@ export class ApiMock {
     return this.#requests.filter(
       (request) => request.method === method && request.url === url,
     );
+  }
+
+  /** Whether the request carries a token the mock issued while signed in. */
+  #authorized(request: Request): boolean {
+    const token = request.headers.get("Authorization")?.replace(/^Bearer /, "");
+    return this.signedIn && token !== undefined && this.#issued.has(token);
   }
 
   #issueTokens(): Response {
@@ -158,6 +214,28 @@ function isCreateSessionBody(body: unknown): boolean {
     typeof code_verifier === "string" &&
     typeof redirect_uri === "string"
   );
+}
+
+function badCredentials(): Response {
+  return HttpResponse.json({ message: "Bad credentials" }, { status: 401 });
+}
+
+/**
+ * A placeholder avatar: a colored square with the login's initial, inline so
+ * that mock mode loads nothing from the network.
+ */
+function avatarUrl(login: string): string {
+  const hue = [...login].reduce((sum, c) => sum + c.charCodeAt(0), 0) % 360;
+  const initial = login
+    .replace(/^mock-/, "")
+    .charAt(0)
+    .toUpperCase();
+  const svg =
+    `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">` +
+    `<rect width="40" height="40" fill="hsl(${hue} 50% 60%)"/>` +
+    `<text x="20" y="26" font-family="sans-serif" font-size="18" ` +
+    `text-anchor="middle" fill="white">${initial}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 }
 
 function error(status: number, code: string): Response {

@@ -59,6 +59,11 @@ export class SessionController {
     return this.#options.location;
   }
 
+  /** The GitHub API client; call it through {@link withAccessToken}. */
+  get githubApi(): GitHubApiClient {
+    return this.#options.githubApi;
+  }
+
   get state(): SessionState {
     return this.#state;
   }
