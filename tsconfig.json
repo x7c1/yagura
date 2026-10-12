@@ -1,6 +1,7 @@
 {
   "files": [],
   "references": [
+    { "path": "packages/domain/activity" },
     { "path": "packages/gateway/browser" },
     { "path": "packages/gateway/session-api" },
     { "path": "packages/gateway/github-api" },

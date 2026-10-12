@@ -8,6 +8,7 @@
   },
   "include": ["src", "vite.config.ts"],
   "references": [
+    { "path": "../../domain/activity" },
     { "path": "../../gateway/browser" },
     { "path": "../../gateway/session-api" },
     { "path": "../../gateway/github-api" },

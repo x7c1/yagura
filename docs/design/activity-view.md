@@ -76,9 +76,17 @@ against that user's rate limit. The browser cache (below) keeps the number of
 requests low.
 
 The token is a GitHub App user token. Such a token reaches only what both the
-user can see and the app is installed on. Whether pull requests in a member's
-personal public repositories appear in search with such a token is to be
-confirmed when the pull-request list is built, and recorded here.
+user can see and the app is installed on. Checked against a search with a
+regular user token for the same member and period, the app's searches
+returned exactly the same pull requests, both in the member's personal public
+repositories and in private repositories of the organization, with the app
+installed on the member's personal account and on the organization. Pull
+requests in repositories of accounts the app is not installed on were not
+covered by that check.
+
+One member with a couple of hundred pull requests in the period takes a few
+seconds per search page, because `additions` and `deletions` are computed per
+pull request; the browser cache is what keeps later visits fast.
 
 ## The browser cache
 
