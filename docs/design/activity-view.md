@@ -71,6 +71,20 @@ member and measure, with `author:<login>` and a date range (`created:` for
 opened, `merged:` for merged). A search can page through at most 1,000
 results; one member's 14 days stays well within that.
 
+The range is written with the local offset, so that days start at local
+midnight. It starts at the earliest day the browser cache (below) cannot
+answer, the period's first day when nothing is stored. When today needs
+searching as well, which is the usual case, the range runs on to now
+(`created:>=<start>`), so that one search covers the past days and today;
+when today is still fresh in the cache, it ends at the last second before
+today (`created:<start>..<end>`). Either way there are at most two
+searches per member, and none for a member the cache answers entirely.
+
+Pull requests the cache holds that are not merged are fetched again by
+node id rather than searched, with GraphQL `nodes(ids: [...])` lookups of
+up to 100 ids each. An id that comes back `null` (the pull request was deleted,
+or the user can no longer see it) is dropped.
+
 Every request runs in the browser with the signed-in user's token and counts
 against that user's rate limit. The browser cache (below) keeps the number of
 requests low.
@@ -98,17 +112,33 @@ everything again. What cannot change is kept longer than what can:
 | A merged pull request                         | Not in practice (title edits are ignored) | Lasting, with expiry                                     |
 | The set of pull requests merged on a past day | No                                        | Lasting, with expiry; a fetched day is not fetched again |
 | The set of pull requests opened on a past day | No                                        | Lasting, with expiry                                     |
-| An unmerged pull request                      | State and lines change                    | Short-lived                                              |
+| An unmerged pull request                      | State and lines change                    | Short-lived; fetched again by node id                    |
 | Today's pull requests                         | Grow                                      | Short-lived                                              |
 | The organization's member list                | Changes                                   | Short-lived                                              |
 
-Lasting entries expire 7 days after they were stored. Without an expiry, a
-pull request in a private repository the user can no longer see would stay
+Short-lived entries are used for 10 minutes after they were stored, so a
+reload within 10 minutes requests neither the member list nor any pull
+requests; the installations are not cached, being one cheap call. Lasting
+entries expire 7 days after they were stored. Without an expiry, a pull
+request in a private repository the user can no longer see would stay
 on screen; checking its visibility on every display would defeat the purpose
 of the cache, so the expiry bounds how long that can last instead.
 
+A past day counts as fetched only when its results were fetched after the
+day had ended: the results of a day fetched while it was still today are
+searched again once it is over. A day with no pull requests is stored too,
+so that it counts as fetched. An unmerged pull request found to be merged
+becomes lasting.
+
+When one request fails, what the others fetched before it is stored all the
+same, so that retrying after the failure searches only what is still missing.
+
 Entries that fall out of the 14-day period are removed without waiting for
-their expiry.
+their expiry, when the view loads.
 
 The cache is kept per signed-in login, so that two users of the same browser
 never see each other's results, and it is cleared on sign-out.
+
+The cache only saves requests. When IndexedDB is unavailable or fails
+(private browsing, blocked storage, a full quota), the view fetches
+everything as if nothing were stored, and the failure is not shown.

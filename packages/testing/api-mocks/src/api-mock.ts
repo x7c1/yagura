@@ -40,6 +40,11 @@ export interface ApiMockOptions {
    * installed on. Defaults to {@link mockOrganization} alone.
    */
   readonly organizations?: readonly string[];
+  /**
+   * The time the fixture pull requests are placed relative to. Defaults to
+   * the mock's creation.
+   */
+  readonly now?: Date;
 }
 
 /** A request the mock answered, for assertions on what the app sent. */
@@ -68,12 +73,14 @@ export interface RecordedRequest {
  * - `GET /orgs/{org}/members` answers {@link mockMemberLogins} for any of
  *   those organizations, and `404` for another;
  * - `POST /graphql` answers a pull request `search` with the members'
- *   fixture pull requests, spread over the 14 days before the mock was
- *   created (open, merged, one created before the period and merged in it,
- *   closed, across three repositories), filtered by the query's `author:`,
- *   `is:merged`, `created:>=` and `merged:>=` qualifiers. It reads the
- *   search query from the `query` variable and does not parse the GraphQL
- *   document.
+ *   fixture pull requests, spread over the 14 days before the `now` option
+ *   (open, merged, one created before the period and merged in it, closed,
+ *   across three repositories), filtered by the query's `author:`,
+ *   `is:merged`, `created:` and `merged:` qualifiers (`>=` and `a..b`
+ *   ranges). It answers a `nodes(ids:)` lookup with the fixtures of those
+ *   ids, and `null` with a `NOT_FOUND` error for an unknown one, as GitHub
+ *   does. It tells the two apart by the `query` and `ids` variables and
+ *   does not parse the GraphQL document.
  *
  * The GitHub endpoints answer `401` for a token the mock did not issue while
  * signed in, as GitHub does for a bad token, and fit on a single page.
@@ -89,7 +96,7 @@ export class ApiMock {
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
     this.#organizations = options.organizations ?? [mockOrganization];
-    this.#pullRequests = mockPullRequests(new Date());
+    this.#pullRequests = mockPullRequests(options.now ?? new Date());
     if (options.signedIn !== undefined) {
       this.signedIn = options.signedIn;
     }
@@ -160,10 +167,16 @@ export class ApiMock {
         }
         const variables = isRecord(body) ? body.variables : undefined;
         const query = isRecord(variables) ? variables.query : undefined;
+        const ids = isRecord(variables) ? variables.ids : undefined;
+        if (isStringArray(ids)) {
+          return this.#lookUpNodes(ids);
+        }
         if (typeof query !== "string") {
           return HttpResponse.json({
             data: null,
-            errors: [{ message: "The API mock answers only searches" }],
+            errors: [
+              { message: "The API mock answers only searches and lookups" },
+            ],
           });
         }
         return HttpResponse.json({
@@ -197,11 +210,61 @@ export class ApiMock {
     return this.#requests;
   }
 
+  /**
+   * The search queries of the GraphQL requests, in order. Lookups by id are
+   * not searches and are left out.
+   */
+  get searches(): readonly string[] {
+    return this.#graphqlVariables().flatMap(({ query }) =>
+      typeof query === "string" ? [query] : [],
+    );
+  }
+
+  /** The ids of each GraphQL `nodes(ids:)` lookup, in order. */
+  get lookups(): readonly (readonly string[])[] {
+    return this.#graphqlVariables().flatMap(({ ids }) =>
+      isStringArray(ids) ? [ids] : [],
+    );
+  }
+
+  /** Forgets the requests recorded so far. */
+  clearRequests(): void {
+    this.#requests.length = 0;
+  }
+
   /** The recorded requests to `url` with `method`. */
   requestsTo(method: string, url: string): readonly RecordedRequest[] {
     return this.#requests.filter(
       (request) => request.method === method && request.url === url,
     );
+  }
+
+  #graphqlVariables(): Record<string, unknown>[] {
+    return this.requestsTo("POST", `${githubApi}/graphql`).flatMap(
+      ({ body }) =>
+        isRecord(body) && isRecord(body.variables) ? [body.variables] : [],
+    );
+  }
+
+  #lookUpNodes(ids: readonly string[]): Response {
+    const nodes = ids.map(
+      (id) => this.#pullRequests.find((pr) => pr.id === id) ?? null,
+    );
+    const errors = ids.flatMap((id, index) =>
+      nodes[index] === null
+        ? [
+            {
+              type: "NOT_FOUND",
+              path: ["nodes", index],
+              message: `Could not resolve to a node with the global id of '${id}'.`,
+            },
+          ]
+        : [],
+    );
+    return HttpResponse.json({
+      data: { nodes },
+      ...(errors.length > 0 && { errors }),
+    });
   }
 
   /** Whether the request carries a token the mock issued while signed in. */
@@ -242,6 +305,12 @@ export class ApiMock {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
+}
+
+function isStringArray(value: unknown): value is string[] {
+  return (
+    Array.isArray(value) && value.every((item) => typeof item === "string")
+  );
 }
 
 function isCreateSessionBody(body: unknown): boolean {

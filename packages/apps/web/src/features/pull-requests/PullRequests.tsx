@@ -18,14 +18,21 @@ export function PullRequests(props: {
   const { controller } = useSession();
   const { org, members } = props;
   const load = useCallback(
-    () =>
+    async () =>
       fetchMembersPullRequests(
-        (query) =>
-          controller.withAccessToken((token) =>
-            controller.githubApi.searchPullRequests(token, query),
-          ),
+        {
+          search: (query) =>
+            controller.withAccessToken((token) =>
+              controller.githubApi.searchPullRequests(token, query),
+            ),
+          getPullRequests: (ids) =>
+            controller.withAccessToken((token) =>
+              controller.githubApi.getPullRequests(token, ids),
+            ),
+        },
+        controller.viewerCache(),
         members.map(({ login }) => login),
-        new Date(),
+        controller.now(),
       ),
     [controller, members],
   );

@@ -1,5 +1,6 @@
 import {
   GlobalTimer,
+  IndexedDbStore,
   WebStorageStore,
   WindowLocation,
   type KeyValueStore,
@@ -52,6 +53,7 @@ async function main(container: HTMLElement): Promise<void> {
     storage,
     location,
     timer: new GlobalTimer(),
+    cache: new IndexedDbStore(() => window.indexedDB),
     navigate: authorize && ((url) => location.assign(authorize(url))),
   });
 

@@ -1,24 +1,35 @@
-import type { Period } from "./period";
+import type { Measure } from "./measures";
 
-/** The two GitHub searches for one member's activity in a period. */
-export interface MemberQueries {
-  /** Pull requests the member created in the period. */
-  readonly opened: string;
-  /** Pull requests by the member merged in the period. */
-  readonly merged: string;
+/**
+ * The span a search covers: from `from` to just before `to`, or on with no
+ * end when `to` is `undefined`.
+ */
+export interface SearchSpan {
+  readonly from: Date;
+  /** Exclusive; `undefined` for a search that runs up to now. */
+  readonly to: Date | undefined;
 }
 
 /**
- * The GitHub search queries for `login`'s pull requests opened and merged in
- * the period. The bound is the period's start with the local offset, so
- * that it falls on local midnight rather than UTC midnight.
+ * The GitHub search query for `login`'s pull requests of `measure` in the
+ * span: created in it for opened, merged in it for merged. The bounds are
+ * written with the local offset, so that a day starts at local midnight
+ * rather than UTC midnight. GitHub's `a..b` ranges include both ends, so
+ * the upper bound is the last second before `to`.
  */
-export function memberQueries(login: string, period: Period): MemberQueries {
-  const start = localTimestamp(period.start);
-  return {
-    opened: `is:pr author:${login} created:>=${start}`,
-    merged: `is:pr is:merged author:${login} merged:>=${start}`,
-  };
+export function searchQuery(
+  login: string,
+  measure: Measure,
+  span: SearchSpan,
+): string {
+  const from = localTimestamp(span.from);
+  const range =
+    span.to === undefined
+      ? `>=${from}`
+      : `${from}..${localTimestamp(new Date(span.to.getTime() - 1000))}`;
+  return measure === "opened"
+    ? `is:pr author:${login} created:${range}`
+    : `is:pr is:merged author:${login} merged:${range}`;
 }
 
 /**

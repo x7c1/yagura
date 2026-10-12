@@ -71,7 +71,7 @@ in the browser and answers the session API and the GitHub API from the
 handlers in `packages/testing/api-mocks`, the same ones the tests use:
 `GET /user`, `GET /user/installations` (one organization, `mock-org`),
 `GET /orgs/mock-org/members` (a few members, including the signed-in
-`mock-user`), and the GraphQL pull request searches (a handful of pull
+`mock-user`), and the GraphQL pull request searches and lookups by id (a handful of pull
 requests per member, spread over the 14 days before the page loaded).
 "Sign in with GitHub" skips the GitHub authorize page and returns straight
 to the callback with a mock code, so sign-in completes without leaving

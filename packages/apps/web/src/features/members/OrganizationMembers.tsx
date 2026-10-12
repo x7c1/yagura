@@ -3,6 +3,7 @@ import { useCallback, useState } from "react";
 import { Failure, useRequest } from "../../shared";
 import { PullRequests } from "../pull-requests";
 import { useSession } from "../session";
+import { loadMembers } from "./load-members";
 
 /**
  * The organization the GitHub App is installed on, its members, and their
@@ -78,9 +79,11 @@ function Members(props: { readonly org: string }) {
   const { controller } = useSession();
   const { org } = props;
   const load = useCallback(
-    () =>
-      controller.withAccessToken((token) =>
-        controller.githubApi.listOrganizationMembers(token, org),
+    async () =>
+      loadMembers(controller.viewerCache(), org, controller.now(), () =>
+        controller.withAccessToken((token) =>
+          controller.githubApi.listOrganizationMembers(token, org),
+        ),
       ),
     [controller, org],
   );

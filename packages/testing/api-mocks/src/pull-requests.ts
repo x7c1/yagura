@@ -175,7 +175,8 @@ export function mockPullRequests(now: Date): MockPullRequestNode[] {
 
 /**
  * The pull requests matching a search query, as far as the mock understands
- * one: the `author:`, `is:merged`, `created:>=` and `merged:>=` qualifiers.
+ * one: the `author:`, `is:merged`, `created:` and `merged:` qualifiers, the
+ * last two with a `>=<timestamp>` or `<timestamp>..<timestamp>` range.
  * Other terms, such as `is:pr`, are ignored.
  */
 export function searchMockPullRequests(
@@ -197,11 +198,11 @@ export function searchMockPullRequests(
         }
         break;
       case "created":
-        result = result.filter((pr) => isOnOrAfter(pr.createdAt, value));
+        result = result.filter((pr) => isInRange(pr.createdAt, value));
         break;
       case "merged":
         result = result.filter(
-          (pr) => pr.mergedAt !== null && isOnOrAfter(pr.mergedAt, value),
+          (pr) => pr.mergedAt !== null && isInRange(pr.mergedAt, value),
         );
         break;
     }
@@ -214,10 +215,20 @@ function splitQualifier(term: string): [string, string?] {
   return colon < 0 ? [term] : [term.slice(0, colon), term.slice(colon + 1)];
 }
 
-/** Whether `time` satisfies a `>=<timestamp>` range. */
-function isOnOrAfter(time: string, range: string): boolean {
-  if (!range.startsWith(">=")) {
-    throw new Error(`The API mock supports only >= ranges, not ${range}`);
+/**
+ * Whether `time` satisfies a `>=<timestamp>` range or an inclusive
+ * `<timestamp>..<timestamp>` one.
+ */
+function isInRange(time: string, range: string): boolean {
+  const t = Date.parse(time);
+  if (range.startsWith(">=")) {
+    return t >= Date.parse(range.slice(2));
   }
-  return Date.parse(time) >= Date.parse(range.slice(2));
+  const [from, to, ...rest] = range.split("..");
+  if (from === undefined || to === undefined || rest.length > 0) {
+    throw new Error(
+      `The API mock supports only >= and .. ranges, not ${range}`,
+    );
+  }
+  return Date.parse(from) <= t && t <= Date.parse(to);
 }
