@@ -1,0 +1,38 @@
+/* A data table: subtle row separators, headings muted and small. */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-width) solid var(--color-border-subtle);
+  text-align: left;
+}
+
+/* The first and last columns line up with the rest of the page. */
+.table th:first-child,
+.table td:first-child {
+  padding-left: 0;
+}
+
+.table th:last-child,
+.table td:last-child {
+  padding-right: 0;
+}
+
+.table thead th {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border-bottom-color: var(--color-border);
+}
+
+.additions {
+  color: var(--color-additions);
+}
+
+.deletions {
+  color: var(--color-deletions);
+}

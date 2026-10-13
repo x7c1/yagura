@@ -1,0 +1,14 @@
+/* A part of the page, set apart by space and a heading rather than a box. */
+.section {
+  margin-top: var(--space-6);
+}
+
+.heading {
+  font-size: var(--font-size-lg);
+  margin-bottom: var(--space-3);
+}
+
+/* What a section shows while it loads or when it has nothing. */
+.note {
+  color: var(--color-text-muted);
+}

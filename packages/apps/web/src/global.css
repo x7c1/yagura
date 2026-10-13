@@ -1,0 +1,154 @@
+/*
+ * The design tokens and a minimal base. Components style themselves in
+ * their own `*.module.css` and use only the tokens defined here, so that the
+ * theme is switched in this one place.
+ */
+
+:root {
+  /* Type: the system font stack, so nothing is fetched from elsewhere. */
+  --font-sans:
+    system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial,
+    sans-serif;
+  --font-size-sm: 0.8125rem;
+  --font-size-base: 0.875rem;
+  --font-size-lg: 1rem;
+  --font-size-xl: 1.25rem;
+  --font-weight-normal: 400;
+  --font-weight-semibold: 600;
+  --line-height: 1.5;
+  --line-height-tight: 1.25;
+
+  /* Spacing. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+
+  /* Shape. */
+  --radius-md: 6px;
+  --radius-pill: 999px;
+  --border-width: 1px;
+  --border-width-strong: 2px;
+  --focus-ring-width: 2px;
+  --focus-ring-offset: 2px;
+
+  /* Measures. */
+  --content-max-width: 1100px;
+  /* Room for a short note such as "Updating…" kept while it is absent. */
+  --note-min-width: 7em;
+  /* The narrowest a wrapping column such as a title is allowed to get. */
+  --wrap-column-min-width: 16em;
+
+  /* Colours: light. */
+  color-scheme: light;
+  --color-bg: #ffffff;
+  --color-surface: #f6f8fa;
+  --color-text: #1f2328;
+  --color-text-muted: #59636e;
+  --color-border: #d1d9e0;
+  --color-border-subtle: #e8ebef;
+  --color-border-strong: #818b98;
+  --color-link: #0969da;
+  --color-focus: #0969da;
+  --color-primary: #1f883d;
+  --color-primary-hover: #1a7f37;
+  --color-on-primary: #ffffff;
+  --color-control-bg: #f6f8fa;
+  --color-control-hover: #eef1f4;
+  --color-opened: #0969da;
+  --color-merged: #8250df;
+  --color-closed: #cf222e;
+  --color-additions: #1a7f37;
+  --color-deletions: #cf222e;
+  --color-error: #cf222e;
+  --color-error-bg: #ffebe9;
+  --color-error-border: #ff8182;
+}
+
+/* Colours: dark, from the OS setting. */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color-scheme: dark;
+    --color-bg: #0d1117;
+    --color-surface: #151b23;
+    --color-text: #e6edf3;
+    --color-text-muted: #9198a1;
+    --color-border: #3d444d;
+    --color-border-subtle: #262c36;
+    --color-border-strong: #656c76;
+    --color-link: #4493f8;
+    --color-focus: #4493f8;
+    --color-primary: #238636;
+    /* Darker, not lighter, so that white text keeps AA contrast. */
+    --color-primary-hover: #1f7a32;
+    --color-on-primary: #ffffff;
+    --color-control-bg: #212830;
+    --color-control-hover: #262c36;
+    --color-opened: #4493f8;
+    --color-merged: #ab7df8;
+    --color-closed: #f85149;
+    --color-additions: #3fb950;
+    --color-deletions: #f85149;
+    --color-error: #f85149;
+    --color-error-bg: #25171c;
+    --color-error-border: #8e1519;
+  }
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--font-size-base);
+  line-height: var(--line-height);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  line-height: var(--line-height-tight);
+  font-weight: var(--font-weight-semibold);
+}
+
+p {
+  margin: 0;
+}
+
+a {
+  color: var(--color-link);
+}
+
+button,
+select {
+  font: inherit;
+  color: var(--color-text);
+  background: var(--color-control-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  padding: var(--space-1) var(--space-3);
+}
+
+button {
+  cursor: pointer;
+  font-weight: var(--font-weight-semibold);
+}
+
+button:hover,
+select:hover {
+  background: var(--color-control-hover);
+}
+
+:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+}

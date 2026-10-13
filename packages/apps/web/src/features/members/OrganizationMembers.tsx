@@ -2,6 +2,7 @@ import type { Organization } from "@yagura/github-api";
 import { useMemo, useState } from "react";
 import {
   Failure,
+  sectionStyles,
   useStoredThenFetched,
   type StoredThenFetchedSource,
 } from "../../shared";
@@ -14,6 +15,7 @@ import {
   readStoredList,
   type ShortLivedList,
 } from "./short-lived-list";
+import styles from "./OrganizationMembers.module.css";
 
 /**
  * The cache key of the organization the viewer last selected, kept apart
@@ -66,7 +68,7 @@ export function OrganizationMembers() {
 
   if (value === undefined) {
     return error === undefined ? (
-      <p>Loading organizations…</p>
+      <p className={sectionStyles.note}>Loading organizations…</p>
     ) : (
       <Failure
         message={`Could not load your organizations: ${error}`}
@@ -75,10 +77,12 @@ export function OrganizationMembers() {
     );
   }
   const failure = error !== undefined && (
-    <Failure
-      message={`Could not update your organizations: ${error}`}
-      retry={retry}
-    />
+    <div className={styles.failure}>
+      <Failure
+        message={`Could not update your organizations: ${error}`}
+        retry={retry}
+      />
+    </div>
   );
   const { organizations, selected } = value;
   const first = organizations[0];
@@ -86,7 +90,7 @@ export function OrganizationMembers() {
     return (
       <>
         {failure}
-        <p>
+        <p className={sectionStyles.note}>
           The yagura GitHub App is not installed on any of your organizations.
         </p>
       </>
@@ -144,26 +148,30 @@ function OrganizationView(props: {
 
   return (
     <section>
-      {organizations.length > 1 && (
-        <label>
-          Organization{" "}
-          <select
-            value={selected}
-            onChange={(event) => {
-              const login = event.target.value;
-              setChosen(login);
-              void controller.viewerCache().set(selectedOrganizationKey, login);
-            }}
-          >
-            {organizations.map(({ login }) => (
-              <option key={login} value={login}>
-                {login}
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
-      <h2>{selected}</h2>
+      <div className={styles.heading}>
+        {organizations.length > 1 && (
+          <label className={styles.selector}>
+            Organization{" "}
+            <select
+              value={selected}
+              onChange={(event) => {
+                const login = event.target.value;
+                setChosen(login);
+                void controller
+                  .viewerCache()
+                  .set(selectedOrganizationKey, login);
+              }}
+            >
+              {organizations.map(({ login }) => (
+                <option key={login} value={login}>
+                  {login}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <h2 className={styles.name}>{selected}</h2>
+      </div>
       <Members key={selected} org={selected} />
     </section>
   );
@@ -183,7 +191,7 @@ function Members(props: { readonly org: string }) {
 
   if (value === undefined) {
     return error === undefined ? (
-      <p>Loading members…</p>
+      <p className={sectionStyles.note}>Loading members…</p>
     ) : (
       <Failure
         message={`Could not load the members of ${org}: ${error}`}
@@ -194,13 +202,17 @@ function Members(props: { readonly org: string }) {
   return (
     <>
       {error !== undefined && (
-        <Failure
-          message={`Could not update the members of ${org}: ${error}`}
-          retry={retry}
-        />
+        <div className={styles.failure}>
+          <Failure
+            message={`Could not update the members of ${org}: ${error}`}
+            retry={retry}
+          />
+        </div>
       )}
       {value.length === 0 ? (
-        <p>No members of {org} are visible to you.</p>
+        <p className={sectionStyles.note}>
+          No members of {org} are visible to you.
+        </p>
       ) : (
         <MembersActivity org={org} members={value} />
       )}

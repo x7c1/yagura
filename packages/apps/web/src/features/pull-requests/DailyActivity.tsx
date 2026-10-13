@@ -6,6 +6,8 @@ import {
   type PullRequest,
 } from "@yagura/activity";
 import { useState } from "react";
+import { buttonStyles, sectionStyles } from "../../shared";
+import styles from "./DailyActivity.module.css";
 import { DailyChart, describeSelection, type DaySelection } from "./DailyChart";
 import { PullRequestList } from "./PullRequestList";
 
@@ -29,26 +31,32 @@ export function DailyActivity(props: {
 
   return (
     <>
-      <section>
-        <h3>Per day</h3>
+      <section className={sectionStyles.section}>
+        <h3 className={sectionStyles.heading}>Per day</h3>
         <DailyChart
           days={countByDay(pullRequests, period)}
           selected={selected}
           onSelect={setSelected}
         />
       </section>
-      <section>
-        <h3>Pull requests</h3>
+      <section className={sectionStyles.section}>
+        <h3 className={sectionStyles.heading}>Pull requests</h3>
         {selected !== null && (
-          <p>
+          <p className={styles.selection}>
             {describeSelection(selected)} ·{" "}
-            <button type="button" onClick={() => setSelected(null)}>
+            <button
+              type="button"
+              className={buttonStyles.quiet}
+              onClick={() => setSelected(null)}
+            >
               Show all
             </button>
           </p>
         )}
         {listed.length === 0 ? (
-          <p>{`No pull requests by ${org}'s members in the last ${periodDays} days.`}</p>
+          <p
+            className={sectionStyles.note}
+          >{`No pull requests by ${org}'s members in the last ${periodDays} days.`}</p>
         ) : (
           <PullRequestList pullRequests={listed} period={period} />
         )}

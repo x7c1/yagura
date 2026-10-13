@@ -1,4 +1,5 @@
 import { useCallback, useState } from "react";
+import styles from "./App.module.css";
 import { OrganizationMembers } from "./features/members";
 import {
   CallbackHandler,
@@ -20,27 +21,26 @@ export function App(props: { readonly session: SessionController }) {
     setPathname(location.pathname);
   }, [location]);
 
+  const onCallback = pathname === callbackPath;
   return (
     <SessionProvider controller={props.session}>
-      <h1>yagura</h1>
-      {pathname === callbackPath ? (
-        <CallbackHandler onDone={leaveCallback} />
-      ) : (
-        <Home />
-      )}
+      <header className={styles.header}>
+        <div className={styles.bar}>
+          <h1 className={styles.title}>yagura</h1>
+          {!onCallback && <SessionStatus />}
+        </div>
+      </header>
+      <main className={styles.main}>
+        {onCallback ? <CallbackHandler onDone={leaveCallback} /> : <Home />}
+      </main>
     </SessionProvider>
   );
 }
 
-/** The session status and, while signed in, the organization's members. */
+/** While signed in, the organization's members. */
 function Home() {
   const { state } = useSession();
-  return (
-    <>
-      <SessionStatus />
-      {state.status === "signed-in" && (
-        <OrganizationMembers key={state.login} />
-      )}
-    </>
-  );
+  return state.status === "signed-in" ? (
+    <OrganizationMembers key={state.login} />
+  ) : null;
 }

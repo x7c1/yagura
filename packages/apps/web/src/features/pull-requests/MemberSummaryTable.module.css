@@ -1,0 +1,52 @@
+.table {
+  composes: table from "../../shared/table.module.css";
+}
+
+/* A member's row heading is not bold; the total's is (see below). */
+.table th {
+  font-weight: var(--font-weight-normal);
+}
+
+/* On a phone, closer columns keep the table within the page. */
+@media (max-width: 30rem) {
+  .table th,
+  .table td {
+    padding-left: var(--space-1);
+    padding-right: var(--space-1);
+  }
+}
+
+/*
+ * The member: the avatar beside the login. A long login breaks anywhere,
+ * which also lets the column narrow, so the table fits a phone's width.
+ */
+.member {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.avatar {
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}
+
+.table .numeric {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* What a number cell shows while the pull requests load. */
+.table .placeholder {
+  color: var(--color-text-muted);
+}
+
+.table tfoot th,
+.table tfoot td {
+  font-weight: var(--font-weight-semibold);
+  border-top: var(--border-width-strong) solid var(--color-border);
+  border-bottom: none;
+}
