@@ -88,9 +88,10 @@ pull request counts on the day it was opened for "opened" and on the day it
 was merged for "merged", which may be two different days.
 
 Each day has an opened bar (solid) and a merged bar (hatched), and each bar
-has its count written past its end, a zero too (muted), so that a count is
-read rather than estimated from the axis. A bar's accessible name carries
-its count too ("Oct 13, opened: 7").
+has its count written past its end, so that a count is read rather than
+estimated from the axis. A zero is not written, its empty bar shows it. A
+bar's accessible name carries its count too, a zero included ("Oct 13,
+opened: 7", "Oct 12, merged: 0").
 
 The chart fills the width of the page and is drawn at that width, its text
 at the small type size whatever the width, never scaled down. Where each day

@@ -166,28 +166,25 @@ export function DailyChart(props: {
           </g>
         ))}
         {/*
-          The counts, which the bars' names carry for assistive technology.
-          A click on a count chooses its bar, which may be too short to hit.
+          The counts, which the bars' names carry for assistive technology;
+          a zero is not written, its empty bar shows it. A click on a count
+          chooses its bar, which may be too short to hit.
         */}
         <g aria-hidden="true">
           {groups.map((group) =>
             measures.map((measure) => {
               const count = group.day[measure];
               return (
-                <text
-                  key={`${group.day.day}-${measure}`}
-                  {...placed(group[measure].count)}
-                  className={`${styles.count} ${
-                    count === 0
-                      ? styles.zeroCount
-                      : `${countClasses[measure]} ${styles.choosableCount}`
-                  }`}
-                  onClick={
-                    count > 0 ? choice(group.day, measure).choose : undefined
-                  }
-                >
-                  {count}
-                </text>
+                count > 0 && (
+                  <text
+                    key={`${group.day.day}-${measure}`}
+                    {...placed(group[measure].count)}
+                    className={`${styles.count} ${countClasses[measure]}`}
+                    onClick={choice(group.day, measure).choose}
+                  >
+                    {count}
+                  </text>
+                )
               );
             }),
           )}

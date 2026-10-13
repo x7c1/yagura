@@ -28,19 +28,14 @@
   fill: currentColor;
 }
 
-/* A bar's count, past its end, in the bar's colour; a zero is muted. */
+/*
+ * A bar's count, past its end, in the bar's colour; a zero is not written.
+ * A count takes clicks too, for a short bar is hard to hit; the keyboard and
+ * assistive technology reach the bar itself.
+ */
 .count {
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
-  pointer-events: none;
-}
-
-/*
- * A count of a bar that can be chosen takes clicks too, for a short bar is
- * hard to hit; the keyboard and assistive technology reach the bar itself.
- */
-.choosableCount {
-  pointer-events: auto;
   cursor: pointer;
   user-select: none;
 }
@@ -51,11 +46,6 @@
 
 .mergedCount {
   fill: var(--color-merged);
-}
-
-.zeroCount {
-  fill: var(--color-text-muted);
-  font-weight: var(--font-weight-normal);
 }
 
 /* The opened bar is solid; the merged one is hatched (see the pattern). */

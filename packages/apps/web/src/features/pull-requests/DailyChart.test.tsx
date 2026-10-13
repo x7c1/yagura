@@ -88,20 +88,29 @@ describe("DailyChart", () => {
     );
   });
 
-  it("writes each bar's count, a zero too", async () => {
-    await renderChart();
-    const chart = screen.getByRole("group", {
-      name: "Opened and merged pull requests per day",
-    });
+  it.each([1000, 340])(
+    "writes each bar's count but a zero, which only its name carries, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const chart = screen.getByRole("group", {
+        name: "Opened and merged pull requests per day",
+      });
+      const counts = expectedDays.flatMap((day) => [day.opened, day.merged]);
+      expect(counts).toContain(0);
 
-    const written = [...chart.querySelectorAll("text")]
-      .map(({ textContent }) => textContent ?? "")
-      .slice(-expectedDays.length * 2);
-    expect(written).toEqual(
-      expectedDays.flatMap((day) => [String(day.opened), String(day.merged)]),
-    );
-    expect(written).toContain("0");
-  });
+      const written = [...chart.querySelectorAll("text")]
+        .map(({ textContent }) => textContent ?? "")
+        .slice(-counts.filter((count) => count > 0).length);
+      expect(written).toEqual(counts.filter((count) => count > 0).map(String));
+      const zero = expectedDays.find((day) => day.merged === 0);
+      if (zero === undefined) {
+        throw new Error("No day without merged pull requests in the fixtures");
+      }
+      expect(
+        screen.getByRole("button", { name: barName(zero, "merged") }),
+      ).toHaveAccessibleName(/, merged: 0$/);
+    },
+  );
 
   it("lays the days out in rows when the columns have no room", async () => {
     const widths = testWidths();
@@ -172,8 +181,12 @@ describe("DailyChart", () => {
       });
       const day = dayWith("merged");
       const bar = screen.getByRole("button", { name: barName(day, "merged") });
-      // The counts come last, in the order of the bars.
-      const bars = [...chart.querySelectorAll("rect[role=button]")];
+      // The counts come last, in the order of the bars, but for the zeros.
+      const bars = [
+        ...chart.querySelectorAll(
+          "rect[role=button]:not([aria-disabled=true])",
+        ),
+      ];
       const counts = [...chart.querySelectorAll("text")].slice(-bars.length);
       const count = counts[bars.indexOf(bar)];
       if (count === undefined) {
