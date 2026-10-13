@@ -45,3 +45,22 @@
 .closed {
   color: var(--color-closed);
 }
+
+/* The rows of every other day, so that the days stand apart. */
+.tinted {
+  background: var(--color-band);
+}
+
+/*
+ * The first and last columns keep their padding here, unlike other tables,
+ * so that the text sits inside a day's band rather than at its edge.
+ */
+.scroll .table th:first-child,
+.scroll .table td:first-child {
+  padding-left: var(--space-2);
+}
+
+.scroll .table th:last-child,
+.scroll .table td:last-child {
+  padding-right: var(--space-2);
+}

@@ -97,13 +97,15 @@ export function showPage(name: "Activity" | "Members"): void {
 }
 
 /**
- * Waits until the view is not loading or updating anything: no "Loading…"
- * and no "Updating…" note.
+ * Waits until the view is not loading or updating anything: no "Loading…",
+ * no "Updating…" note, and no "…" placeholder in the summary table, which
+ * the Members page shows instead of a "Loading…" note.
  */
 async function settled(): Promise<void> {
   await waitFor(() => {
     expect(screen.queryByText(/^Loading/)).not.toBeInTheDocument();
     expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
+    expect(screen.queryAllByText("…")).toHaveLength(0);
   });
 }
 

@@ -6,7 +6,19 @@ export const dayFormat = new Intl.DateTimeFormat("en-US", {
   day: "numeric",
 });
 
+/**
+ * A moment as its month, day and 24-hour time in the local time zone, for
+ * example "Oct 13 14:05".
+ */
+export function formatDayTime(time: Date): string {
+  return `${dayFormat.format(time)} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
+}
+
 /** The period as its first and last days, for example "Sep 29 – Oct 12". */
 export function formatPeriod(period: Period): string {
   return `${dayFormat.format(period.start)} – ${dayFormat.format(period.end)}`;
+}
+
+function pad(value: number): string {
+  return String(value).padStart(2, "0");
 }

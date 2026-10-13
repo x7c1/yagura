@@ -45,6 +45,8 @@
   color-scheme: light;
   --color-bg: #ffffff;
   --color-surface: #f6f8fa;
+  /* The rows of every other day in the pull request list. */
+  --color-band: #f6f8fa;
   --color-text: #1f2328;
   --color-text-muted: #59636e;
   --color-border: #d1d9e0;
@@ -73,6 +75,7 @@
     color-scheme: dark;
     --color-bg: #0d1117;
     --color-surface: #151b23;
+    --color-band: #1c232c;
     --color-text: #e6edf3;
     --color-text-muted: #9198a1;
     --color-border: #3d444d;
