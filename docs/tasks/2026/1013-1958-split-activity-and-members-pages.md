@@ -102,7 +102,7 @@ Through the API mock and `MemoryLocation`:
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, at desktop width and 375px:
+- [x] With `VITE_API_MOCK=1 make dev`, at desktop width and 375px:
   - the first page after sign-in is Activity, and the tabs switch pages
     without a reload;
   - back and forward work;
@@ -110,7 +110,7 @@ Through the API mock and `MemoryLocation`:
   - nothing scrolls horizontally.
 
   Screenshots of both pages are attached to the PR.
-- [ ] `make check`'s output no longer contains "did not pass the `from`
+- [x] `make check`'s output no longer contains "did not pass the `from`
       option".
 
 ## Out of scope
