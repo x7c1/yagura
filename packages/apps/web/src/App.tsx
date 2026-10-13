@@ -1,5 +1,5 @@
 import type { ElementWidths } from "@yagura/browser";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import styles from "./App.module.css";
 import { OrganizationMembers } from "./features/members";
 import {
@@ -14,6 +14,7 @@ import {
   CallbackHandler,
   SessionProvider,
   SessionStatus,
+  SignInScreen,
   useSession,
   type SessionController,
 } from "./features/session";
@@ -45,11 +46,17 @@ export function App(props: {
     }
   }, [location, onCallback, known]);
   const page = known ?? "activity";
-  // Where the organization is shown, beside the login in the header. The
-  // members' view, which loads the organizations, draws it there.
-  const [organizationSlot, setOrganizationSlot] = useState<HTMLElement | null>(
-    null,
-  );
+
+  // Restore the session on page load, but not on the callback, whose
+  // outcome becomes the session instead. It runs before the first paint, so
+  // that a remembered last viewer's pages are drawn at once, with no
+  // "Loading…" screen shown before them.
+  const { session } = props;
+  useLayoutEffect(() => {
+    if (!onCallback) {
+      void session.restore();
+    }
+  }, [session, onCallback]);
 
   // Drop the code and state from the address bar and the history entry.
   const leaveCallback = useCallback(() => {
@@ -71,91 +78,96 @@ export function App(props: {
   );
 
   return (
-    <SessionProvider controller={props.session}>
+    <SessionProvider controller={session}>
       <ElementWidthsProvider widths={props.widths}>
-        <header className={styles.header}>
-          <div className={styles.bar}>
-            {/*
-             * The app's name heads the page for assistive tech only; it is
-             * shown in the footer, out of the way of what the page is for.
-             */}
-            <h1 className={styles.visuallyHidden}>Yagura</h1>
-            {!onCallback && (
-              <>
-                <div className={styles.tabs}>
-                  <SignedInTabs current={page} onNavigate={navigate} />
-                </div>
-                <div className={styles.session}>
-                  <SessionStatus
-                    organization={
-                      <span
-                        ref={setOrganizationSlot}
-                        className={styles.organizationSlot}
-                      />
-                    }
-                  />
-                </div>
-              </>
-            )}
-          </div>
-        </header>
-        <main className={styles.main}>
-          {onCallback ? (
-            <CallbackHandler onDone={leaveCallback} />
-          ) : (
-            <Home page={page} organizationSlot={organizationSlot} />
-          )}
-        </main>
-        <footer className={styles.footer}>
-          Powered by{" "}
-          <a
-            href="https://github.com/x7c1/yagura"
-            className={styles.footerLink}
-          >
-            Yagura
-          </a>
-        </footer>
+        {onCallback ? (
+          <CallbackHandler onDone={leaveCallback} />
+        ) : (
+          <Screen page={page} onNavigate={navigate} />
+        )}
       </ElementWidthsProvider>
     </SessionProvider>
   );
 }
 
-/** While signed in, the tabs between the pages. */
-function SignedInTabs(props: {
-  readonly current: Page;
+/**
+ * While signed in, `page` in the page frame; otherwise the sign-in screen,
+ * which has no frame of its own.
+ */
+function Screen(props: {
+  readonly page: Page;
   readonly onNavigate: (page: Page) => void;
 }) {
   const { state } = useSession();
-  return state.status === "signed-in" ? <PageTabs {...props} /> : null;
+  return state.status === "signed-in" ? (
+    <SignedInPage {...props} login={state.login} />
+  ) : (
+    <SignInScreen />
+  );
 }
 
 /**
- * While signed in, the organization's members, on `page`, with the page's
- * name in the document title, so that the browser's tab and history tell
- * the pages apart. The organization itself is drawn into
- * `organizationSlot`, in the header.
+ * The page frame: the header with the tabs and the session, the
+ * organization's members on `page`, and the footer. The page's name is in
+ * the document title, so that the browser's tab and history tell the pages
+ * apart.
  */
-function Home(props: {
+function SignedInPage(props: {
   readonly page: Page;
-  readonly organizationSlot: HTMLElement | null;
+  readonly onNavigate: (page: Page) => void;
+  readonly login: string;
 }) {
-  const { state } = useSession();
-  const signedIn = state.status === "signed-in";
+  // Where the organization is shown, beside the login in the header. The
+  // members' view, which loads the organizations, draws it there.
+  const [organizationSlot, setOrganizationSlot] = useState<HTMLElement | null>(
+    null,
+  );
+
   useEffect(() => {
-    if (!signedIn) {
-      return;
-    }
     const previous = document.title;
     document.title = `${pageLabels[props.page]} · Yagura`;
     return () => {
       document.title = previous;
     };
-  }, [signedIn, props.page]);
-  return signedIn ? (
-    <OrganizationMembers
-      key={state.login}
-      page={props.page}
-      organizationSlot={props.organizationSlot}
-    />
-  ) : null;
+  }, [props.page]);
+
+  return (
+    <>
+      <header className={styles.header}>
+        <div className={styles.bar}>
+          {/*
+           * The app's name heads the page for assistive tech only; it is
+           * shown in the footer, out of the way of what the page is for.
+           */}
+          <h1 className={styles.visuallyHidden}>Yagura</h1>
+          <div className={styles.tabs}>
+            <PageTabs current={props.page} onNavigate={props.onNavigate} />
+          </div>
+          <div className={styles.session}>
+            <SessionStatus
+              organization={
+                <span
+                  ref={setOrganizationSlot}
+                  className={styles.organizationSlot}
+                />
+              }
+            />
+          </div>
+        </div>
+      </header>
+      <main className={styles.main}>
+        <OrganizationMembers
+          key={props.login}
+          page={props.page}
+          organizationSlot={organizationSlot}
+        />
+      </main>
+      <footer className={styles.footer}>
+        Powered by{" "}
+        <a href="https://github.com/x7c1/yagura" className={styles.footerLink}>
+          Yagura
+        </a>
+      </footer>
+    </>
+  );
 }

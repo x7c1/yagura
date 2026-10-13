@@ -13,6 +13,8 @@
   --font-size-base: 0.875rem;
   --font-size-lg: 1rem;
   --font-size-xl: 1.25rem;
+  /* The app's name on the sign-in screen. */
+  --font-size-display: 2.5rem;
   --font-weight-normal: 400;
   --font-weight-semibold: 600;
   --line-height: 1.5;
@@ -44,6 +46,12 @@
   --wrap-column-min-width: 16em;
   /* An avatar beside a name: a member's, or the organization's. */
   --avatar-size: 24px;
+  /*
+   * The sign-in screen's panel width, and its button's height, taller than
+   * the other buttons'.
+   */
+  --sign-in-panel-width: 26rem;
+  --sign-in-button-height: 2.5rem;
 
   /* Colours: light. */
   color-scheme: light;
