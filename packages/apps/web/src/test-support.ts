@@ -1,5 +1,6 @@
 import {
   ManualTimer,
+  MemoryElementWidths,
   MemoryJsonStore,
   MemoryLocation,
   MemoryStore,
@@ -80,6 +81,14 @@ export function testController(options: TestControllerOptions = {}) {
     clock: options.clock,
   });
   return { controller, mock, storage, lastViewer, location, timer, cache };
+}
+
+/**
+ * The element widths the views are drawn to: `width` for every element,
+ * wide enough by default for the chart's columns.
+ */
+export function testWidths(width = 1000): MemoryElementWidths {
+  return new MemoryElementWidths(width);
 }
 
 /** Switches to the page of the tab named `name`, as a plain click does. */

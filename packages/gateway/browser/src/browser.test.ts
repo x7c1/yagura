@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { ManualTimer, MemoryLocation, MemoryStore, WebStorageStore } from ".";
+import {
+  ManualTimer,
+  MemoryElementWidths,
+  MemoryLocation,
+  MemoryStore,
+  ResizeObserverWidths,
+  WebStorageStore,
+} from ".";
 
 describe("MemoryStore", () => {
   it("sets, gets, and removes entries", () => {
@@ -123,5 +130,53 @@ describe("ManualTimer", () => {
     timer.advance(30);
     expect(fired).toEqual([10, 20]);
     expect(timer.now).toBe(30);
+  });
+});
+
+describe("ResizeObserverWidths", () => {
+  it("reports the width now, then each change, until unsubscribed", () => {
+    let callback: ResizeObserverCallback | undefined;
+    let disconnected = false;
+    const observer = {
+      observe: () => {},
+      disconnect: () => (disconnected = true),
+    } as unknown as ResizeObserver;
+    const widths = new ResizeObserverWidths((created) => {
+      callback = created;
+      return observer;
+    });
+    const element = {
+      getBoundingClientRect: () => ({ width: 640 }),
+    } as unknown as Element;
+    const resize = (inlineSize: number) =>
+      callback?.(
+        [{ borderBoxSize: [{ inlineSize }] } as unknown as ResizeObserverEntry],
+        observer,
+      );
+    const seen: number[] = [];
+
+    const unsubscribe = widths.observe(element, (width) => seen.push(width));
+    resize(640);
+    resize(375);
+
+    expect(seen).toEqual([640, 375]);
+    unsubscribe();
+    expect(disconnected).toBe(true);
+  });
+});
+
+describe("MemoryElementWidths", () => {
+  it("reports its width now and on each change, until unsubscribed", () => {
+    const widths = new MemoryElementWidths(640);
+    const element = {} as Element;
+    const seen: number[] = [];
+
+    const unsubscribe = widths.observe(element, (width) => seen.push(width));
+    widths.width = 375;
+    unsubscribe();
+    widths.width = 1280;
+
+    expect(seen).toEqual([640, 375]);
+    expect(widths.observing).toBe(0);
   });
 });

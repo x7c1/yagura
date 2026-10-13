@@ -33,6 +33,7 @@ import {
   shownMemberSummaryRows,
   shownPullRequestTitles,
   testController,
+  testWidths,
 } from "./test-support";
 
 const minute = 60 * 1000;
@@ -86,7 +87,7 @@ function page(cache: JsonStore = new MemoryJsonStore()) {
       });
       mock = test.mock;
       server.use(...handlers);
-      render(<App session={test.controller} />);
+      render(<App session={test.controller} widths={testWidths()} />);
     },
     /**
      * Renders the app and resolves to the listed titles once nothing is

@@ -12,6 +12,7 @@ import {
   pullRequestTitles,
   server,
   testController,
+  testWidths,
 } from "../../test-support";
 
 const graphqlUrl = "https://api.github.com/graphql";
@@ -20,7 +21,7 @@ describe("MembersActivity", () => {
   it("lists the members' pull requests of the period, newest first", async () => {
     const { controller, mock } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
     // Opened and merged in the period: found by both searches, listed once.
@@ -36,7 +37,7 @@ describe("MembersActivity", () => {
   it("shows a pull request's details and links to it", async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     const [, row] = await pullRequestRows();
     const cells = within(row as HTMLElement).getAllByRole("cell");
@@ -71,7 +72,7 @@ describe("MembersActivity", () => {
       ),
     );
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(
       await screen.findByText(
@@ -90,7 +91,7 @@ describe("MembersActivity", () => {
       ),
     );
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       `Could not load the pull requests of ${mockOrganization}'s members`,

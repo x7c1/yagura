@@ -1,3 +1,5 @@
+export { MemoryElementWidths, ResizeObserverWidths } from "./element-widths";
+export type { ElementWidths } from "./element-widths";
 export { IndexedDbStore, MemoryJsonStore } from "./json-store";
 export type { JsonStore, JsonValue } from "./json-store";
 export { MemoryStore, WebStorageStore } from "./key-value-store";

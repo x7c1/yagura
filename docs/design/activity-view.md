@@ -87,8 +87,28 @@ included, so that a quiet day shows as a gap rather than going missing. A
 pull request counts on the day it was opened for "opened" and on the day it
 was merged for "merged", which may be two different days.
 
+Each day has an opened bar (solid) and a merged bar (hatched), and each bar
+has its count written past its end, so that a count is read rather than
+estimated from the axis. A zero is not written, its empty bar shows it. A
+bar's accessible name carries its count too, a zero included ("Oct 13,
+opened: 7", "Oct 12, merged: 0").
+
+The chart fills the width of the page and is drawn at that width, its text
+at the small type size whatever the width, never scaled down. Where each day
+has room for its two bars side by side with their counts above, and a
+digit's width of space from the next day so that their counts do not run
+together, the days are columns, oldest left, with the counts on a vertical
+axis and the dates below, every other date when they do not all fit.
+Narrower than that, which depends on the largest count's digits, not on the
+device, the days are rows, oldest at the top, with the date left of the two
+bars, opened above merged, growing right on an axis below. Either way, all
+the bars share one axis that starts at zero, so that their lengths compare
+across days.
+
 Choosing a day's "opened" or "merged" in the chart narrows the list to that
 day's pull requests of that kind; a day and kind with none cannot be chosen.
+A click on a bar's count chooses the bar too, since a bar for a small count
+can be too short to hit.
 The narrowing applies to the list only: the summary table on Members keeps
 covering the whole period. Above the narrowed list, the view says what it is
 narrowed to ("Merged on Oct 3") with a way to show all again; choosing the

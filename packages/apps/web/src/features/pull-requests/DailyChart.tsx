@@ -4,8 +4,9 @@ import {
   type DayCounts,
   type Measure,
 } from "@yagura/activity";
-import { useId, type CSSProperties, type KeyboardEvent } from "react";
-import { chartGeometry, chartSize, type Rect } from "./chart-geometry";
+import { useId, type KeyboardEvent } from "react";
+import { useElementWidth } from "../../shared";
+import { chartGeometry, type Bar, type TextSpot } from "./chart-geometry";
 import styles from "./DailyChart.module.css";
 import { dayFormat } from "./format";
 
@@ -24,8 +25,11 @@ const measureClasses: Record<Measure, string | undefined> = {
   merged: styles.merged,
 };
 
-/** The chart's widest, in CSS pixels: its own size, never scaled up. */
-const chartWidth = { "--chart-width": `${chartSize.width}px` } as CSSProperties;
+/** The class of each kind's counts, in the kind's colour. */
+const countClasses: Record<Measure, string | undefined> = {
+  opened: styles.openedCount,
+  merged: styles.mergedCount,
+};
 
 const measureLabels: Record<Measure, string> = {
   opened: "Opened",
@@ -37,11 +41,18 @@ function formatDay(day: string): string {
   return dayFormat.format(startOfDay(day));
 }
 
+/** The attributes that place a piece of text at `spot`. */
+function placed({ x, y, anchor }: TextSpot) {
+  return { x, y, textAnchor: anchor, dominantBaseline: "middle" } as const;
+}
+
 /**
  * A bar chart of the opened and merged counts of each day: a group per day,
- * the opened bar solid and the merged bar hatched. Each bar with a count is
- * a button that chooses that day and kind; choosing the chosen one again
- * clears the choice.
+ * the opened bar solid and the merged bar hatched, each with its count
+ * written past its end. It is drawn to the width it is given: a column per
+ * day when the columns have room for their counts, else a row per day. Each
+ * bar with a count is a button that chooses that day and kind; choosing the
+ * chosen one again clears the choice.
  */
 export function DailyChart(props: {
   readonly days: readonly DayCounts[];
@@ -50,19 +61,24 @@ export function DailyChart(props: {
 }) {
   const { days, selected, onSelect } = props;
   const hatch = `${useId()}-hatch`;
-  const { plot, ticks, groups } = chartGeometry(days);
+  const { ref, width } = useElementWidth<HTMLDivElement>();
   // The merged bars are filled with the hatch, which only an attribute can
   // refer to by its generated id; the opened bars are filled by their class.
   const fills: Record<Measure, string | undefined> = {
     opened: undefined,
     merged: `url(#${hatch})`,
   };
-  const bottom = plot.y + plot.height;
 
-  const bar = (day: DayCounts, measure: Measure, rect: Rect) => {
-    const count = day[measure];
+  /** Whether a day's bar of `measure` is chosen, and what choosing it does. */
+  const choice = (day: DayCounts, measure: Measure) => {
     const pressed = selected?.day === day.day && selected.measure === measure;
     const choose = () => onSelect(pressed ? null : { day: day.day, measure });
+    return { pressed, choose };
+  };
+
+  const bar = (day: DayCounts, measure: Measure, { rect }: Bar) => {
+    const count = day[measure];
+    const { pressed, choose } = choice(day, measure);
     const onKeyDown = (event: KeyboardEvent) => {
       if (event.key === "Enter" || event.key === " ") {
         event.preventDefault();
@@ -73,7 +89,7 @@ export function DailyChart(props: {
     if (pressed) {
       classes.push(styles.pressed);
     }
-    const label = `${formatDay(day.day)}: ${count} ${measure}`;
+    const label = `${formatDay(day.day)}, ${measure}: ${count}`;
     return (
       <rect
         key={measure}
@@ -91,24 +107,22 @@ export function DailyChart(props: {
             }
           : { "aria-disabled": true })}
       >
-        {/* The exact count on hover, which the y axis only approximates. */}
         <title>{label}</title>
       </rect>
     );
   };
 
-  return (
-    <figure className={styles.figure}>
+  const chart = (width: number) => {
+    const { height, ticks, groups } = chartGeometry(days, width);
+    return (
       <svg
-        viewBox={`0 0 ${chartSize.width} ${chartSize.height}`}
-        width="100%"
+        width={width}
+        height={height}
         className={
           selected === null ? styles.chart : `${styles.chart} ${styles.chosen}`
         }
-        style={chartWidth}
         role="group"
         aria-label="Opened and merged pull requests per day"
-        fontSize={11}
       >
         <defs>
           <pattern
@@ -122,34 +136,23 @@ export function DailyChart(props: {
           </pattern>
         </defs>
         <g aria-hidden="true">
-          {ticks.map(({ value, y }) => (
+          {ticks.map(({ value, line, label }) => (
             <g key={value}>
               <line
-                x1={plot.x}
-                x2={plot.x + plot.width}
-                y1={y}
-                y2={y}
+                {...line}
                 className={value === 0 ? styles.baseline : styles.gridLine}
               />
-              <text
-                x={plot.x - 6}
-                y={y}
-                textAnchor="end"
-                dominantBaseline="middle"
-                className={styles.axisLabel}
-              >
+              <text {...placed(label)} className={styles.axisLabel}>
                 {value}
               </text>
             </g>
           ))}
           {groups.map(
-            ({ day, center, labelled }) =>
-              labelled && (
+            ({ day, label }) =>
+              label !== null && (
                 <text
                   key={day.day}
-                  x={center}
-                  y={bottom + 16}
-                  textAnchor="middle"
+                  {...placed(label)}
                   className={styles.axisLabel}
                 >
                   {formatDay(day.day)}
@@ -162,7 +165,39 @@ export function DailyChart(props: {
             {measures.map((measure) => bar(group.day, measure, group[measure]))}
           </g>
         ))}
+        {/*
+          The counts, which the bars' names carry for assistive technology;
+          a zero is not written, its empty bar shows it. A click on a count
+          chooses its bar, which may be too short to hit.
+        */}
+        <g aria-hidden="true">
+          {groups.map((group) =>
+            measures.map((measure) => {
+              const count = group.day[measure];
+              return (
+                count > 0 && (
+                  <text
+                    key={`${group.day.day}-${measure}`}
+                    {...placed(group[measure].count)}
+                    className={`${styles.count} ${countClasses[measure]}`}
+                    onClick={choice(group.day, measure).choose}
+                  >
+                    {count}
+                  </text>
+                )
+              );
+            }),
+          )}
+        </g>
       </svg>
+    );
+  };
+
+  return (
+    <figure className={styles.figure}>
+      <div ref={ref} className={styles.frame}>
+        {width !== null && chart(width)}
+      </div>
       <figcaption>
         <ul className={styles.legend}>
           {measures.map((measure) => (

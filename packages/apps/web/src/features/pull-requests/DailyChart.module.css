@@ -4,11 +4,16 @@
   color: var(--color-text-muted);
 }
 
+/* The box the chart is measured in and drawn to the width of. */
+.frame {
+  width: 100%;
+}
+
 .chart {
   display: block;
-  /* The chart's own width in its viewBox units, set as a custom property. */
-  max-width: var(--chart-width);
   overflow: visible;
+  /* Never scaled: the chart is drawn in CSS pixels at its frame's width. */
+  font-size: var(--font-size-sm);
 }
 
 .gridLine {
@@ -21,6 +26,26 @@
 
 .axisLabel {
   fill: currentColor;
+}
+
+/*
+ * A bar's count, past its end, in the bar's colour; a zero is not written.
+ * A count takes clicks too, for a short bar is hard to hit; the keyboard and
+ * assistive technology reach the bar itself.
+ */
+.count {
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  user-select: none;
+}
+
+.openedCount {
+  fill: var(--color-opened);
+}
+
+.mergedCount {
+  fill: var(--color-merged);
 }
 
 /* The opened bar is solid; the merged one is hatched (see the pattern). */

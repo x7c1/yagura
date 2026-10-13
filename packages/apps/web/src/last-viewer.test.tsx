@@ -19,6 +19,7 @@ import {
   shownMemberSummaryRows,
   shownPullRequestTitles,
   testController,
+  testWidths,
 } from "./test-support";
 
 const minute = 60 * 1000;
@@ -77,7 +78,7 @@ function page(options: { readonly organizations?: readonly string[] } = {}) {
         ? mock.holdRequests(({ url }) => url === refreshUrl)
         : undefined;
       server.use(...handlers);
-      render(<App session={test.controller} />);
+      render(<App session={test.controller} widths={testWidths()} />);
     },
     releaseRefresh(): void {
       release?.();

@@ -8,6 +8,7 @@ import {
   membersPageUrl,
   server,
   testController,
+  testWidths,
 } from "../../test-support";
 
 const membersUrl = (org: string) =>
@@ -26,7 +27,7 @@ describe("OrganizationMembers", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(
       await screen.findByRole("heading", { name: mockOrganization }),
@@ -47,7 +48,7 @@ describe("OrganizationMembers", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
     await screen.findByRole("table", { name: "Members" });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -63,7 +64,7 @@ describe("OrganizationMembers", () => {
       organizations: [],
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(
       await screen.findByText(
@@ -85,7 +86,7 @@ describe("OrganizationMembers", () => {
       ),
     );
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       `Could not load the members of ${mockOrganization}`,
@@ -104,7 +105,7 @@ describe("OrganizationMembers", () => {
       }),
     );
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(
       await screen.findByText(
@@ -120,7 +121,7 @@ describe("OrganizationMembers", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(
       await screen.findByRole("heading", { name: mockOrganization }),

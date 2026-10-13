@@ -1,6 +1,7 @@
 import {
   GlobalTimer,
   IndexedDbStore,
+  ResizeObserverWidths,
   WebStorageStore,
   WindowLocation,
   type KeyValueStore,
@@ -61,7 +62,12 @@ async function main(container: HTMLElement): Promise<void> {
 
   createRoot(container).render(
     <StrictMode>
-      <App session={session} />
+      <App
+        session={session}
+        widths={
+          new ResizeObserverWidths((callback) => new ResizeObserver(callback))
+        }
+      />
     </StrictMode>,
   );
 }
