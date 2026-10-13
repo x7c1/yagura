@@ -16,19 +16,52 @@ import {
 } from "./short-lived-list";
 
 /**
+ * The cache key of the organization the viewer last selected, kept apart
+ * from the installations list so that fetching the list again keeps it.
+ */
+const selectedOrganizationKey = "selected-organization";
+
+/** The installations' organizations, and the one the viewer last selected. */
+interface Installations {
+  readonly organizations: readonly Organization[];
+  /** The login of the organization last selected, if one is stored. */
+  readonly selected: string | undefined;
+}
+
+/**
  * The organization the GitHub App is installed on, and its members' recent
  * pull requests, summarized per member and listed. With several
- * organizations, a selector switches between them.
+ * organizations, a selector switches between them, and the one selected is
+ * selected again on the next load while it is still listed.
  */
 export function OrganizationMembers() {
   const { controller } = useSession();
-  const source = useMemo(
-    () =>
-      shortLivedSource(controller, installationsList, (token) =>
-        controller.githubApi.listOrganizationInstallations(token),
-      ),
-    [controller],
-  );
+  const source = useMemo((): StoredThenFetchedSource<Installations> => {
+    const list = shortLivedSource(controller, installationsList, (token) =>
+      controller.githubApi.listOrganizationInstallations(token),
+    );
+    const selected = async () => {
+      const stored = await controller
+        .viewerCache()
+        .get(selectedOrganizationKey);
+      return typeof stored === "string" ? stored : undefined;
+    };
+    return {
+      stored: async () => {
+        const stored = await list.stored();
+        return (
+          stored && {
+            value: { organizations: stored.value, selected: await selected() },
+            fresh: stored.fresh,
+          }
+        );
+      },
+      fetch: async () => ({
+        organizations: await list.fetch(),
+        selected: await selected(),
+      }),
+    };
+  }, [controller]);
   const { value, error, retry } = useStoredThenFetched(source);
 
   if (value === undefined) {
@@ -47,7 +80,8 @@ export function OrganizationMembers() {
       retry={retry}
     />
   );
-  const [first] = value;
+  const { organizations, selected } = value;
+  const first = organizations[0];
   if (first === undefined) {
     return (
       <>
@@ -61,7 +95,10 @@ export function OrganizationMembers() {
   return (
     <>
       {failure}
-      <OrganizationView organizations={value} initial={first} />
+      <OrganizationView
+        organizations={organizations}
+        initial={organizations.find(({ login }) => login === selected) ?? first}
+      />
     </>
   );
 }
@@ -86,15 +123,21 @@ function shortLivedSource<T>(
   };
 }
 
+/**
+ * The selected organization and its members. `initial` is selected until
+ * the user chooses another; the choice is stored in the viewer's cache.
+ */
 function OrganizationView(props: {
   readonly organizations: readonly Organization[];
   readonly initial: Organization;
 }) {
+  const { controller } = useSession();
   const { organizations } = props;
   const [chosen, setChosen] = useState<string>();
   // Until the user chooses, and when the chosen organization is no longer
-  // listed (the list fetched behind the stored one differs), the first one
-  // is shown, as when the list is loaded without the cache.
+  // listed (the list fetched behind the stored one differs), the initial
+  // one is shown: the one selected on an earlier load while it is listed,
+  // else the first, as when the list is loaded without the cache.
   const selected =
     organizations.find(({ login }) => login === chosen)?.login ??
     props.initial.login;
@@ -106,7 +149,11 @@ function OrganizationView(props: {
           Organization{" "}
           <select
             value={selected}
-            onChange={(event) => setChosen(event.target.value)}
+            onChange={(event) => {
+              const login = event.target.value;
+              setChosen(login);
+              void controller.viewerCache().set(selectedOrganizationKey, login);
+            }}
           >
             {organizations.map(({ login }) => (
               <option key={login} value={login}>

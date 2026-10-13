@@ -16,6 +16,20 @@ stop such a script from calling the API with the token while the page is
 open. The cost is that every page load sends one `POST /session/refresh`
 before its first API call, to get an access token again.
 
+The app does not wait for that refresh to draw. It remembers in the browser
+the login of the last viewer who signed in, and on a page load draws that
+viewer's cached activity at once, while the refresh, and then the lookup of
+the login, run behind it. Until they answer, the viewer is signed in
+unconfirmed: their cache is read but not written, and GitHub requests wait
+for the token. When the session has ended (the refresh answers `401`, for
+example after signing out on another device or once the refresh token has
+expired), the previous view shows for a moment, then gives way to the
+sign-in button, and the last viewer is forgotten so that the next load
+draws nothing first. This discloses nothing new: what is drawn is only what
+this browser's IndexedDB already holds, which anyone using this browser
+could read from it anyway, and no request is sent without a token the
+session API issued.
+
 The server is reached at a base URL the app is built with
 (`VITE_YAGURA_SESSION_API`). In production that is
 `https://api.yagura.module.codes`; in development it is a local server on

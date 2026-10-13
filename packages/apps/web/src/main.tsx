@@ -51,6 +51,7 @@ async function main(container: HTMLElement): Promise<void> {
     clientId: config.githubClientId || "mock-client-id",
     redirectUri: location.origin + callbackPath,
     storage,
+    lastViewer: new WebStorageStore(() => window.localStorage),
     location,
     timer: new GlobalTimer(),
     cache: new IndexedDbStore(() => window.indexedDB),
