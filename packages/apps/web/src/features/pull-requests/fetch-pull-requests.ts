@@ -12,10 +12,11 @@ import {
   staleUnmergedIds,
   storedPullRequests,
   type FoundPullRequest,
+  type MemberActivity,
   type Period,
   type PullRequest,
 } from "@yagura/activity";
-import type { ViewerCache } from "../../shared";
+import type { Stored, ViewerCache } from "../../shared";
 import {
   activityCacheKey,
   decodeMemberActivity,
@@ -67,16 +68,7 @@ export async function fetchMembersPullRequests(
   now: Date,
 ): Promise<MembersPullRequests> {
   const period = periodEndingAt(now);
-  const members = await Promise.all(
-    logins.map(async (login) => {
-      const stored = await cache.get(activityCacheKey(login));
-      const activity = pruneMemberActivity(
-        decodeMemberActivity(stored) ?? emptyMemberActivity,
-        period,
-      );
-      return { login, stored, activity };
-    }),
-  );
+  const members = await readMembersActivity(cache, logins, period);
 
   // A failure stops further requests but not the storing of what was
   // fetched before it, so that a retry does not repeat those requests.
@@ -207,6 +199,71 @@ export async function fetchMembersPullRequests(
   if (failure !== undefined) {
     throw failure.error;
   }
+  return membersPullRequests(members, period);
+}
+
+/**
+ * What the browser cache holds of the pull requests the members (by login)
+ * opened or merged in the period ending at `now`, without any request:
+ * `undefined` when it holds nothing in the period for any of them. It is
+ * `fresh` when {@link fetchMembersPullRequests} would send no request.
+ */
+export async function storedMembersPullRequests(
+  cache: ViewerCache,
+  logins: readonly string[],
+  now: Date,
+): Promise<Stored<MembersPullRequests> | undefined> {
+  const period = periodEndingAt(now);
+  const members = await readMembersActivity(cache, logins, period);
+  const holdsAny = members.some(
+    ({ activity }) =>
+      activity.pullRequests.size > 0 ||
+      measures.some((measure) => activity.days[measure].size > 0),
+  );
+  if (!holdsAny) {
+    return undefined;
+  }
+  return {
+    value: membersPullRequests(members, period),
+    fresh: members.every(
+      ({ activity }) =>
+        staleUnmergedIds(activity, now).length === 0 &&
+        measures.every(
+          (measure) => planSearch(activity, measure, period) === undefined,
+        ),
+    ),
+  };
+}
+
+/** A member's activity as stored, and pruned to the period. */
+interface MemberEntry {
+  readonly login: string;
+  /** The stored value as read, to tell whether it changed. */
+  readonly stored: unknown;
+  activity: MemberActivity;
+}
+
+async function readMembersActivity(
+  cache: ViewerCache,
+  logins: readonly string[],
+  period: Period,
+): Promise<MemberEntry[]> {
+  return Promise.all(
+    logins.map(async (login) => {
+      const stored = await cache.get(activityCacheKey(login));
+      const activity = pruneMemberActivity(
+        decodeMemberActivity(stored) ?? emptyMemberActivity,
+        period,
+      );
+      return { login, stored, activity };
+    }),
+  );
+}
+
+function membersPullRequests(
+  members: readonly MemberEntry[],
+  period: Period,
+): MembersPullRequests {
   return {
     period,
     pullRequests: mergeSearchResults(

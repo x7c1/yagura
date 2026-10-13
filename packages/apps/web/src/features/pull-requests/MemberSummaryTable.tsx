@@ -6,16 +6,22 @@ const numeric: CSSProperties = { textAlign: "right" };
 
 /**
  * The summary table: a row per member in the order of `summary`, with the
- * member's avatar from `members`, and a totals row closing it.
+ * member's avatar from `members`, and a totals row closing it. Without a
+ * `summary` (the pull requests are still loading), a row per member in the
+ * order of `members`, with placeholders for the numbers.
  */
 export function MemberSummaryTable(props: {
   readonly members: readonly Member[];
-  readonly summary: ActivitySummary;
+  readonly summary?: ActivitySummary;
 }) {
   const { members, summary } = props;
   const avatars = new Map(
     members.map(({ login, avatarUrl }) => [login, avatarUrl]),
   );
+  const rows: readonly { login: string; counts?: ActivityCounts }[] =
+    summary === undefined
+      ? members.map(({ login }) => ({ login }))
+      : summary.members.map((row) => ({ login: row.login, counts: row }));
   return (
     <table aria-label="Members">
       <thead>
@@ -36,43 +42,46 @@ export function MemberSummaryTable(props: {
         </tr>
       </thead>
       <tbody>
-        {summary.members.map((row) => (
+        {rows.map(({ login, counts }) => (
           <CountsRow
-            key={row.login}
+            key={login}
             label={
               <>
-                <img
-                  src={avatars.get(row.login)}
-                  alt=""
-                  width={24}
-                  height={24}
-                />{" "}
-                {row.login}
+                <img src={avatars.get(login)} alt="" width={24} height={24} />{" "}
+                {login}
               </>
             }
-            counts={row}
+            counts={counts}
           />
         ))}
       </tbody>
       <tfoot>
-        <CountsRow label="Total" counts={summary.total} />
+        <CountsRow label="Total" counts={summary?.total} />
       </tfoot>
     </table>
   );
 }
 
+/** What a number cell shows while the pull requests load. */
+const countPlaceholder = "…";
+
+/** A row of counts, or of placeholders when `counts` is not known yet. */
 function CountsRow(props: {
   readonly label: ReactNode;
-  readonly counts: ActivityCounts;
+  readonly counts: ActivityCounts | undefined;
 }) {
   const { label, counts } = props;
   return (
     <tr>
       <th scope="row">{label}</th>
-      <td style={numeric}>{counts.opened}</td>
-      <td style={numeric}>{counts.merged}</td>
-      <td style={numeric}>+{counts.additions}</td>
-      <td style={numeric}>−{counts.deletions}</td>
+      <td style={numeric}>{counts?.opened ?? countPlaceholder}</td>
+      <td style={numeric}>{counts?.merged ?? countPlaceholder}</td>
+      <td style={numeric}>
+        {counts === undefined ? countPlaceholder : `+${counts.additions}`}
+      </td>
+      <td style={numeric}>
+        {counts === undefined ? countPlaceholder : `−${counts.deletions}`}
+      </td>
     </tr>
   );
 }

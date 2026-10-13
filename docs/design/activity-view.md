@@ -150,14 +150,15 @@ everything again. What cannot change is kept longer than what can:
 | An unmerged pull request                      | State and lines change                    | Short-lived; fetched again by node id                    |
 | Today's pull requests                         | Grow                                      | Short-lived                                              |
 | The organization's member list                | Changes                                   | Short-lived                                              |
+| The installations (the user's organizations)  | Changes                                   | Short-lived                                              |
 
 Short-lived entries are used for 10 minutes after they were stored, so a
-reload within 10 minutes requests neither the member list nor any pull
-requests; the installations are not cached, being one cheap call. Lasting
-entries expire 7 days after they were stored. Without an expiry, a pull
-request in a private repository the user can no longer see would stay
-on screen; checking its visibility on every display would defeat the purpose
-of the cache, so the expiry bounds how long that can last instead.
+reload within 10 minutes requests neither the installations, nor the member
+list, nor any pull requests. Lasting entries expire 7 days after they were
+stored. Without an expiry, a pull request in a private repository the user
+can no longer see would stay on screen; checking its visibility on every
+display would defeat the purpose of the cache, so the expiry bounds how long
+that can last instead.
 
 A past day counts as fetched only when its results were fetched after the
 day had ended: the results of a day fetched while it was still today are
@@ -180,3 +181,34 @@ never see each other's results, and it is cleared on sign-out.
 The cache only saves requests. When IndexedDB is unavailable or fails
 (private browsing, blocked storage, a full quota), the view fetches
 everything as if nothing were stored, and the failure is not shown.
+
+### Drawing from the cache first
+
+The view draws what the cache holds at once and brings it up to date behind
+it, so that once the session is restored, a reload waits on none of the
+view's requests before showing the members' pull requests:
+
+- A stored installation or member list is drawn at once, also past its
+  short life; it is then fetched again, and drawn again if the fetched list
+  differs. Without a stored list, the view says it is loading until the
+  list arrives.
+- The members' stored pull requests in the period are drawn at once, as
+  they are: the summary table, the chart and the list, even when some days
+  are not fetched yet. The fetch described in "Fetching" then runs as
+  usual, and its result replaces what was drawn. While it runs, an
+  "Updating…" note sits beside the period, in room kept for it so that its
+  coming and going moves nothing. When the cache answers everything, nothing
+  is fetched and no note shows.
+- When nothing is stored for the members, the summary table lists them at
+  once with placeholders for the numbers, and the chart and the list say
+  they are loading.
+
+When a fetch fails behind what is drawn, what is drawn stays, and the
+failure with a way to retry takes the place of the "Updating…" note (or, for
+the installations and the members, shows above them). Retrying fetches
+again without clearing the screen. When nothing is drawn yet, the failure
+shows in place of the list, or, for the pull requests, below the table's
+placeholders.
+
+What is shown once the fetches have answered is the same as without the
+cache; the cache changes when things are drawn, not what is drawn.

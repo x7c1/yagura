@@ -1,9 +1,19 @@
 import type { Organization } from "@yagura/github-api";
-import { useCallback, useState } from "react";
-import { Failure, useRequest } from "../../shared";
+import { useMemo, useState } from "react";
+import {
+  Failure,
+  useStoredThenFetched,
+  type StoredThenFetchedSource,
+} from "../../shared";
 import { MembersActivity } from "../pull-requests";
-import { useSession } from "../session";
-import { loadMembers } from "./load-members";
+import { useSession, type SessionController } from "../session";
+import {
+  installationsList,
+  loadList,
+  membersList,
+  readStoredList,
+  type ShortLivedList,
+} from "./short-lived-list";
 
 /**
  * The organization the GitHub App is installed on, and its members' recent
@@ -12,37 +22,68 @@ import { loadMembers } from "./load-members";
  */
 export function OrganizationMembers() {
   const { controller } = useSession();
-  const load = useCallback(
+  const source = useMemo(
     () =>
-      controller.withAccessToken((token) =>
+      shortLivedSource(controller, installationsList, (token) =>
         controller.githubApi.listOrganizationInstallations(token),
       ),
     [controller],
   );
-  const { state, retry } = useRequest(load);
+  const { value, error, retry } = useStoredThenFetched(source);
 
-  switch (state.status) {
-    case "loading":
-      return <p>Loading organizations…</p>;
-    case "failed":
-      return (
-        <Failure
-          message={`Could not load your organizations: ${state.error}`}
-          retry={retry}
-        />
-      );
-    case "done": {
-      const [first] = state.value;
-      if (first === undefined) {
-        return (
-          <p>
-            The yagura GitHub App is not installed on any of your organizations.
-          </p>
-        );
-      }
-      return <OrganizationView organizations={state.value} initial={first} />;
-    }
+  if (value === undefined) {
+    return error === undefined ? (
+      <p>Loading organizations…</p>
+    ) : (
+      <Failure
+        message={`Could not load your organizations: ${error}`}
+        retry={retry}
+      />
+    );
   }
+  const failure = error !== undefined && (
+    <Failure
+      message={`Could not update your organizations: ${error}`}
+      retry={retry}
+    />
+  );
+  const [first] = value;
+  if (first === undefined) {
+    return (
+      <>
+        {failure}
+        <p>
+          The yagura GitHub App is not installed on any of your organizations.
+        </p>
+      </>
+    );
+  }
+  return (
+    <>
+      {failure}
+      <OrganizationView organizations={value} initial={first} />
+    </>
+  );
+}
+
+/**
+ * Where a short-lived list (see `short-lived-list.ts`) comes from: drawn
+ * from the browser cache at once when it is stored, and fetched with
+ * `request` behind it once its short life has passed.
+ */
+function shortLivedSource<T>(
+  controller: SessionController,
+  list: ShortLivedList<T>,
+  request: (token: string) => Promise<T[]>,
+): StoredThenFetchedSource<T[]> {
+  return {
+    stored: () =>
+      readStoredList(controller.viewerCache(), list, controller.now()),
+    fetch: () =>
+      loadList(controller.viewerCache(), list, controller.now(), () =>
+        controller.withAccessToken(request),
+      ),
+  };
 }
 
 function OrganizationView(props: {
@@ -50,7 +91,13 @@ function OrganizationView(props: {
   readonly initial: Organization;
 }) {
   const { organizations } = props;
-  const [selected, setSelected] = useState(props.initial.login);
+  const [chosen, setChosen] = useState<string>();
+  // Until the user chooses, and when the chosen organization is no longer
+  // listed (the list fetched behind the stored one differs), the first one
+  // is shown, as when the list is loaded without the cache.
+  const selected =
+    organizations.find(({ login }) => login === chosen)?.login ??
+    props.initial.login;
 
   return (
     <section>
@@ -59,7 +106,7 @@ function OrganizationView(props: {
           Organization{" "}
           <select
             value={selected}
-            onChange={(event) => setSelected(event.target.value)}
+            onChange={(event) => setChosen(event.target.value)}
           >
             {organizations.map(({ login }) => (
               <option key={login} value={login}>
@@ -78,31 +125,38 @@ function OrganizationView(props: {
 function Members(props: { readonly org: string }) {
   const { controller } = useSession();
   const { org } = props;
-  const load = useCallback(
-    async () =>
-      loadMembers(controller.viewerCache(), org, controller.now(), () =>
-        controller.withAccessToken((token) =>
-          controller.githubApi.listOrganizationMembers(token, org),
-        ),
+  const source = useMemo(
+    () =>
+      shortLivedSource(controller, membersList(org), (token) =>
+        controller.githubApi.listOrganizationMembers(token, org),
       ),
     [controller, org],
   );
-  const { state, retry } = useRequest(load);
+  const { value, error, retry } = useStoredThenFetched(source);
 
-  switch (state.status) {
-    case "loading":
-      return <p>Loading members…</p>;
-    case "failed":
-      return (
+  if (value === undefined) {
+    return error === undefined ? (
+      <p>Loading members…</p>
+    ) : (
+      <Failure
+        message={`Could not load the members of ${org}: ${error}`}
+        retry={retry}
+      />
+    );
+  }
+  return (
+    <>
+      {error !== undefined && (
         <Failure
-          message={`Could not load the members of ${org}: ${state.error}`}
+          message={`Could not update the members of ${org}: ${error}`}
           retry={retry}
         />
-      );
-    case "done":
-      if (state.value.length === 0) {
-        return <p>No members of {org} are visible to you.</p>;
-      }
-      return <MembersActivity org={org} members={state.value} />;
-  }
+      )}
+      {value.length === 0 ? (
+        <p>No members of {org} are visible to you.</p>
+      ) : (
+        <MembersActivity org={org} members={value} />
+      )}
+    </>
+  );
 }

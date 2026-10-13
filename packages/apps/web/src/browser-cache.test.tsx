@@ -11,6 +11,7 @@ import {
   mockPullRequests,
   mockPullRequestTitles,
   type ApiMock,
+  type MockPullRequestNode,
 } from "@yagura/api-mocks";
 import { MemoryJsonStore, type JsonStore } from "@yagura/browser";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
@@ -23,9 +24,12 @@ import {
 } from "./features/pull-requests/activity-record";
 import { viewerCachePrefix } from "./shared";
 import {
+  memberSummaryRows,
   mockDomainPullRequests,
   pullRequestTitles,
   server,
+  shownMemberSummaryRows,
+  shownPullRequestTitles,
   testController,
 } from "./test-support";
 
@@ -34,6 +38,8 @@ const day = 24 * 60 * minute;
 
 const graphqlUrl = "https://api.github.com/graphql";
 const membersUrl = `https://api.github.com/orgs/${mockOrganization}/members?per_page=100`;
+const installationsUrl =
+  "https://api.github.com/user/installations?per_page=100";
 
 /** 15:30 local time, so that the fixtures of the last hours fall on today. */
 const firstLoad = new Date(2026, 9, 12, 15, 30);
@@ -58,10 +64,10 @@ function page(cache: JsonStore = new MemoryJsonStore()) {
       now = new Date(firstLoad.getTime() + ms);
     },
     /**
-     * Renders the app and resolves to the listed titles. `handlers` take
+     * Renders the app, without waiting for anything. `handlers` take
      * precedence over the API mock's.
      */
-    async load(...handlers: HttpHandler[]): Promise<string[]> {
+    open(...handlers: HttpHandler[]): void {
       cleanup();
       mock?.clearRequests();
       const test = testController({
@@ -73,6 +79,13 @@ function page(cache: JsonStore = new MemoryJsonStore()) {
       mock = test.mock;
       server.use(...handlers);
       render(<App session={test.controller} />);
+    },
+    /**
+     * Renders the app and resolves to the listed titles once nothing is
+     * loading or updating. `handlers` take precedence over the API mock's.
+     */
+    async load(...handlers: HttpHandler[]): Promise<string[]> {
+      this.open(...handlers);
       return pullRequestTitles();
     },
   };
@@ -97,6 +110,21 @@ const periodIds = mockPullRequests(firstLoad)
   .map(({ id }) => id)
   .filter((id) => id !== "PR_mock_6")
   .sort();
+
+/** A pull request opened 5 minutes after the first load. */
+const newPullRequest: MockPullRequestNode = {
+  __typename: "PullRequest",
+  id: "PR_mock_new",
+  title: "Open a pull request after the first load",
+  url: "https://github.com/mock-org/web/pull/11",
+  repository: { nameWithOwner: "mock-org/web" },
+  author: { login: "mock-alice" },
+  state: "OPEN",
+  createdAt: new Date(firstLoad.getTime() + 5 * minute).toISOString(),
+  mergedAt: null,
+  additions: 3,
+  deletions: 1,
+};
 
 /** The fixture pull request `id` as the app sees it. */
 function fixture(id: string): PullRequest {
@@ -137,6 +165,7 @@ describe("The browser cache", () => {
     expect(await view.load()).toEqual(mockPullRequestTitles);
     expect(view.mock.requestsTo("POST", graphqlUrl)).toEqual([]);
     expect(view.mock.requestsTo("GET", membersUrl)).toEqual([]);
+    expect(view.mock.requestsTo("GET", installationsUrl)).toEqual([]);
   });
 
   it("searches for ids and times, and looks up each found pull request once", async () => {
@@ -164,19 +193,7 @@ describe("The browser cache", () => {
   it("searches only today after 10 minutes, and looks up only what may have changed", async () => {
     const view = page();
     await view.load();
-    view.mock.addPullRequest({
-      __typename: "PullRequest",
-      id: "PR_mock_new",
-      title: "Open a pull request after the first load",
-      url: "https://github.com/mock-org/web/pull/11",
-      repository: { nameWithOwner: "mock-org/web" },
-      author: { login: "mock-alice" },
-      state: "OPEN",
-      createdAt: new Date(firstLoad.getTime() + 5 * minute).toISOString(),
-      mergedAt: null,
-      additions: 3,
-      deletions: 1,
-    });
+    view.mock.addPullRequest(newPullRequest);
 
     view.advanceTo(10 * minute);
 
@@ -316,7 +333,10 @@ describe("The browser cache", () => {
     await view.load();
     expect(
       cache.keys.filter((key) => key.startsWith(viewerCachePrefix(mockLogin))),
-    ).toHaveLength(1 + mockMemberLogins.length);
+    ).toHaveLength(2 + mockMemberLogins.length);
+    expect(cache.keys).toContain(
+      `${viewerCachePrefix(mockLogin)}installations`,
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
     await screen.findByRole("button", { name: "Sign in with GitHub" });
@@ -381,5 +401,205 @@ describe("The browser cache", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("Drawing from the cache first", () => {
+  const updating = () => screen.queryByText("Updating…");
+  const chart = () =>
+    screen.queryByRole("group", {
+      name: "Opened and merged pull requests per day",
+    });
+  const failSearches = (failing: () => boolean) =>
+    http.post(graphqlUrl, async ({ request }) => {
+      const body = (await request.clone().json()) as {
+        variables?: { query?: unknown };
+      };
+      if (failing() && body.variables?.query !== undefined) {
+        return HttpResponse.json({ message: "Server Error" }, { status: 502 });
+      }
+      return undefined;
+    });
+
+  it("shows the stored pull requests while the update runs, then the fetched ones", async () => {
+    const view = page();
+    await view.load();
+    const cachedRows = shownMemberSummaryRows();
+    view.mock.addPullRequest(newPullRequest);
+    view.advanceTo(10 * minute);
+    view.mock.clearRequests();
+    const release = view.mock.holdGraphql(() => true);
+
+    view.open();
+
+    await screen.findByText("Updating…");
+    expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(shownMemberSummaryRows()).toEqual(cachedRows);
+    expect(chart()).toBeInTheDocument();
+    expect(view.mock.searches.length).toBeGreaterThan(0);
+
+    release();
+
+    expect(await pullRequestTitles()).toEqual([
+      newPullRequest.title,
+      ...mockPullRequestTitles,
+    ]);
+    expect(updating()).not.toBeInTheDocument();
+  });
+
+  it("shows the stored pull requests within 10 minutes without a GraphQL request or a note", async () => {
+    const view = page();
+    await view.load();
+    view.advanceTo(10 * minute - 1000);
+
+    view.open();
+
+    await screen.findByRole("table", { name: "Pull requests" });
+    expect(updating()).not.toBeInTheDocument();
+    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(view.mock.requestsTo("POST", graphqlUrl)).toEqual([]);
+  });
+
+  it("keeps the stored pull requests when the update fails, and retries", async () => {
+    const view = page();
+    await view.load();
+    view.mock.addPullRequest(newPullRequest);
+    view.advanceTo(10 * minute);
+    let failing = true;
+
+    view.open(failSearches(() => failing));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `Could not update the pull requests of ${mockOrganization}'s members`,
+    );
+    expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(updating()).not.toBeInTheDocument();
+
+    failing = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual([
+      newPullRequest.title,
+      ...mockPullRequestTitles,
+    ]);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("lists the members with placeholders while nothing is stored", async () => {
+    const view = page();
+    view.open();
+    // The mock exists once the app is rendered.
+    const release = view.mock.holdGraphql(() => true);
+
+    await screen.findByRole("table", { name: "Members" });
+    const placeholders = ["…", "…", "…", "…"];
+    expect(shownMemberSummaryRows()).toEqual([
+      ...mockMemberLogins.map((login) => [login, ...placeholders]),
+      ["Total", ...placeholders],
+    ]);
+    expect(screen.getByText("Loading pull requests…")).toBeInTheDocument();
+    expect(chart()).not.toBeInTheDocument();
+
+    release();
+
+    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect((await memberSummaryRows()).flat()).not.toContain("…");
+  });
+
+  it("keeps the placeholders when nothing is stored and the fetch fails, and retries", async () => {
+    const view = page();
+    let failing = true;
+
+    view.open(failSearches(() => failing));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      `Could not load the pull requests of ${mockOrganization}'s members`,
+    );
+    expect(shownMemberSummaryRows().map(([login]) => login)).toEqual([
+      ...mockMemberLogins,
+      "Total",
+    ]);
+    expect(shownMemberSummaryRows()[0]?.slice(1)).toEqual(["…", "…", "…", "…"]);
+
+    failing = false;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+
+    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+  });
+
+  it("draws the stored installations and members past 10 minutes before they are fetched again", async () => {
+    const view = page();
+    await view.load();
+    view.advanceTo(10 * minute);
+    const release = view.mock.holdRequests(
+      ({ url }) => url === installationsUrl || url === membersUrl,
+    );
+
+    view.open();
+
+    await screen.findByRole("table", { name: "Pull requests" });
+    await vi.waitFor(() => {
+      expect(view.mock.requestsTo("GET", installationsUrl)).toHaveLength(1);
+      expect(view.mock.requestsTo("GET", membersUrl)).toHaveLength(1);
+    });
+    expect(
+      screen.getByRole("heading", { name: mockOrganization }),
+    ).toBeVisible();
+
+    release();
+
+    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the first fetched organization when the stored one is no longer listed", async () => {
+    const view = page();
+    await view.load();
+    view.advanceTo(10 * minute);
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+
+    view.open(
+      http.get(installationsUrl.replace(/\?.*$/, ""), async () => {
+        await answered;
+        return HttpResponse.json({
+          total_count: 1,
+          installations: [
+            { id: 1, account: { login: "other-org", type: "Organization" } },
+          ],
+        });
+      }),
+    );
+
+    await screen.findByRole("heading", { name: mockOrganization });
+    answer();
+
+    await screen.findByRole("heading", { name: "other-org" });
+    expect(
+      screen.queryByRole("heading", { name: mockOrganization }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("draws again with a fetched member list that differs from the stored one", async () => {
+    const view = page();
+    await view.load();
+    view.advanceTo(10 * minute);
+    const fewer = mockMemberLogins.filter((login) => login !== "mock-carol");
+
+    view.open(
+      http.get(membersUrl.replace(/\?.*$/, ""), () =>
+        HttpResponse.json(fewer.map((login) => ({ login, avatar_url: "" }))),
+      ),
+    );
+
+    await vi.waitFor(async () => {
+      expect((await memberSummaryRows()).map(([login]) => login)).toEqual([
+        ...fewer,
+        "Total",
+      ]);
+    });
   });
 });

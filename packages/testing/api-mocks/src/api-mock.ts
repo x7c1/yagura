@@ -83,7 +83,8 @@ export interface RecordedRequest {
  *   GitHub does. It tells the two apart by the `query` and `ids` variables
  *   and does not parse the GraphQL document. {@link holdGraphql} holds
  *   chosen answers back, so that tests can observe what is sent while
- *   another request is still waiting.
+ *   another request is still waiting; {@link holdRequests} does the same
+ *   for any request.
  *
  * The GitHub endpoints answer `401` for a token the mock did not issue while
  * signed in, as GitHub does for a bad token, and fit on a single page.
@@ -96,6 +97,7 @@ export class ApiMock {
   readonly #organizations: readonly string[];
   readonly #pullRequests: MockPullRequestNode[];
   readonly #holds: Hold[] = [];
+  readonly #requestHolds: RequestHold[] = [];
 
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
@@ -264,6 +266,20 @@ export class ApiMock {
     return release;
   }
 
+  /**
+   * Holds back the answer to every request that `match` accepts, as it is
+   * recorded, until the returned function is called. For the GraphQL
+   * requests, {@link holdGraphql} matches on their variables.
+   */
+  holdRequests(match: (request: RecordedRequest) => boolean): () => void {
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.#requestHolds.push({ match, released });
+    return release;
+  }
+
   /** Forgets the requests recorded so far. */
   clearRequests(): void {
     this.#requests.length = 0;
@@ -339,12 +355,18 @@ export class ApiMock {
         body = text;
       }
     }
-    this.#requests.push({
+    const recorded: RecordedRequest = {
       method: request.method,
       url: request.url,
       credentials: request.credentials,
       body,
-    });
+    };
+    this.#requests.push(recorded);
+    for (const { match, released } of this.#requestHolds) {
+      if (match(recorded)) {
+        await released;
+      }
+    }
     return body;
   }
 }
@@ -352,6 +374,12 @@ export class ApiMock {
 /** Answers held back by {@link ApiMock.holdGraphql}. */
 interface Hold {
   readonly match: (variables: Readonly<Record<string, unknown>>) => boolean;
+  readonly released: Promise<void>;
+}
+
+/** Answers held back by {@link ApiMock.holdRequests}. */
+interface RequestHold {
+  readonly match: (request: RecordedRequest) => boolean;
   readonly released: Promise<void>;
 }
 
