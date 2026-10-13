@@ -94,12 +94,12 @@ signing in. The signed-in pages stay as they are.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the signed-out screen
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the signed-out screen
       in light and dark at desktop width and in light at 375px show the
       panel centred, the name, the line, the button and the note, and no
       horizontal scroll at 375px. Signing in from it reaches the activity
       page, and signing out returns to it.
-- [ ] Keyboard: the "Sign in with GitHub" button is reachable by Tab and
+- [x] Keyboard: the "Sign in with GitHub" button is reachable by Tab and
       shows a visible focus ring.
 
 ## Out of scope
