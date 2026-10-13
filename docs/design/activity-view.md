@@ -21,7 +21,7 @@ of the organization wrote it.
 
 ### The organization
 
-The organization is one that the yagura GitHub App is installed on, among
+The organization is one that the Yagura GitHub App is installed on, among
 those the signed-in user can access: the installations returned by
 `GET /user/installations` whose account type is `Organization`.
 
@@ -62,14 +62,23 @@ Two pages, one per question the view answers:
   **summary table**, under the heading "Per member", with a row per member:
   opened, merged, additions, deletions.
 
-Both pages show the organization (with its selector when there are
-several), the period, and the "Updating…" note or an update's failure
-(below).
+The activity page names no period: the chart's axis shows the days. The
+members page names it ("Last 14 days · Oct 1 – Oct 14") at the right of
+the "Per member" heading, as nothing else there tells what the table
+covers. The "Updating…" note sits at the right of the first card's
+heading ("Per day", or "Per member" after the period), and an update's
+failure shows above the cards (below).
 
-While signed in, the header shows a tab per page, the current one marked
-(the app's name is in the footer, out of the way), and the document title
-names the page ("Members · yagura"), so that the browser's tabs and
-history tell the pages apart. The tabs are links to the pages' addresses,
+While signed in, the header shows a tab per page on the left, the current
+one marked, and on the right the organization's avatar and name, the
+login after a slash ("my-org / octocat"), and a "Sign out" button. With
+several organizations, the organization's name is its selector. While the
+organizations load, or when the app is installed on none, the login
+stands alone. On a narrow screen the button wraps under the names, and a
+name too long for the room is cut short with an ellipsis. The app's name
+is in the footer, out of the way. The document title names the page
+("Members · Yagura"), so that the browser's tabs and history tell the
+pages apart. The tabs are links to the pages' addresses,
 so that a page can be opened in a new tab, copied or bookmarked; a plain
 click switches the page without loading it, adding a history entry, and
 the browser's back and forward buttons switch between the pages too. Any
@@ -126,13 +135,13 @@ as in the chart. The bands follow the dates shown, in a list narrowed by
 the chart too: narrowed to the pull requests opened on a day, one merged
 on a later day shows that later date, on that day's band.
 
-The summary table and the list cover the same period, shown above each,
-and the table adds up to the list when it is not narrowed. A pull
-request opened and merged in the period counts toward both the member's
-opened and merged, but its lines are summed once. Members with no pull
-requests in the period are listed with zeros: a member with nothing in two
-weeks is what the view is there to show. Rows are in login order, not ranked
-by any measure, and a totals row closes the table.
+The summary table and the list cover the same period, and the table adds
+up to the list when it is not narrowed. A pull request opened and merged
+in the period counts toward both the member's opened and merged, but its
+lines are summed once. Members with no pull requests in the period are
+listed with zeros: a member with nothing in two weeks is what the view is
+there to show. Rows are in login order, not ranked by any measure, and a
+totals row closes the table.
 
 Review counts and review latency are not shown.
 
@@ -267,19 +276,18 @@ What is drawn, and when:
   they are: the summary table, the chart and the list, even when some days
   are not fetched yet. The fetch described in "Fetching" then runs as
   usual, and its result replaces what was drawn. While it runs, an
-  "Updating…" note sits beside the period, in room kept for it so that its
-  coming and going moves nothing. When the cache answers everything, nothing
-  is fetched and no note shows.
+  "Updating…" note sits in the first card's heading row, in room kept for
+  it so that its coming and going moves nothing. When the cache answers
+  everything, nothing is fetched and no note shows.
 - When nothing is stored for the members, the summary table lists them at
   once with placeholders for the numbers, and the chart and the list say
   they are loading.
 
 When a fetch fails behind what is drawn, what is drawn stays, and the
-failure with a way to retry takes the place of the "Updating…" note (or, for
-the installations and the members, shows above them). Retrying fetches
-again without clearing the screen. When nothing is drawn yet, the failure
-shows in place of the list, or, for the pull requests, below the table's
-placeholders.
+failure with a way to retry shows above the cards, as it does for the
+installations and the members. Retrying fetches again without clearing the
+screen. When nothing is drawn yet, the failure shows in place of the list,
+or, for the pull requests, below the table's placeholders.
 
 What is shown once the fetches have answered is the same as without the
 cache; the cache changes when things are drawn, not what is drawn.

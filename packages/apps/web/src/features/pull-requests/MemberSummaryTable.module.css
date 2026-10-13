@@ -1,3 +1,11 @@
+/*
+ * The table scrolls inside here when it is wider than the card, as the
+ * logins keep to one line, so that the page never scrolls sideways.
+ */
+.scroll {
+  overflow-x: auto;
+}
+
 /* `.table` is applied with the shared table class, which it adjusts. */
 
 /* A member's row heading is not bold; the total's is (see below). */

@@ -11,7 +11,7 @@ describe("App", () => {
 
     render(<App session={controller} widths={testWidths()} />);
 
-    expect(screen.getByRole("heading", { name: "yagura" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Yagura" })).toBeInTheDocument();
     expect(
       await screen.findByRole("button", { name: "Sign in with GitHub" }),
     ).toBeInTheDocument();

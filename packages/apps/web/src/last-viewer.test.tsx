@@ -11,13 +11,15 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { viewerCachePrefix } from "./shared";
 import {
+  findOrganization,
   memberSummaryRows,
   pullRequestTitles,
   server,
   sessionApi,
-  showPage,
   shownMemberSummaryRows,
   shownPullRequestTitles,
+  showPage,
+  showsOrganization,
   testController,
   testWidths,
 } from "./test-support";
@@ -163,9 +165,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
       expect(view.mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
     });
     expect(screen.getByText("Loading…")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: mockOrganization }),
-    ).not.toBeInTheDocument();
+    expect(showsOrganization(mockOrganization)).toBe(false);
     view.releaseRefresh();
     await screen.findByRole("button", { name: "Sign in with GitHub" });
   });
@@ -186,15 +186,13 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     view.lastViewer.set(lastViewerKey, "someone-else");
 
     view.open({ holdRefresh: true });
-    await screen.findByRole("heading", { name: "else-org" });
+    await findOrganization("else-org");
     expect(screen.getByText("someone-else")).toBeInTheDocument();
     view.releaseRefresh();
 
-    await screen.findByRole("heading", { name: mockOrganization });
+    await findOrganization(mockOrganization);
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
-    expect(
-      screen.queryByRole("heading", { name: "else-org" }),
-    ).not.toBeInTheDocument();
+    expect(showsOrganization("else-org")).toBe(false);
     expect(screen.queryByText("someone-else")).not.toBeInTheDocument();
     expect(
       view.mock.requests.filter(({ url }) => url.includes("else-org")),
@@ -274,14 +272,14 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     fireEvent.change(screen.getByRole("combobox"), {
       target: { value: "second-org" },
     });
-    await screen.findByRole("heading", { name: "second-org" });
+    await findOrganization("second-org");
     await pullRequestTitles();
 
     view.open({ holdRefresh: true });
-    await screen.findByRole("heading", { name: "second-org" });
+    await findOrganization("second-org");
     view.releaseRefresh();
     await pullRequestTitles();
-    expect(screen.getByRole("heading", { name: "second-org" })).toBeVisible();
+    expect(showsOrganization("second-org")).toBe(true);
 
     // Past the list's short life, the fetched list lacks it.
     view.advanceTo(10 * minute);
@@ -299,10 +297,8 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
         }),
       ),
     );
-    await screen.findByRole("heading", { name: mockOrganization });
-    expect(
-      screen.queryByRole("heading", { name: "second-org" }),
-    ).not.toBeInTheDocument();
+    await findOrganization(mockOrganization);
+    expect(showsOrganization("second-org")).toBe(false);
   });
 
   it("draws nothing before the session is restored when no viewer is remembered", async () => {
@@ -315,9 +311,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
       expect(view.mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
     });
     expect(screen.getByText("Loading…")).toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: mockOrganization }),
-    ).not.toBeInTheDocument();
+    expect(showsOrganization(mockOrganization)).toBe(false);
 
     view.releaseRefresh();
 

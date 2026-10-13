@@ -1,5 +1,6 @@
 import type { Organization } from "@yagura/github-api";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Failure,
   sectionStyles,
@@ -32,13 +33,17 @@ interface Installations {
 }
 
 /**
- * The organization the GitHub App is installed on, and its members' recent
- * pull requests on `page`: charted per day and listed, or summarized per
- * member. With several organizations, a selector switches between them, and
- * the one selected is selected again on the next load while it is still
- * listed. What is loaded stays when `page` changes.
+ * The organization the GitHub App is installed on, drawn into
+ * `organizationSlot` in the header, and its members' recent pull requests
+ * on `page`: charted per day and listed, or summarized per member. With
+ * several organizations, a selector switches between them, and the one
+ * selected is selected again on the next load while it is still listed.
+ * What is loaded stays when `page` changes.
  */
-export function OrganizationMembers(props: { readonly page: Page }) {
+export function OrganizationMembers(props: {
+  readonly page: Page;
+  readonly organizationSlot: HTMLElement | null;
+}) {
   const { controller } = useSession();
   const source = useMemo((): StoredThenFetchedSource<Installations> => {
     const list = shortLivedSource(controller, installationsList, (token) =>
@@ -83,12 +88,10 @@ export function OrganizationMembers(props: { readonly page: Page }) {
     );
   }
   const failure = error !== undefined && (
-    <div className={styles.failure}>
-      <Failure
-        message={`Could not update your organizations: ${error}`}
-        retry={retry}
-      />
-    </div>
+    <Failure
+      message={`Could not update your organizations: ${error}`}
+      retry={retry}
+    />
   );
   const { organizations, selected } = value;
   const first = organizations[0];
@@ -98,7 +101,7 @@ export function OrganizationMembers(props: { readonly page: Page }) {
         {failure}
         <div className={sectionStyles.section}>
           <p className={sectionStyles.note}>
-            The yagura GitHub App is not installed on any of your organizations.
+            The Yagura GitHub App is not installed on any of your organizations.
           </p>
         </div>
       </>
@@ -111,6 +114,7 @@ export function OrganizationMembers(props: { readonly page: Page }) {
         organizations={organizations}
         initial={organizations.find(({ login }) => login === selected) ?? first}
         page={props.page}
+        organizationSlot={props.organizationSlot}
       />
     </>
   );
@@ -137,19 +141,18 @@ function shortLivedSource<T>(
 }
 
 /**
- * The selected organization and its members, under a band that holds the
- * organization's avatar and name on the left and, on the right, the period
- * its members' activity is drawn for, which the activity places there once
- * it is drawn. `initial` is selected until the user chooses another; the
- * choice is stored in the viewer's cache.
+ * The selected organization, drawn into `organizationSlot` in the header,
+ * and its members below. `initial` is selected until the user chooses
+ * another; the choice is stored in the viewer's cache.
  */
 function OrganizationView(props: {
   readonly organizations: readonly Organization[];
   readonly initial: Organization;
   readonly page: Page;
+  readonly organizationSlot: HTMLElement | null;
 }) {
   const { controller } = useSession();
-  const { organizations, page } = props;
+  const { organizations, page, organizationSlot } = props;
   const [chosen, setChosen] = useState<string>();
   // Until the user chooses, and when the chosen organization is no longer
   // listed (the list fetched behind the stored one differs), the initial
@@ -158,49 +161,42 @@ function OrganizationView(props: {
   const organization =
     organizations.find(({ login }) => login === chosen) ?? props.initial;
   const selected = organization.login;
-  // The band stays put while the members below it load and change, so that
-  // the selector keeps its focus when another organization is chosen.
-  const [periodSlot, setPeriodSlot] = useState<HTMLElement | null>(null);
+
+  // Drawn in the header, apart from the members, so that it stays put while
+  // they load and change, and the selector keeps its focus when another
+  // organization is chosen. The slash parts it from the login after it.
+  const identity = (
+    <span className={styles.identity}>
+      <OrganizationAvatar organization={organization} />
+      {organizations.length > 1 ? (
+        <select
+          aria-label="Organization"
+          className={styles.selector}
+          value={selected}
+          onChange={(event) => {
+            const login = event.target.value;
+            setChosen(login);
+            void controller.viewerCache().set(selectedOrganizationKey, login);
+          }}
+        >
+          {organizations.map(({ login }) => (
+            <option key={login} value={login}>
+              {login}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className={styles.name}>{selected}</span>
+      )}
+      <span className={styles.separator}>/</span>
+    </span>
+  );
 
   return (
-    <section>
-      <div className={styles.band}>
-        <div className={styles.identity}>
-          <div className={styles.title}>
-            <OrganizationAvatar organization={organization} />
-            <h2 className={styles.name}>{selected}</h2>
-          </div>
-          {organizations.length > 1 && (
-            <label className={styles.selector}>
-              Organization{" "}
-              <select
-                value={selected}
-                onChange={(event) => {
-                  const login = event.target.value;
-                  setChosen(login);
-                  void controller
-                    .viewerCache()
-                    .set(selectedOrganizationKey, login);
-                }}
-              >
-                {organizations.map(({ login }) => (
-                  <option key={login} value={login}>
-                    {login}
-                  </option>
-                ))}
-              </select>
-            </label>
-          )}
-        </div>
-        <div ref={setPeriodSlot} className={styles.period} />
-      </div>
-      <Members
-        key={selected}
-        org={selected}
-        page={page}
-        periodSlot={periodSlot}
-      />
-    </section>
+    <>
+      {organizationSlot && createPortal(identity, organizationSlot)}
+      <Members key={selected} org={selected} page={page} />
+    </>
   );
 }
 
@@ -219,14 +215,9 @@ function OrganizationAvatar(props: { readonly organization: Organization }) {
   );
 }
 
-function Members(props: {
-  readonly org: string;
-  readonly page: Page;
-  /** Where the period is drawn: in the band above, once it is mounted. */
-  readonly periodSlot: HTMLElement | null;
-}) {
+function Members(props: { readonly org: string; readonly page: Page }) {
   const { controller } = useSession();
-  const { org, page, periodSlot } = props;
+  const { org, page } = props;
   const source = useMemo(
     () =>
       shortLivedSource(controller, membersList(org), (token) =>
@@ -253,12 +244,10 @@ function Members(props: {
   return (
     <>
       {error !== undefined && (
-        <div className={styles.membersFailure}>
-          <Failure
-            message={`Could not update the members of ${org}: ${error}`}
-            retry={retry}
-          />
-        </div>
+        <Failure
+          message={`Could not update the members of ${org}: ${error}`}
+          retry={retry}
+        />
       )}
       {value.length === 0 ? (
         <div className={sectionStyles.section}>
@@ -267,12 +256,7 @@ function Members(props: {
           </p>
         </div>
       ) : (
-        <MembersActivity
-          org={org}
-          members={value}
-          page={page}
-          periodSlot={periodSlot}
-        />
+        <MembersActivity org={org} members={value} page={page} />
       )}
     </>
   );

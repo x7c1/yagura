@@ -89,7 +89,7 @@ describe("Pages", () => {
     expect(summaryTable()).toBeInTheDocument();
     expect(chart()).not.toBeInTheDocument();
     expect(tab("Members")).toHaveAttribute("aria-current", "page");
-    expect(document.title).toBe("Members · yagura");
+    expect(document.title).toBe("Members · Yagura");
     // Drawn at once from what the activity page loaded.
     expect(screen.queryByText("…")).not.toBeInTheDocument();
 
@@ -99,7 +99,7 @@ describe("Pages", () => {
     expect(chart()).toBeInTheDocument();
     expect(summaryTable()).not.toBeInTheDocument();
     expect(tab("Activity")).toHaveAttribute("aria-current", "page");
-    expect(document.title).toBe("Activity · yagura");
+    expect(document.title).toBe("Activity · Yagura");
 
     act(() => location.forward());
 

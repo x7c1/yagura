@@ -1,13 +1,13 @@
 /*
- * A login with the member's avatar beside it. A long login breaks anywhere
- * where the column lets it wrap, so that a table can narrow to a phone's
- * width.
+ * A login with the member's avatar beside it, on one line: a login is a
+ * name, and broken inside itself it no longer reads as one. A table too
+ * wide for the page scrolls inside its own container instead.
  */
 .login {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  overflow-wrap: anywhere;
+  white-space: nowrap;
 }
 
 .avatar {

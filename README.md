@@ -1,4 +1,4 @@
-# yagura
+# Yagura
 
 See your organization's development activity on GitHub at a glance.
 
@@ -15,7 +15,7 @@ The name is Japanese for a watchtower: a place to look over the whole site.
 
 ## Status
 
-yagura is in early development and is not yet usable. Nothing about its
+Yagura is in early development and is not yet usable. Nothing about its
 interfaces is stable.
 
 ## Documentation

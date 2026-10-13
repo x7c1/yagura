@@ -12,6 +12,7 @@ import {
   pullRequestRows,
   pullRequestTitles,
   server,
+  showPage,
   testController,
   testWidths,
 } from "../../test-support";
@@ -31,8 +32,20 @@ describe("MembersActivity", () => {
       screen.getAllByRole("link", { name: "Fix the sign-out redirect" }),
     ).toHaveLength(1);
     expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
+    // The chart's axis shows the days, so the activity page names no period.
+    expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
+  });
+
+  it("names the period beside the heading of the members' table", async () => {
+    const { controller } = testController({ signedIn: true });
+
+    render(<App session={controller} widths={testWidths()} />);
+    await pullRequestTitles();
+    showPage("Members");
+
+    const heading = screen.getByRole("heading", { name: "Per member" });
     expect(
-      screen.getByText(
+      within(heading.parentElement as HTMLElement).getByText(
         /^Last 14 days · [A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/,
       ),
     ).toBeInTheDocument();

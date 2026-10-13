@@ -30,14 +30,17 @@ import {
 } from "./features/pull-requests/activity-record";
 import { viewerCachePrefix } from "./shared";
 import {
-  memberSummaryRows,
+  findOrganization,
   membersPageUrl,
+  memberSummaryRows,
   mockDomainPullRequests,
+  organizationIdentity,
   pullRequestTitles,
   server,
-  showPage,
   shownMemberSummaryRows,
   shownPullRequestTitles,
+  showPage,
+  showsOrganization,
   testController,
   testWidths,
 } from "./test-support";
@@ -574,14 +577,12 @@ describe("Drawing from the cache first", () => {
       expect(view.mock.requestsTo("GET", installationsUrl)).toHaveLength(1);
       expect(view.mock.requestsTo("GET", membersUrl)).toHaveLength(1);
     });
-    const heading = screen.getByRole("heading", { name: mockOrganization });
-    expect(heading).toBeVisible();
+    expect(showsOrganization(mockOrganization)).toBe(true);
     // The organization's avatar is stored with it, so that it is drawn
     // before the installations are fetched again.
-    expect(heading.parentElement?.querySelector("img")).toHaveAttribute(
-      "src",
-      expect.stringMatching(/^data:image\/svg\+xml,/),
-    );
+    expect(
+      organizationIdentity(mockOrganization).querySelector("img"),
+    ).toHaveAttribute("src", expect.stringMatching(/^data:image\/svg\+xml,/));
 
     release();
 
@@ -604,10 +605,8 @@ describe("Drawing from the cache first", () => {
 
     view.open();
 
-    const identity = (): HTMLElement =>
-      screen.getByRole("heading", { name: mockOrganization })
-        .parentElement as HTMLElement;
-    await screen.findByRole("heading", { name: mockOrganization });
+    const identity = () => organizationIdentity(mockOrganization);
+    await findOrganization(mockOrganization);
     expect(identity().querySelector("img")).toBeNull();
     expect(
       within(identity()).getByText(mockOrganization.charAt(0).toUpperCase()),
@@ -644,13 +643,11 @@ describe("Drawing from the cache first", () => {
       }),
     );
 
-    await screen.findByRole("heading", { name: mockOrganization });
+    await findOrganization(mockOrganization);
     answer();
 
-    await screen.findByRole("heading", { name: "other-org" });
-    expect(
-      screen.queryByRole("heading", { name: mockOrganization }),
-    ).not.toBeInTheDocument();
+    await findOrganization("other-org");
+    expect(showsOrganization(mockOrganization)).toBe(false);
   });
 
   it("draws again with a fetched member list that differs from the stored one", async () => {

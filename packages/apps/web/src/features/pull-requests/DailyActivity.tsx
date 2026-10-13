@@ -11,20 +11,23 @@ import { buttonStyles, sectionStyles } from "../../shared";
 import styles from "./DailyActivity.module.css";
 import { DailyChart, describeSelection, type DaySelection } from "./DailyChart";
 import { PullRequestList } from "./PullRequestList";
+import { SectionHeading, UpdatingNote } from "./SectionHeading";
 
 /**
  * The chart of the opened and merged counts per day, and the list of pull
  * requests below it, with the avatars of the authors among `members`.
  * Choosing a bar in the chart narrows the list to that day's pull requests
- * of that kind, until it is chosen again or the narrowing is cleared.
+ * of that kind, until it is chosen again or the narrowing is cleared. While
+ * `updating`, a note at the right of the chart's heading says so.
  */
 export function DailyActivity(props: {
   readonly org: string;
   readonly members: readonly Member[];
   readonly pullRequests: readonly PullRequest[];
   readonly period: Period;
+  readonly updating: boolean;
 }) {
-  const { org, members, pullRequests, period } = props;
+  const { org, members, pullRequests, period, updating } = props;
   const [selected, setSelected] = useState<DaySelection | null>(null);
   const listed =
     selected === null
@@ -34,7 +37,9 @@ export function DailyActivity(props: {
   return (
     <>
       <section className={sectionStyles.section}>
-        <h3 className={sectionStyles.heading}>Per day</h3>
+        <SectionHeading aside={<UpdatingNote updating={updating} />}>
+          Per day
+        </SectionHeading>
         <DailyChart
           days={countByDay(pullRequests, period)}
           selected={selected}
@@ -42,7 +47,7 @@ export function DailyActivity(props: {
         />
       </section>
       <section className={sectionStyles.section}>
-        <h3 className={sectionStyles.heading}>Pull requests</h3>
+        <SectionHeading>Pull requests</SectionHeading>
         {selected !== null && (
           <p className={styles.selection}>
             {describeSelection(selected)} ·{" "}

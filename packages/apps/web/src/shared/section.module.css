@@ -4,7 +4,6 @@
  * same card, so that the page keeps its shape when the data arrives.
  */
 .section {
-  margin-top: var(--space-4);
   padding: var(--space-4);
   background: var(--color-bg);
   border: var(--border-width) solid var(--color-border);
@@ -22,6 +21,24 @@
 .heading {
   font-size: var(--font-size-lg);
   margin-bottom: var(--space-3);
+}
+
+/*
+ * A heading with something beside it at the right, such as the period or
+ * the note that an update is running. What is beside it wraps under the
+ * heading when the two do not fit on one line.
+ */
+.headingRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.headingRow > .heading {
+  margin-bottom: 0;
 }
 
 /* What a section shows while it loads or when it has nothing. */
