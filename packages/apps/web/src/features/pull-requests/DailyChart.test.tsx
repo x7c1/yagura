@@ -17,6 +17,7 @@ import {
   pullRequestTitles,
   showPage,
   testController,
+  testTheme,
   testWidths,
 } from "../../test-support";
 import { dayFormat } from "./format";
@@ -67,7 +68,7 @@ function chartLayout(): "columns" | "rows" {
 /** Renders the app with the chart drawn to `widths`, a desktop's by default. */
 async function renderChart(widths = testWidths()) {
   const { controller } = testController({ signedIn: true, clock: () => now });
-  render(<App session={controller} widths={widths} />);
+  render(<App session={controller} widths={widths} theme={testTheme()} />);
   await screen.findByRole("group", {
     name: "Opened and merged pull requests per day",
   });

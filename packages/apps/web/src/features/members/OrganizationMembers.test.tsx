@@ -10,6 +10,7 @@ import {
   server,
   showsOrganization,
   testController,
+  testTheme,
   testWidths,
 } from "../../test-support";
 
@@ -29,7 +30,9 @@ describe("OrganizationMembers", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     await findOrganization(mockOrganization);
     expect(await memberLogins()).toEqual(mockMemberLogins);
@@ -48,7 +51,9 @@ describe("OrganizationMembers", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
     await screen.findByRole("table", { name: "Members" });
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
@@ -62,7 +67,9 @@ describe("OrganizationMembers", () => {
       organizations: [],
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(
       await screen.findByText(
@@ -84,7 +91,9 @@ describe("OrganizationMembers", () => {
       ),
     );
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       `Could not load the members of ${mockOrganization}`,
@@ -103,7 +112,9 @@ describe("OrganizationMembers", () => {
       }),
     );
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(
       await screen.findByText(
@@ -119,7 +130,9 @@ describe("OrganizationMembers", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     await findOrganization(mockOrganization);
     await memberLogins();

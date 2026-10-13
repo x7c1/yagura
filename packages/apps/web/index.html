@@ -4,6 +4,21 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Yagura</title>
+    <script>
+      // Applies the theme the viewer chose before the first paint, so that
+      // a page set to Dark on a light system does not flash light while the
+      // app loads. The key and the values are the app's (themeStorageKey in
+      // src/features/theme/theme-controller.ts; a test keeps them the same).
+      // Blocked storage leaves the page following the system.
+      try {
+        const theme = localStorage.getItem("yagura.theme");
+        if (theme === "light" || theme === "dark") {
+          document.documentElement.setAttribute("data-theme", theme);
+        }
+      } catch {
+        // The app reports the failure once it starts.
+      }
+    </script>
   </head>
   <body>
     <div id="root"></div>

@@ -101,6 +101,20 @@ in…" in the button's place, above the same note, so that the screen does
 not jump between these states and the button never flashes before a
 restored session replaces it.
 
+The page follows the operating system's light or dark colour scheme
+unless the viewer chooses otherwise. The choice, "Theme: System · Light ·
+Dark", is a small muted group of radio buttons in the footer, after
+"Powered by Yagura", and under the panel on the sign-in screen, which has
+no footer; it is kept out of the header, which holds only what is used on
+every visit. System is the default. Light or Dark is set on the root
+element as `data-theme`, which the style sheet's colours and
+`color-scheme` follow, so that native controls and scrollbars match, and
+is kept in `localStorage` under its own key, `yagura.theme`; choosing
+System removes both. It is the browser's preference, not the viewer's, so
+signing out keeps it. A small script in `index.html` applies the stored
+choice before the first paint, so that a page set to Dark on a light
+system does not flash light while the app loads.
+
 Both pages are drawn from one load of the members' pull requests, so that
 switching between them fetches nothing again and shows the same data at
 once. The bar chosen in the chart (below) is not kept when leaving
