@@ -3,13 +3,13 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
 import { saveHandoff } from "./features/session/handoff";
-import { sessionApi, testController } from "./test-support";
+import { sessionApi, testController, testWidths } from "./test-support";
 
 describe("App", () => {
   it("shows the sign-in button when refresh answers 401", async () => {
     const { controller, mock } = testController();
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(screen.getByRole("heading", { name: "yagura" })).toBeInTheDocument();
     expect(
@@ -24,7 +24,7 @@ describe("App", () => {
   it("restores the session on reload and signs out", async () => {
     const { controller, mock } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(controller.accessToken).toBe("ghu_mock_1");
 
@@ -45,7 +45,7 @@ describe("App", () => {
     });
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(screen.getByText("Signing in…")).toBeInTheDocument();
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
@@ -65,7 +65,7 @@ describe("App", () => {
     }
     location.assign(mockAuthorize(authorizeUrl));
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(location.pathname).toBe("/");
@@ -78,7 +78,7 @@ describe("App", () => {
       url: "http://localhost:5173/callback?code=abc&state=forged",
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await screen.findByRole("alert")).toHaveTextContent("state");
     expect(location.pathname).toBe("/");

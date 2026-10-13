@@ -9,6 +9,7 @@ import {
   pullRequestTitles,
   showPage,
   testController,
+  testWidths,
 } from "../../test-support";
 import { pageAt } from "./pages";
 
@@ -33,7 +34,7 @@ describe("Pages", () => {
   it("opens the activity at the root: the chart and the list, without the summary table", async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     await pullRequestTitles();
     expect(chart()).toBeInTheDocument();
@@ -48,7 +49,7 @@ describe("Pages", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     await memberSummaryRows();
     expect(
@@ -65,7 +66,7 @@ describe("Pages", () => {
   it("links the tabs to the pages' addresses", async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(
       await screen.findByRole("navigation", { name: "Pages" }),
@@ -77,7 +78,7 @@ describe("Pages", () => {
   it("switches pages with the tabs and the history, without fetching again", async () => {
     const { controller, mock, location } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
     await pullRequestTitles();
     const requests = mock.requests.length;
 
@@ -120,7 +121,7 @@ describe("Pages", () => {
   it("leaves a click that asks for a new tab to the browser", async () => {
     const { controller, location } = testController({ signedIn: true });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
     await pullRequestTitles();
 
     // Note whether the app took the click, then keep jsdom, which cannot
@@ -148,7 +149,7 @@ describe("Pages", () => {
       url: "http://localhost:5173/nowhere?x=1",
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     await pullRequestTitles();
     expect(chart()).toBeInTheDocument();
@@ -162,7 +163,7 @@ describe("Pages", () => {
     async (url) => {
       const { controller, location } = testController({ url });
 
-      render(<App session={controller} />);
+      render(<App session={controller} widths={testWidths()} />);
 
       await screen.findByRole("button", { name: "Sign in with GitHub" });
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
@@ -179,7 +180,7 @@ describe("Pages", () => {
     });
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(location.href).toBe("http://localhost:5173/");

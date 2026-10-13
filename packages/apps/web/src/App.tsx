@@ -1,3 +1,4 @@
+import type { ElementWidths } from "@yagura/browser";
 import { useCallback, useEffect, useState } from "react";
 import styles from "./App.module.css";
 import { OrganizationMembers } from "./features/members";
@@ -8,6 +9,7 @@ import {
   PageTabs,
   type Page,
 } from "./features/pages";
+import { ElementWidthsProvider } from "./shared";
 import {
   CallbackHandler,
   SessionProvider,
@@ -18,7 +20,11 @@ import {
 
 export const callbackPath = "/callback";
 
-export function App(props: { readonly session: SessionController }) {
+export function App(props: {
+  readonly session: SessionController;
+  /** Where the views that are drawn to their width measure it. */
+  readonly widths: ElementWidths;
+}) {
   const { location } = props.session;
   const [pathname, setPathname] = useState(location.pathname);
 
@@ -61,24 +67,26 @@ export function App(props: { readonly session: SessionController }) {
 
   return (
     <SessionProvider controller={props.session}>
-      <header className={styles.header}>
-        <div className={styles.bar}>
-          <div className={styles.brand}>
-            <h1 className={styles.title}>yagura</h1>
-            {!onCallback && (
-              <SignedInTabs current={page} onNavigate={navigate} />
-            )}
+      <ElementWidthsProvider widths={props.widths}>
+        <header className={styles.header}>
+          <div className={styles.bar}>
+            <div className={styles.brand}>
+              <h1 className={styles.title}>yagura</h1>
+              {!onCallback && (
+                <SignedInTabs current={page} onNavigate={navigate} />
+              )}
+            </div>
+            {!onCallback && <SessionStatus />}
           </div>
-          {!onCallback && <SessionStatus />}
-        </div>
-      </header>
-      <main className={styles.main}>
-        {onCallback ? (
-          <CallbackHandler onDone={leaveCallback} />
-        ) : (
-          <Home page={page} />
-        )}
-      </main>
+        </header>
+        <main className={styles.main}>
+          {onCallback ? (
+            <CallbackHandler onDone={leaveCallback} />
+          ) : (
+            <Home page={page} />
+          )}
+        </main>
+      </ElementWidthsProvider>
     </SessionProvider>
   );
 }

@@ -17,6 +17,7 @@ import {
   server,
   showPage,
   testController,
+  testWidths,
 } from "../../test-support";
 
 const graphqlUrl = "https://api.github.com/graphql";
@@ -75,7 +76,7 @@ describe("MemberSummaryTable", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await memberSummaryRows()).toEqual(expectedRows());
   });
@@ -97,7 +98,7 @@ describe("MemberSummaryTable", () => {
       }),
     );
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     const rows = await memberSummaryRows();
     expect(rows.find(([login]) => login === "mock-carol")).toEqual([
@@ -116,7 +117,7 @@ describe("MemberSummaryTable", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
     await memberSummaryRows();
     showPage("Activity");
     await pullRequestRows();
@@ -133,7 +134,7 @@ describe("MemberSummaryTable", () => {
     });
     server.use(http.post(graphqlUrl, emptySearch));
 
-    render(<App session={controller} />);
+    render(<App session={controller} widths={testWidths()} />);
 
     expect(await memberSummaryRows()).toEqual([
       ...mockMemberLogins.map((login) => [login, "0", "0", "+0", "−0"]),
