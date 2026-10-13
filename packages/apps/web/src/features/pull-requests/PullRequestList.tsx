@@ -2,7 +2,7 @@ import { latestEventIn, type Period, type PullRequest } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
 import { tableStyles } from "../../shared";
 import { dayBands } from "./day-bands";
-import { formatDayTime } from "./format";
+import { formatDateTime } from "./format";
 import { MemberLogin } from "./MemberLogin";
 import styles from "./PullRequestList.module.css";
 
@@ -71,7 +71,9 @@ export function PullRequestList(props: {
                 <span className={tableStyles.deletions}>−{pr.deletions}</span>
               </td>
               <td className={`${styles.numeric} ${styles.muted}`}>
-                <time dateTime={time.toISOString()}>{formatDayTime(time)}</time>
+                <time dateTime={time.toISOString()}>
+                  {formatDateTime(time)}
+                </time>
               </td>
             </tr>
           ))}

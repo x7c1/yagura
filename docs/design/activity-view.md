@@ -117,7 +117,8 @@ same bar again clears it too.
 The list's Date is when the pull request's latest event in the period
 happened: when it was merged if it was merged in the period, otherwise
 when it was opened. It is shown with its time, in the viewer's time zone
-and 24-hour form ("Oct 13 14:05"), on one line. The rows of each day share
+and 24-hour form ("2026-10-13 14:05"), on one line, every part padded so
+that the column lines up. The rows of each day share
 a background, alternating from one day to the next, the newest day's on
 the page background, so that where one day ends and the next begins shows
 without comparing dates. The days are counted in the viewer's time zone,

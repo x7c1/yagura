@@ -7,11 +7,13 @@ export const dayFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 /**
- * A moment as its month, day and 24-hour time in the local time zone, for
- * example "Oct 13 14:05".
+ * A moment as its date and 24-hour time in the local time zone, every part
+ * padded to a fixed width so that a column of them lines up, for example
+ * "2026-10-03 14:05".
  */
-export function formatDayTime(time: Date): string {
-  return `${dayFormat.format(time)} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
+export function formatDateTime(time: Date): string {
+  const date = `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())}`;
+  return `${date} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
 }
 
 /**

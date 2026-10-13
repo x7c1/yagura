@@ -51,7 +51,7 @@ describe("MembersActivity", () => {
       "mock-alice",
       "merged",
       "+18 −4",
-      expect.stringMatching(/^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}$/),
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
     ]);
     const link = within(row as HTMLElement).getByRole("link");
     expect(link).toHaveAttribute(
@@ -132,8 +132,8 @@ describe("MembersActivity", () => {
     const table = screen.getByRole("table", { name: "Pull requests" });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows.map((row) => row.querySelector("time")?.textContent)).toEqual([
-      "Oct 10 09:30",
-      "Oct 8 11:00",
+      "2026-10-10 09:30",
+      "2026-10-08 11:00",
     ]);
     expect(rows.map((row) => row.dataset["band"])).toEqual(["0", "1"]);
   });
