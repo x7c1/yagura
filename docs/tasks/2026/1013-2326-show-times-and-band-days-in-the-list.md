@@ -106,7 +106,7 @@ narrowing by the chart and the other columns do not change.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity page's
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity page's
       list at 1280px and at 375px, in light and dark:
   - the heading reads "Date" and each value shows date and time on one
     line;
