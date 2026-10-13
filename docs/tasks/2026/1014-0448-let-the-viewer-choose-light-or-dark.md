@@ -94,13 +94,13 @@ Dark.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots show the control in the
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots show the control in the
       footer of the Activity page and under the sign-in panel, in light
       and dark, at desktop width and at 375px. Choosing Dark on a light OS
       setting turns the page dark, and reloading keeps it dark without a
       light flash. Choosing Light on a dark OS setting does the opposite.
       There is no horizontal scroll at 375px.
-- [ ] Keyboard: the theme options are reachable by Tab (or by arrow keys
+- [x] Keyboard: the theme options are reachable by Tab (or by arrow keys
       within the group) and show a visible focus ring.
 
 ## Out of scope
