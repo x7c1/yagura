@@ -35,7 +35,12 @@ export function SessionStatus() {
       return (
         <div className={styles.status}>
           <span className={styles.login}>{state.login}</span>{" "}
-          <button type="button" onClick={() => void controller.signOut()}>
+          {/* Quiet, so that the bar's emphasis stays on the tabs. */}
+          <button
+            type="button"
+            className={buttonStyles.quiet}
+            onClick={() => void controller.signOut()}
+          >
             Sign out
           </button>
         </div>

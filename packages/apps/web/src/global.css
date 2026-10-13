@@ -33,6 +33,8 @@
   --border-width-strong: 2px;
   --focus-ring-width: 2px;
   --focus-ring-offset: 2px;
+  /* The line under the current tab. */
+  --tab-underline-width: 3px;
 
   /* Measures. */
   --content-max-width: 1100px;
@@ -40,6 +42,8 @@
   --note-min-width: 7em;
   /* The narrowest a wrapping column such as a title is allowed to get. */
   --wrap-column-min-width: 16em;
+  /* An avatar beside a name: a member's, or the organization's. */
+  --avatar-size: 24px;
 
   /* Colours: light. */
   color-scheme: light;
@@ -54,6 +58,10 @@
   --color-border-strong: #818b98;
   --color-link: #0969da;
   --color-focus: #0969da;
+  /* What marks the current place, such as the current tab's underline. */
+  --color-accent: #bc4c00;
+  /* Lifts a card off the page, just enough to be felt. */
+  --shadow-card: 0 1px 2px rgb(31 35 40 / 0.06);
   --color-primary: #1f883d;
   --color-primary-hover: #1a7f37;
   --color-on-primary: #ffffff;
@@ -83,6 +91,8 @@
     --color-border-strong: #656c76;
     --color-link: #4493f8;
     --color-focus: #4493f8;
+    --color-accent: #f78166;
+    --shadow-card: 0 1px 2px rgb(1 4 9 / 0.6);
     --color-primary: #238636;
     /* Darker, not lighter, so that white text keeps AA contrast. */
     --color-primary-hover: #1f7a32;

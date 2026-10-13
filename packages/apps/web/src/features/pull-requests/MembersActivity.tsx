@@ -6,6 +6,7 @@ import {
 } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
 import { useMemo, useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { Failure, sectionStyles, useStoredThenFetched } from "../../shared";
 import type { Page } from "../pages";
 import { useSession } from "../session";
@@ -20,10 +21,10 @@ import { MemberSummaryTable } from "./MemberSummaryTable";
 
 /**
  * What the organization's members opened or merged lately, on `page`: the
- * period, then a chart per day and the list of pull requests (the
- * activity), or a summary table with a row per member (the members). Both
- * pages are drawn from one fetch, made here above them, so that switching
- * between them fetches nothing again.
+ * period, drawn into `periodSlot`, then a chart per day and the list of
+ * pull requests (the activity), or a summary table with a row per member
+ * (the members). Both pages are drawn from one fetch, made here above them,
+ * so that switching between them fetches nothing again.
  *
  * What the browser cache holds is drawn at once, and the fetch brings it up
  * to date behind it, with a note beside the period while it runs. When the
@@ -34,9 +35,17 @@ export function MembersActivity(props: {
   readonly org: string;
   readonly members: readonly Member[];
   readonly page: Page;
+  /**
+   * Where the period is drawn: the band heading the page, kept outside
+   * this view so that it stays put while this one changes. Nothing is drawn
+   * there until it is mounted.
+   */
+  readonly periodSlot: HTMLElement | null;
 }) {
   const { controller } = useSession();
-  const { org, members, page } = props;
+  const { org, members, page, periodSlot } = props;
+  const inSlot = (periodLine: ReactNode) =>
+    periodSlot && createPortal(periodLine, periodSlot);
   // A new member list with the same logins fetches nothing again.
   const loginsKey = members.map(({ login }) => login).join("\n");
   const source = useMemo(() => {
@@ -83,7 +92,7 @@ export function MembersActivity(props: {
     // Nothing is drawn yet: the failure takes the place of what is loading.
     return (
       <>
-        <PeriodLine period={loadingPeriod} updating={false} />
+        {inSlot(<PeriodLine period={loadingPeriod} updating={false} />)}
         {page === "members" && <PerMember members={members} />}
         {failure ? (
           <div className={sectionStyles.section}>{failure}</div>
@@ -108,7 +117,9 @@ export function MembersActivity(props: {
   const { period, pullRequests } = value;
   return (
     <>
-      <PeriodLine period={period} updating={updating} failure={failure} />
+      {inSlot(
+        <PeriodLine period={period} updating={updating} failure={failure} />,
+      )}
       {page === "members" ? (
         <PerMember
           members={members}
@@ -119,7 +130,12 @@ export function MembersActivity(props: {
           )}
         />
       ) : (
-        <DailyActivity org={org} pullRequests={pullRequests} period={period} />
+        <DailyActivity
+          org={org}
+          members={members}
+          pullRequests={pullRequests}
+          period={period}
+        />
       )}
     </>
   );
@@ -142,8 +158,9 @@ function PerMember(props: {
 }
 
 /**
- * The period, and beside it the note that an update is running or, in its
- * place, the update's failure.
+ * The period, as the number of days and the first and last of them, and
+ * on its left the note that an update is running or, in its place, the
+ * update's failure.
  */
 function PeriodLine(props: {
   readonly period: Period;
@@ -153,12 +170,12 @@ function PeriodLine(props: {
   const { period, updating, failure } = props;
   return (
     <div className={styles.periodLine}>
-      <p className={styles.period}>{formatPeriod(period)}</p>
       {failure || (
         <span role="status" className={styles.updatingNote}>
           {updating && "Updating…"}
         </span>
       )}
+      <p className={styles.period}>{formatPeriod(period)}</p>
     </div>
   );
 }

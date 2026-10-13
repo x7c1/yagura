@@ -14,7 +14,13 @@ import {
   type MockPullRequestNode,
 } from "@yagura/api-mocks";
 import { MemoryJsonStore, type JsonStore } from "@yagura/browser";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { http, HttpResponse, type HttpHandler } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -568,14 +574,53 @@ describe("Drawing from the cache first", () => {
       expect(view.mock.requestsTo("GET", installationsUrl)).toHaveLength(1);
       expect(view.mock.requestsTo("GET", membersUrl)).toHaveLength(1);
     });
-    expect(
-      screen.getByRole("heading", { name: mockOrganization }),
-    ).toBeVisible();
+    const heading = screen.getByRole("heading", { name: mockOrganization });
+    expect(heading).toBeVisible();
+    // The organization's avatar is stored with it, so that it is drawn
+    // before the installations are fetched again.
+    expect(heading.parentElement?.querySelector("img")).toHaveAttribute(
+      "src",
+      expect.stringMatching(/^data:image\/svg\+xml,/),
+    );
 
     release();
 
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("draws a stored organization without an avatar with its initial until the fetch brings the avatar", async () => {
+    const view = page();
+    await view.load();
+    view.advanceTo(10 * minute);
+    // As stored before the organization's avatar was kept.
+    await view.cache.set(`${viewerCachePrefix(mockLogin)}installations`, {
+      storedAt: firstLoad.getTime(),
+      items: [{ login: mockOrganization }],
+    });
+    const release = view.mock.holdRequests(
+      ({ url }) => url === installationsUrl,
+    );
+
+    view.open();
+
+    const identity = (): HTMLElement =>
+      screen.getByRole("heading", { name: mockOrganization })
+        .parentElement as HTMLElement;
+    await screen.findByRole("heading", { name: mockOrganization });
+    expect(identity().querySelector("img")).toBeNull();
+    expect(
+      within(identity()).getByText(mockOrganization.charAt(0).toUpperCase()),
+    ).toHaveAttribute("aria-hidden", "true");
+
+    release();
+
+    await vi.waitFor(() => {
+      expect(identity().querySelector("img")).toHaveAttribute(
+        "src",
+        expect.stringMatching(/^data:image\/svg\+xml,/),
+      );
+    });
   });
 
   it("shows the first fetched organization when the stored one is no longer listed", async () => {

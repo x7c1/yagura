@@ -1,4 +1,8 @@
-/* The bar across the top: the name and the tabs left, the session right. */
+/*
+ * The bar across the top: the name left, the tabs beside it on the bar's
+ * bottom edge, and the session right. On a narrow screen the tabs take a
+ * row of their own under the name and the session, still on the edge.
+ */
 .header {
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--color-border);
@@ -13,28 +17,47 @@
 }
 
 .bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-areas: "brand tabs session";
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
-}
-
-/* The name, and the tabs beside it, or below it when they do not fit. */
-.brand {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-5);
+  column-gap: var(--space-5);
 }
 
 .title {
+  grid-area: brand;
+  padding-top: var(--space-3);
+  padding-bottom: var(--space-3);
   font-size: var(--font-size-xl);
 }
 
+/*
+ * The tabs sit on the bar's bottom edge, reaching over the header's border
+ * so that the current tab's underline takes its place.
+ */
+.tabs {
+  grid-area: tabs;
+  align-self: end;
+  margin-bottom: calc(-1 * var(--border-width));
+}
+
+.session {
+  grid-area: session;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+@media (max-width: 40rem) {
+  .bar {
+    grid-template-columns: minmax(0, 1fr) auto;
+    grid-template-areas:
+      "brand session"
+      "tabs tabs";
+    column-gap: var(--space-3);
+  }
+}
+
 .main {
-  padding-top: var(--space-5);
+  padding-top: var(--space-4);
   padding-bottom: var(--space-6);
 }

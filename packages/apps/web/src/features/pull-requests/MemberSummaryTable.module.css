@@ -14,23 +14,6 @@
   }
 }
 
-/*
- * The member: the avatar beside the login. A long login breaks anywhere,
- * which also lets the column narrow, so the table fits a phone's width.
- */
-.member {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  overflow-wrap: anywhere;
-}
-
-.avatar {
-  flex: none;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
-}
-
 .table .numeric {
   text-align: right;
   font-variant-numeric: tabular-nums;

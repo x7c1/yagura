@@ -1,6 +1,22 @@
-/* A part of the page, set apart by space and a heading rather than a box. */
+/*
+ * A part of the page, as a card with its heading inside at the top. What
+ * stands in a section's place while it loads, or when it fails, takes the
+ * same card, so that the page keeps its shape when the data arrives.
+ */
 .section {
-  margin-top: var(--space-6);
+  margin-top: var(--space-4);
+  padding: var(--space-4);
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+/* On a phone, a smaller padding leaves the content more of the width. */
+@media (max-width: 40rem) {
+  .section {
+    padding: var(--space-3);
+  }
 }
 
 .heading {

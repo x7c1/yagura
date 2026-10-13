@@ -32,7 +32,9 @@ describe("MembersActivity", () => {
     ).toHaveLength(1);
     expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
     expect(
-      screen.getByText(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/),
+      screen.getByText(
+        /^Last 14 days · [A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -123,6 +125,7 @@ describe("MembersActivity", () => {
           opened("still open", null),
         ]}
         period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
+        members={[]}
       />,
     );
 
@@ -133,6 +136,44 @@ describe("MembersActivity", () => {
       "Oct 8 11:00",
     ]);
     expect(rows.map((row) => row.dataset["band"])).toEqual(["0", "1"]);
+  });
+
+  it("shows a member author's avatar, and any other author's login alone", () => {
+    const by = (id: string, author: string): PullRequest => ({
+      id,
+      state: "open",
+      createdAt: new Date(2026, 9, 8, 11, 0),
+      mergedAt: null,
+      title: id,
+      url: `https://github.com/${mockOrganization}/web/pull/${id}`,
+      repository: `${mockOrganization}/web`,
+      author,
+      additions: 1,
+      deletions: 1,
+    });
+
+    render(
+      <PullRequestList
+        pullRequests={[by("1", "mock-alice"), by("2", "outsider")]}
+        period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
+        members={[{ login: "mock-alice", avatarUrl: "https://avatars/alice" }]}
+      />,
+    );
+
+    const table = screen.getByRole("table", { name: "Pull requests" });
+    const authors = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[2] as HTMLElement);
+    expect(authors.map((cell) => cell.textContent)).toEqual([
+      "mock-alice",
+      "outsider",
+    ]);
+    expect(authors[0]?.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://avatars/alice",
+    );
+    expect(authors[1]?.querySelector("img")).toBeNull();
   });
 
   it("says so when the members have no pull requests in the period", async () => {

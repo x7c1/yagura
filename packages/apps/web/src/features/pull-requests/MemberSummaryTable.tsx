@@ -2,6 +2,7 @@ import type { ActivityCounts, ActivitySummary } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
 import type { ReactNode } from "react";
 import { tableStyles } from "../../shared";
+import { MemberLogin } from "./MemberLogin";
 import styles from "./MemberSummaryTable.module.css";
 
 /**
@@ -48,18 +49,7 @@ export function MemberSummaryTable(props: {
         {rows.map(({ login, counts }) => (
           <CountsRow
             key={login}
-            label={
-              <span className={styles.member}>
-                <img
-                  className={styles.avatar}
-                  src={avatars.get(login)}
-                  alt=""
-                  width={24}
-                  height={24}
-                />{" "}
-                {login}
-              </span>
-            }
+            label={<MemberLogin login={login} avatarUrl={avatars.get(login)} />}
             counts={counts}
           />
         ))}

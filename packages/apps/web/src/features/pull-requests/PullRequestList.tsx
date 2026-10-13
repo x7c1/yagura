@@ -1,19 +1,26 @@
 import { latestEventIn, type Period, type PullRequest } from "@yagura/activity";
+import type { Member } from "@yagura/github-api";
 import { tableStyles } from "../../shared";
 import { dayBands } from "./day-bands";
 import { formatDayTime } from "./format";
+import { MemberLogin } from "./MemberLogin";
 import styles from "./PullRequestList.module.css";
 
 /**
  * The pull requests, newest first, as they are given. The rows of each day
  * share a background, alternating from one day to the next, so that the
- * days stand apart.
+ * days stand apart. An author among `members` is shown with their avatar,
+ * as in the summary table; any other author by the login alone.
  */
 export function PullRequestList(props: {
   readonly pullRequests: readonly PullRequest[];
   readonly period: Period;
+  readonly members: readonly Member[];
 }) {
-  const { pullRequests, period } = props;
+  const { pullRequests, period, members } = props;
+  const avatars = new Map(
+    members.map(({ login, avatarUrl }) => [login, avatarUrl]),
+  );
   const rows = pullRequests.map((pr) => ({
     pr,
     time: latestEventIn(pr, period),
@@ -48,7 +55,12 @@ export function PullRequestList(props: {
                 </a>
               </td>
               <td className={styles.muted}>{pr.repository}</td>
-              <td>{pr.author}</td>
+              <td>
+                <MemberLogin
+                  login={pr.author}
+                  avatarUrl={avatars.get(pr.author)}
+                />
+              </td>
               <td>
                 <span className={`${styles.badge} ${styles[pr.state]}`}>
                   {pr.state}

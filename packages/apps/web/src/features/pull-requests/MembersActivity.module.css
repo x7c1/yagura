@@ -1,22 +1,45 @@
-/* The period line, with the update's note or failure beside it. */
+/*
+ * The period line, muted, flush with the right edge of the band and of the
+ * cards below, with the update's note or failure on its left.
+ */
 .periodLine {
   display: flex;
   flex-wrap: wrap;
-  align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-3);
+  align-items: center;
+  justify-content: flex-end;
+  gap: var(--space-2) var(--space-3);
 }
 
 .period {
-  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
 }
 
 /*
  * Room for the "Updating…" note, kept while it is absent, so that its
- * coming and going does not move anything.
+ * coming and going does not move the period. The note sits against the
+ * period, at the end of its room.
  */
 .updatingNote {
   display: inline-block;
   min-width: var(--note-min-width);
   color: var(--color-text-muted);
+  text-align: right;
+}
+
+/*
+ * On a phone, the period wraps below the organization's name, at the left,
+ * and the note follows it there, as the period cannot stay right of it.
+ */
+@media (max-width: 40rem) {
+  .periodLine {
+    justify-content: flex-start;
+  }
+
+  .period {
+    order: -1;
+  }
+
+  .updatingNote {
+    text-align: left;
+  }
 }

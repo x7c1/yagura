@@ -70,13 +70,17 @@ export function App(props: {
       <ElementWidthsProvider widths={props.widths}>
         <header className={styles.header}>
           <div className={styles.bar}>
-            <div className={styles.brand}>
-              <h1 className={styles.title}>yagura</h1>
-              {!onCallback && (
-                <SignedInTabs current={page} onNavigate={navigate} />
-              )}
-            </div>
-            {!onCallback && <SessionStatus />}
+            <h1 className={styles.title}>yagura</h1>
+            {!onCallback && (
+              <>
+                <div className={styles.tabs}>
+                  <SignedInTabs current={page} onNavigate={navigate} />
+                </div>
+                <div className={styles.session}>
+                  <SessionStatus />
+                </div>
+              </>
+            )}
           </div>
         </header>
         <main className={styles.main}>

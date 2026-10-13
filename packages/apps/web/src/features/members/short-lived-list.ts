@@ -15,14 +15,23 @@ export interface ShortLivedList<T> {
   readonly decode: (value: unknown) => T | undefined;
 }
 
-/** The installations' organizations the GitHub App is on. */
+/**
+ * The installations' organizations the GitHub App is on. A list stored
+ * before avatars were kept has none, so an organization without one is
+ * read as it is, and gets its avatar with the next fetch.
+ */
 export const installationsList: ShortLivedList<Organization> = {
   key: "installations",
-  encode: ({ login }) => ({ login }),
-  decode: (value) =>
-    isRecord(value) && typeof value.login === "string"
-      ? { login: value.login }
-      : undefined,
+  encode: ({ login, avatarUrl }): JsonValue =>
+    avatarUrl === undefined ? { login } : { login, avatarUrl },
+  decode: (value) => {
+    if (!isRecord(value) || typeof value.login !== "string") {
+      return undefined;
+    }
+    return typeof value.avatarUrl === "string"
+      ? { login: value.login, avatarUrl: value.avatarUrl }
+      : { login: value.login };
+  },
 };
 
 /** An organization's member list. */

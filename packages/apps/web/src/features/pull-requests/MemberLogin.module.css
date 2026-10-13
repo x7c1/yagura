@@ -1,0 +1,19 @@
+/*
+ * A login with the member's avatar beside it. A long login breaks anywhere
+ * where the column lets it wrap, so that a table can narrow to a phone's
+ * width.
+ */
+.login {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  overflow-wrap: anywhere;
+}
+
+.avatar {
+  flex: none;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border-radius: var(--radius-pill);
+  background: var(--color-surface);
+}

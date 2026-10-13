@@ -5,6 +5,7 @@ import {
   type Period,
   type PullRequest,
 } from "@yagura/activity";
+import type { Member } from "@yagura/github-api";
 import { useState } from "react";
 import { buttonStyles, sectionStyles } from "../../shared";
 import styles from "./DailyActivity.module.css";
@@ -13,16 +14,17 @@ import { PullRequestList } from "./PullRequestList";
 
 /**
  * The chart of the opened and merged counts per day, and the list of pull
- * requests below it. Choosing a bar in the chart narrows the list to that
- * day's pull requests of that kind, until it is chosen again or the
- * narrowing is cleared.
+ * requests below it, with the avatars of the authors among `members`.
+ * Choosing a bar in the chart narrows the list to that day's pull requests
+ * of that kind, until it is chosen again or the narrowing is cleared.
  */
 export function DailyActivity(props: {
   readonly org: string;
+  readonly members: readonly Member[];
   readonly pullRequests: readonly PullRequest[];
   readonly period: Period;
 }) {
-  const { org, pullRequests, period } = props;
+  const { org, members, pullRequests, period } = props;
   const [selected, setSelected] = useState<DaySelection | null>(null);
   const listed =
     selected === null
@@ -58,7 +60,11 @@ export function DailyActivity(props: {
             className={sectionStyles.note}
           >{`No pull requests by ${org}'s members in the last ${periodDays} days.`}</p>
         ) : (
-          <PullRequestList pullRequests={listed} period={period} />
+          <PullRequestList
+            pullRequests={listed}
+            period={period}
+            members={members}
+          />
         )}
       </section>
     </>

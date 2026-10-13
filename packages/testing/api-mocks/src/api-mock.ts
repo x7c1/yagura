@@ -135,7 +135,11 @@ export class ApiMock {
           total_count: this.#organizations.length,
           installations: this.#organizations.map((login, index) => ({
             id: index + 1,
-            account: { login, type: "Organization" },
+            account: {
+              login,
+              type: "Organization",
+              avatar_url: avatarUrl(login),
+            },
           })),
         });
       }),

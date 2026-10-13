@@ -69,13 +69,17 @@ export function OrganizationMembers(props: { readonly page: Page }) {
   const { value, error, retry } = useStoredThenFetched(source);
 
   if (value === undefined) {
-    return error === undefined ? (
-      <p className={sectionStyles.note}>Loading organizations…</p>
-    ) : (
-      <Failure
-        message={`Could not load your organizations: ${error}`}
-        retry={retry}
-      />
+    return (
+      <div className={sectionStyles.section}>
+        {error === undefined ? (
+          <p className={sectionStyles.note}>Loading organizations…</p>
+        ) : (
+          <Failure
+            message={`Could not load your organizations: ${error}`}
+            retry={retry}
+          />
+        )}
+      </div>
     );
   }
   const failure = error !== undefined && (
@@ -92,9 +96,11 @@ export function OrganizationMembers(props: { readonly page: Page }) {
     return (
       <>
         {failure}
-        <p className={sectionStyles.note}>
-          The yagura GitHub App is not installed on any of your organizations.
-        </p>
+        <div className={sectionStyles.section}>
+          <p className={sectionStyles.note}>
+            The yagura GitHub App is not installed on any of your organizations.
+          </p>
+        </div>
       </>
     );
   }
@@ -131,8 +137,11 @@ function shortLivedSource<T>(
 }
 
 /**
- * The selected organization and its members. `initial` is selected until
- * the user chooses another; the choice is stored in the viewer's cache.
+ * The selected organization and its members, under a band that holds the
+ * organization's avatar and name on the left and, on the right, the period
+ * its members' activity is drawn for, which the activity places there once
+ * it is drawn. `initial` is selected until the user chooses another; the
+ * choice is stored in the viewer's cache.
  */
 function OrganizationView(props: {
   readonly organizations: readonly Organization[];
@@ -146,44 +155,78 @@ function OrganizationView(props: {
   // listed (the list fetched behind the stored one differs), the initial
   // one is shown: the one selected on an earlier load while it is listed,
   // else the first, as when the list is loaded without the cache.
-  const selected =
-    organizations.find(({ login }) => login === chosen)?.login ??
-    props.initial.login;
+  const organization =
+    organizations.find(({ login }) => login === chosen) ?? props.initial;
+  const selected = organization.login;
+  // The band stays put while the members below it load and change, so that
+  // the selector keeps its focus when another organization is chosen.
+  const [periodSlot, setPeriodSlot] = useState<HTMLElement | null>(null);
 
   return (
     <section>
-      <div className={styles.heading}>
-        {organizations.length > 1 && (
-          <label className={styles.selector}>
-            Organization{" "}
-            <select
-              value={selected}
-              onChange={(event) => {
-                const login = event.target.value;
-                setChosen(login);
-                void controller
-                  .viewerCache()
-                  .set(selectedOrganizationKey, login);
-              }}
-            >
-              {organizations.map(({ login }) => (
-                <option key={login} value={login}>
-                  {login}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <h2 className={styles.name}>{selected}</h2>
+      <div className={styles.band}>
+        <div className={styles.identity}>
+          <div className={styles.title}>
+            <OrganizationAvatar organization={organization} />
+            <h2 className={styles.name}>{selected}</h2>
+          </div>
+          {organizations.length > 1 && (
+            <label className={styles.selector}>
+              Organization{" "}
+              <select
+                value={selected}
+                onChange={(event) => {
+                  const login = event.target.value;
+                  setChosen(login);
+                  void controller
+                    .viewerCache()
+                    .set(selectedOrganizationKey, login);
+                }}
+              >
+                {organizations.map(({ login }) => (
+                  <option key={login} value={login}>
+                    {login}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+        </div>
+        <div ref={setPeriodSlot} className={styles.period} />
       </div>
-      <Members key={selected} org={selected} page={page} />
+      <Members
+        key={selected}
+        org={selected}
+        page={page}
+        periodSlot={periodSlot}
+      />
     </section>
   );
 }
 
-function Members(props: { readonly org: string; readonly page: Page }) {
+/**
+ * The organization's avatar, or, when it is not known (a list stored before
+ * avatars were kept), the first letter of its login in the avatar's place.
+ */
+function OrganizationAvatar(props: { readonly organization: Organization }) {
+  const { login, avatarUrl } = props.organization;
+  return avatarUrl === undefined ? (
+    <span className={styles.avatar} aria-hidden="true">
+      {[...login][0]?.toUpperCase()}
+    </span>
+  ) : (
+    <img className={styles.avatar} src={avatarUrl} alt="" />
+  );
+}
+
+function Members(props: {
+  readonly org: string;
+  readonly page: Page;
+  /** Where the period is drawn: in the band above, once it is mounted. */
+  readonly periodSlot: HTMLElement | null;
+}) {
   const { controller } = useSession();
-  const { org, page } = props;
+  const { org, page, periodSlot } = props;
   const source = useMemo(
     () =>
       shortLivedSource(controller, membersList(org), (token) =>
@@ -194,19 +237,23 @@ function Members(props: { readonly org: string; readonly page: Page }) {
   const { value, error, retry } = useStoredThenFetched(source);
 
   if (value === undefined) {
-    return error === undefined ? (
-      <p className={sectionStyles.note}>Loading members…</p>
-    ) : (
-      <Failure
-        message={`Could not load the members of ${org}: ${error}`}
-        retry={retry}
-      />
+    return (
+      <div className={sectionStyles.section}>
+        {error === undefined ? (
+          <p className={sectionStyles.note}>Loading members…</p>
+        ) : (
+          <Failure
+            message={`Could not load the members of ${org}: ${error}`}
+            retry={retry}
+          />
+        )}
+      </div>
     );
   }
   return (
     <>
       {error !== undefined && (
-        <div className={styles.failure}>
+        <div className={styles.membersFailure}>
           <Failure
             message={`Could not update the members of ${org}: ${error}`}
             retry={retry}
@@ -214,11 +261,18 @@ function Members(props: { readonly org: string; readonly page: Page }) {
         </div>
       )}
       {value.length === 0 ? (
-        <p className={sectionStyles.note}>
-          No members of {org} are visible to you.
-        </p>
+        <div className={sectionStyles.section}>
+          <p className={sectionStyles.note}>
+            No members of {org} are visible to you.
+          </p>
+        </div>
       ) : (
-        <MembersActivity org={org} members={value} page={page} />
+        <MembersActivity
+          org={org}
+          members={value}
+          page={page}
+          periodSlot={periodSlot}
+        />
       )}
     </>
   );

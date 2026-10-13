@@ -1,10 +1,59 @@
-/* The organization's selector, if any, and its name above its members. */
-.heading {
+/*
+ * The band heading the page: the organization's avatar, name and selector,
+ * if any, on the left, and the period on the right, which wraps below the
+ * name when the two do not fit on one line.
+ */
+.band {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.identity {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+  min-width: 0;
+}
+
+/*
+ * A rounded square, as GitHub draws an organization's avatar. Without an
+ * image, the login's first letter on the surface colour takes its place.
+ */
+.avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+/*
+ * The avatar and the name, kept on one line so that a long name wraps
+ * beside its avatar rather than leaving it alone on a row above.
+ */
+.title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.name {
+  min-width: 0;
+  font-size: var(--font-size-xl);
+  overflow-wrap: anywhere;
 }
 
 .selector {
@@ -15,11 +64,24 @@
   color: var(--color-text-muted);
 }
 
-.name {
-  font-size: var(--font-size-xl);
+/*
+ * Where the activity draws the period, once it is drawn. It takes the rest
+ * of its row, so that the period stays flush right when it wraps below the
+ * name, as it does when the update's failure is shown beside it.
+ */
+.period {
+  flex: 1 1 auto;
+  min-width: 0;
 }
 
-/* The failure of an update shown above what is still drawn. */
+/*
+ * The failure of an update shown above what is still drawn: the
+ * organizations' above the band, the members' below it.
+ */
 .failure {
   margin-bottom: var(--space-4);
+}
+
+.membersFailure {
+  margin-top: var(--space-4);
 }

@@ -83,6 +83,11 @@ export interface GitHubApiClientOptions {
 /** An organization the GitHub App is installed on. */
 export interface Organization {
   readonly login: string;
+  /**
+   * The organization's avatar image. Absent when it is not known, as in an
+   * organization stored before avatars were kept.
+   */
+  readonly avatarUrl?: string;
 }
 
 /** A member of an organization. */
@@ -127,7 +132,11 @@ export class GitHubApiClient {
             return undefined;
           }
           if (account.type === "Organization") {
-            page.push({ login: account.login });
+            page.push(
+              typeof account.avatar_url === "string"
+                ? { login: account.login, avatarUrl: account.avatar_url }
+                : { login: account.login },
+            );
           }
         }
         return page;

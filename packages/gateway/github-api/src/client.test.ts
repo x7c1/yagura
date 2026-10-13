@@ -18,14 +18,26 @@ describe("GitHubApiClient.listOrganizationInstallations", () => {
         ? json({
             total_count: 3,
             installations: [
-              { account: { login: "beta", type: "Organization" } },
+              {
+                account: {
+                  login: "beta",
+                  type: "Organization",
+                  avatar_url: "https://avatars/beta",
+                },
+              },
             ],
           })
         : json(
             {
               total_count: 3,
               installations: [
-                { account: { login: "gamma", type: "Organization" } },
+                {
+                  account: {
+                    login: "gamma",
+                    type: "Organization",
+                    avatar_url: "https://avatars/gamma",
+                  },
+                },
                 { account: { login: "someone", type: "User" } },
               ],
             },
@@ -36,7 +48,10 @@ describe("GitHubApiClient.listOrganizationInstallations", () => {
 
     await expect(
       client.listOrganizationInstallations("ghu_abc"),
-    ).resolves.toEqual([{ login: "beta" }, { login: "gamma" }]);
+    ).resolves.toEqual([
+      { login: "beta", avatarUrl: "https://avatars/beta" },
+      { login: "gamma", avatarUrl: "https://avatars/gamma" },
+    ]);
     expect(fetch.mock.calls.map(([url]) => url)).toEqual([
       "https://api.github.com/user/installations?per_page=100",
       next,
@@ -46,6 +61,21 @@ describe("GitHubApiClient.listOrganizationInstallations", () => {
         "Bearer ghu_abc",
       );
     }
+  });
+
+  it("leaves out an avatar the account does not have", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      json({
+        total_count: 1,
+        installations: [{ account: { login: "beta", type: "Organization" } }],
+      }),
+    );
+    const client = new GitHubApiClient({ fetch });
+
+    const [organization] =
+      await client.listOrganizationInstallations("ghu_abc");
+
+    expect(organization).toStrictEqual({ login: "beta" });
   });
 
   it("rejects a body without installations", async () => {
