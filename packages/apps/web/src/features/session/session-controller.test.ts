@@ -13,6 +13,13 @@ import { loadHandoff, saveHandoff } from "./handoff";
 
 const lastViewerKey = "yagura.last-viewer";
 
+/** The method and URL of each request the API mock answered, in order. */
+function requestLines(
+  requests: readonly { method: string; url: string }[],
+): string[] {
+  return requests.map(({ method, url }) => `${method} ${url}`);
+}
+
 /** A memory store whose `failing` operation throws, as blocked storage does. */
 function failingStore(failing: "get" | "set"): MemoryStore {
   const store = new MemoryStore();
@@ -38,7 +45,7 @@ describe("SessionController.handleCallback", () => {
     expect(loadHandoff(storage)).toBeUndefined();
   });
 
-  it("exchanges the code, keeps the token in memory, clears the handoff, and remembers the viewer", async () => {
+  it("exchanges the code, keeps the token in memory, clears the handoff, and remembers the viewer without asking GitHub", async () => {
     const { controller, mock, storage, lastViewer } = testController();
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
@@ -59,6 +66,7 @@ describe("SessionController.handleCallback", () => {
     });
     expect(loadHandoff(storage)).toBeUndefined();
     expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
+    expect(requestLines(mock.requests)).toEqual([`POST ${sessionApi}/session`]);
   });
 
   it("surfaces invalid_grant from the session API", async () => {
@@ -92,6 +100,26 @@ describe("SessionController.handleCallback", () => {
       status: "signed-out",
       error: expect.stringContaining("browser storage"),
     });
+  });
+});
+
+describe("SessionController.restore", () => {
+  it("confirms the viewer from the refresh alone, without asking GitHub", async () => {
+    const { controller, mock, lastViewer } = testController({
+      signedIn: true,
+    });
+
+    await controller.restore();
+
+    expect(controller.state).toEqual({
+      status: "signed-in",
+      login: mockLogin,
+      confirmed: true,
+    });
+    expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
+    expect(requestLines(mock.requests)).toEqual([
+      `POST ${sessionApi}/session/refresh`,
+    ]);
   });
 });
 
@@ -162,6 +190,32 @@ describe("SessionController token refresh", () => {
     expect(controller.accessToken).toBeUndefined();
     expect(timer.pending).toBe(0);
   });
+
+  it("switches to the login a refresh on expiry answers with", async () => {
+    const { controller, timer } = testController({ signedIn: true });
+    await controller.restore();
+    server.use(
+      http.post(`${sessionApi}/session/refresh`, () =>
+        HttpResponse.json({
+          access_token: "ghu_other",
+          token_type: "bearer",
+          expires_in: 28800,
+          login: "someone-else",
+        }),
+      ),
+    );
+
+    timer.advance(28_740_000);
+
+    await vi.waitFor(() => {
+      expect(controller.state).toEqual({
+        status: "signed-in",
+        login: "someone-else",
+        confirmed: true,
+      });
+    });
+    expect(controller.accessToken).toBe("ghu_other");
+  });
 });
 
 describe("SessionController.withAccessToken", () => {
@@ -184,6 +238,36 @@ describe("SessionController.withAccessToken", () => {
     expect(
       mock.requestsTo("POST", `${sessionApi}/session/refresh`),
     ).toHaveLength(2);
+  });
+
+  it("does not retry for a refresh that answers with another login", async () => {
+    const { controller, lastViewer } = testController({ signedIn: true });
+    await controller.restore();
+    server.use(
+      http.post(`${sessionApi}/session/refresh`, () =>
+        HttpResponse.json({
+          access_token: "ghu_other",
+          token_type: "bearer",
+          expires_in: 28800,
+          login: "someone-else",
+        }),
+      ),
+    );
+
+    let calls = 0;
+    await expect(
+      controller.withAccessToken(async () => {
+        calls += 1;
+        throw new GitHubApiError(401, "expired");
+      }),
+    ).rejects.toThrow("Signed in as someone-else instead");
+    expect(calls).toBe(1);
+    expect(controller.state).toEqual({
+      status: "signed-in",
+      login: "someone-else",
+      confirmed: true,
+    });
+    expect(lastViewer.get(lastViewerKey)).toBe("someone-else");
   });
 
   it("does not retry a second 401", async () => {
@@ -287,7 +371,7 @@ describe("SessionController.restore with a remembered last viewer", () => {
   });
 
   it("switches to the login the session is confirmed as", async () => {
-    const { controller, lastViewer, release } = remembering(
+    const { controller, mock, lastViewer, release } = remembering(
       "someone-else",
       true,
     );
@@ -304,6 +388,7 @@ describe("SessionController.restore with a remembered last viewer", () => {
     });
     expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
     await expect(call).rejects.toThrow(`Signed in as ${mockLogin} instead`);
+    expect(requestLines(mock.requests)).toEqual([`POST ${refreshUrl}`]);
   });
 
   it("stays signed out when the viewer signs out before the restore answers", async () => {

@@ -80,11 +80,6 @@ export interface GitHubApiClientOptions {
   readonly fetch?: typeof fetch;
 }
 
-/** The signed-in user, as far as the app needs it. */
-export interface Viewer {
-  readonly login: string;
-}
-
 /** An organization the GitHub App is installed on. */
 export interface Organization {
   readonly login: string;
@@ -105,19 +100,6 @@ export class GitHubApiClient {
     // other than the global object.
     const fetchFn = options.fetch;
     this.#fetch = (input, init) => (fetchFn ?? fetch)(input, init);
-  }
-
-  /** `GET /user`: the user the access token belongs to. */
-  async getViewer(accessToken: string): Promise<Viewer> {
-    const { response, body } = await this.#get(accessToken, "/user");
-    const login = isRecord(body) ? body.login : undefined;
-    if (typeof login !== "string") {
-      throw new GitHubApiError(
-        response.status,
-        "GitHub API returned a user without a login",
-      );
-    }
-    return { login };
   }
 
   /**
@@ -324,7 +306,7 @@ export class GitHubApiClient {
 
   /**
    * Sends a request with the access token and reads the JSON body. `name`
-   * (such as `GET /user`) names the endpoint in errors.
+   * (such as `GET /user/installations`) names the endpoint in errors.
    */
   async #request(
     accessToken: string,
