@@ -66,16 +66,16 @@ Both pages show the organization (with its selector when there are
 several), the period, and the "Updating…" note or an update's failure
 (below).
 
-While signed in, the header shows a tab per page beside the name, the
-current one marked, and the document title names the page ("Members ·
-yagura"), so that the browser's tabs and history tell the pages apart. The
-tabs are links to the pages' addresses, so that a page can be opened in a
-new tab, copied or bookmarked; a plain click switches the page without
-loading it, adding a history entry, and the browser's back and forward
-buttons switch between the pages too. Any other address (but the sign-in
-callback's) shows Activity, and the address is replaced with `/` without
-adding a history entry. While signed out, no tabs are shown, and `/members`
-shows the same signed-out page as `/`.
+While signed in, the header shows a tab per page, the current one marked
+(the app's name is in the footer, out of the way), and the document title
+names the page ("Members · yagura"), so that the browser's tabs and
+history tell the pages apart. The tabs are links to the pages' addresses,
+so that a page can be opened in a new tab, copied or bookmarked; a plain
+click switches the page without loading it, adding a history entry, and
+the browser's back and forward buttons switch between the pages too. Any
+other address (but the sign-in callback's) shows Activity, and the address
+is replaced with `/` without adding a history entry. While signed out, no
+tabs are shown, and `/members` shows the same signed-out page as `/`.
 
 Both pages are drawn from one load of the members' pull requests, so that
 switching between them fetches nothing again and shows the same data at

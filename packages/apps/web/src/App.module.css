@@ -1,7 +1,7 @@
 /*
- * The bar across the top: the name left, the tabs beside it on the bar's
- * bottom edge, and the session right. On a narrow screen the tabs take a
- * row of their own under the name and the session, still on the edge.
+ * The bar across the top: the tabs left, on the bar's bottom edge, and the
+ * session right. The app's name is in the footer instead, so that the bar
+ * holds only what is used on every visit.
  */
 .header {
   background: var(--color-surface);
@@ -9,7 +9,8 @@
 }
 
 .bar,
-.main {
+.main,
+.footer {
   max-width: var(--content-max-width);
   margin: 0 auto;
   padding-left: var(--space-4);
@@ -18,17 +19,20 @@
 
 .bar {
   display: grid;
-  grid-template-columns: auto minmax(0, 1fr) auto;
-  grid-template-areas: "brand tabs session";
+  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-areas: "tabs session";
   align-items: center;
-  column-gap: var(--space-5);
+  column-gap: var(--space-4);
 }
 
-.title {
-  grid-area: brand;
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
-  font-size: var(--font-size-xl);
+/* Read out by assistive tech, but not drawn. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
 /*
@@ -47,17 +51,24 @@
   padding-bottom: var(--space-2);
 }
 
-@media (max-width: 40rem) {
-  .bar {
-    grid-template-columns: minmax(0, 1fr) auto;
-    grid-template-areas:
-      "brand session"
-      "tabs tabs";
-    column-gap: var(--space-3);
-  }
-}
-
 .main {
   padding-top: var(--space-4);
   padding-bottom: var(--space-6);
+}
+
+/* The app's name, quietly, under everything else. */
+.footer {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.footerLink {
+  color: inherit;
+}
+
+.footerLink:hover {
+  color: var(--color-link);
 }

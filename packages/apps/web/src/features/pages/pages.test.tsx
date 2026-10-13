@@ -167,7 +167,9 @@ describe("Pages", () => {
 
       await screen.findByRole("button", { name: "Sign in with GitHub" });
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+      for (const name of ["Activity", "Members"]) {
+        expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+      }
       expect(summaryTable()).not.toBeInTheDocument();
       expect(document.title).not.toContain("·");
       expect(location.href).toBe(url);

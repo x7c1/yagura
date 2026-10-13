@@ -70,7 +70,11 @@ export function App(props: {
       <ElementWidthsProvider widths={props.widths}>
         <header className={styles.header}>
           <div className={styles.bar}>
-            <h1 className={styles.title}>yagura</h1>
+            {/*
+             * The app's name heads the page for assistive tech only; it is
+             * shown in the footer, out of the way of what the page is for.
+             */}
+            <h1 className={styles.visuallyHidden}>yagura</h1>
             {!onCallback && (
               <>
                 <div className={styles.tabs}>
@@ -90,6 +94,15 @@ export function App(props: {
             <Home page={page} />
           )}
         </main>
+        <footer className={styles.footer}>
+          Powered by{" "}
+          <a
+            href="https://github.com/x7c1/yagura"
+            className={styles.footerLink}
+          >
+            yagura
+          </a>
+        </footer>
       </ElementWidthsProvider>
     </SessionProvider>
   );
