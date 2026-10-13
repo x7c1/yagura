@@ -10,7 +10,8 @@ import type { PullRequest } from "@yagura/activity";
 import { ApiMock, mockPullRequests } from "@yagura/api-mocks";
 import { GitHubApiClient } from "@yagura/github-api";
 import { SessionApiClient } from "@yagura/session-api";
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
+import { expect } from "vitest";
 import { setupServer } from "msw/node";
 import { SessionController } from "./features/session";
 
@@ -75,26 +76,58 @@ export function testController(options: TestControllerOptions = {}) {
   return { controller, mock, storage, location, timer, cache };
 }
 
-/** The rows of the pull request list, once it is shown. */
+/**
+ * Waits until the view is not loading or updating anything: no "Loading…"
+ * and no "Updating…" note.
+ */
+async function settled(): Promise<void> {
+  await waitFor(() => {
+    expect(screen.queryByText(/^Loading/)).not.toBeInTheDocument();
+    expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
+  });
+}
+
+/** The rows of the pull request list, once it is shown and settled. */
 export async function pullRequestRows(): Promise<HTMLElement[]> {
-  const table = await screen.findByRole("table", { name: "Pull requests" });
+  await screen.findByRole("table", { name: "Pull requests" });
+  await settled();
+  return shownPullRequestRows();
+}
+
+/** The rows of the pull request list as shown now, settled or not. */
+function shownPullRequestRows(): HTMLElement[] {
+  const table = screen.getByRole("table", { name: "Pull requests" });
   const [, body] = within(table).getAllByRole("rowgroup");
   return within(body as HTMLElement).getAllByRole("row");
 }
 
-/** The titles in the pull request list, once it is shown. */
+/** The titles in the pull request list, once it is shown and settled. */
 export async function pullRequestTitles(): Promise<string[]> {
-  return (await pullRequestRows()).map(
-    (row) => within(row).getByRole("link").textContent ?? "",
-  );
+  return titlesOf(await pullRequestRows());
+}
+
+/** The titles in the pull request list as shown now, settled or not. */
+export function shownPullRequestTitles(): string[] {
+  return titlesOf(shownPullRequestRows());
+}
+
+function titlesOf(rows: readonly HTMLElement[]): string[] {
+  return rows.map((row) => within(row).getByRole("link").textContent ?? "");
 }
 
 /**
- * The cells of the summary table's rows, once it is shown: the member rows
- * (login and counts, as shown), then the totals row.
+ * The cells of the summary table's rows, once it is shown and settled: the
+ * member rows (login and counts, as shown), then the totals row.
  */
 export async function memberSummaryRows(): Promise<string[][]> {
-  const table = await screen.findByRole("table", { name: "Members" });
+  await screen.findByRole("table", { name: "Members" });
+  await settled();
+  return shownMemberSummaryRows();
+}
+
+/** The cells of the summary table's rows as shown now, settled or not. */
+export function shownMemberSummaryRows(): string[][] {
+  const table = screen.getByRole("table", { name: "Members" });
   const [, body, foot] = within(table).getAllByRole("rowgroup");
   return [body, foot].flatMap((group) =>
     within(group as HTMLElement)

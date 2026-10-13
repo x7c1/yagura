@@ -7,6 +7,15 @@ that server. The server stores nothing: the refresh token travels in an
 encrypted cookie the browser holds, and the access token lives only in the
 page's memory.
 
+Keeping the access token in memory, rather than in the browser's storage,
+keeps a script that runs in the page (through cross-site scripting or a
+compromised dependency) from reading it out of storage and using it
+elsewhere for the rest of its 8-hour life. The refresh token is no easier to
+take: it is in an `HttpOnly` cookie, which scripts cannot read. This does not
+stop such a script from calling the API with the token while the page is
+open. The cost is that every page load sends one `POST /session/refresh`
+before its first API call, to get an access token again.
+
 The server is reached at a base URL the app is built with
 (`VITE_YAGURA_SESSION_API`). In production that is
 `https://api.yagura.module.codes`; in development it is a local server on
