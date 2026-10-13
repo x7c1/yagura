@@ -18,9 +18,9 @@ before its first API call, to get an access token again.
 
 The app does not wait for that refresh to draw. It remembers in the browser
 the login of the last viewer who signed in, and on a page load draws that
-viewer's cached activity at once, while the refresh, and then the lookup of
-the login, run behind it. Until they answer, the viewer is signed in
-unconfirmed: their cache is read but not written, and GitHub requests wait
+viewer's cached activity at once, while the refresh, which answers with the
+login as well as the token, runs behind it. Until it answers, the viewer is
+signed in unconfirmed: their cache is read but not written, and GitHub requests wait
 for the token. When the session has ended (the refresh answers `401`, for
 example after signing out on another device or once the refresh token has
 expired), the previous view shows for a moment, then gives way to the
@@ -66,11 +66,24 @@ Response `200`:
 {
   "access_token": "ghu_...",
   "token_type": "bearer",
-  "expires_in": 28800
+  "expires_in": 28800,
+  "login": "octocat"
 }
 ```
 
 plus a `Set-Cookie` header carrying the refresh token (see below).
+
+`login` is the GitHub login of the user the token belongs to, so that the app
+need not ask GitHub's `GET /user` for it. The server asks GitHub for it once,
+right after exchanging the code, and keeps it in the encrypted cookie next to
+the refresh token; a refresh answers with the login from the cookie without
+asking GitHub again. A cookie issued before `login` was added holds no login:
+the server looks it up on that cookie's next refresh and writes it into the
+new cookie. A login renamed on GitHub therefore shows its old name until the
+user signs in again.
+
+If GitHub's user lookup fails after the code was exchanged, the response is
+`502 upstream_error` and no cookie is set.
 
 ### `POST /session/refresh`
 
@@ -78,8 +91,8 @@ Obtains a new access token from the refresh cookie. Called when the page
 loads with no access token in memory, and again whenever the access token has
 expired. No request body.
 
-Response `200`: the same JSON shape as `POST /session`, plus a new
-`Set-Cookie` header. GitHub rotates refresh tokens on every refresh, so the
+Response `200`: the same JSON shape as `POST /session`, `login` included,
+plus a new `Set-Cookie` header. GitHub rotates refresh tokens on every refresh, so the
 cookie is replaced each time.
 
 Response `401` when the cookie is missing, cannot be decrypted, or GitHub
@@ -93,15 +106,15 @@ the app's to discard.
 
 ## The refresh cookie
 
-| Attribute  | Value                                                                                                                    |
-| ---------- | ------------------------------------------------------------------------------------------------------------------------ |
-| Name       | `yagura_refresh`                                                                                                         |
-| Value      | The GitHub refresh token and its expiry, encrypted by the server with a key only the server holds. Opaque to the browser |
-| `HttpOnly` | yes                                                                                                                      |
-| `Secure`   | yes (browsers treat `localhost` as a secure context, so this also works in development)                                  |
-| `SameSite` | `Lax`                                                                                                                    |
-| `Path`     | `/session` — the cookie is sent only to the endpoints above                                                              |
-| `Max-Age`  | the refresh token's remaining lifetime (6 months when freshly issued)                                                    |
+| Attribute  | Value                                                                                                                                      |
+| ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
+| Name       | `yagura_refresh`                                                                                                                           |
+| Value      | The GitHub refresh token, its expiry and the user's login, encrypted by the server with a key only the server holds. Opaque to the browser |
+| `HttpOnly` | yes                                                                                                                                        |
+| `Secure`   | yes (browsers treat `localhost` as a secure context, so this also works in development)                                                    |
+| `SameSite` | `Lax`                                                                                                                                      |
+| `Path`     | `/session` — the cookie is sent only to the endpoints above                                                                                |
+| `Max-Age`  | the refresh token's remaining lifetime (6 months when freshly issued)                                                                      |
 
 Clearing the cookie means setting it with an empty value and `Max-Age=0`.
 
@@ -113,12 +126,12 @@ Every error response is JSON:
 { "error": "invalid_grant", "error_description": "..." }
 ```
 
-| Status | `error`           | When                                                                                       |
-| ------ | ----------------- | ------------------------------------------------------------------------------------------ |
-| 400    | `invalid_request` | The body is not the documented shape                                                       |
-| 400    | `invalid_grant`   | GitHub rejected the code or the verifier (expired, reused, mismatched `redirect_uri`)      |
-| 401    | `invalid_session` | `POST /session/refresh` without a usable cookie                                            |
-| 502    | `upstream_error`  | GitHub did not answer, or answered with something other than a token or a documented error |
+| Status | `error`           | When                                                                                               |
+| ------ | ----------------- | -------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request` | The body is not the documented shape                                                               |
+| 400    | `invalid_grant`   | GitHub rejected the code or the verifier (expired, reused, mismatched `redirect_uri`)              |
+| 401    | `invalid_session` | `POST /session/refresh` without a usable cookie                                                    |
+| 502    | `upstream_error`  | GitHub did not answer, or answered with something other than a token, a user or a documented error |
 
 ## CORS
 

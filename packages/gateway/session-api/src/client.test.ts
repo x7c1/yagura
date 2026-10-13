@@ -18,6 +18,7 @@ describe("SessionApiClient", () => {
         access_token: "ghu_abc",
         token_type: "bearer",
         expires_in: 28800,
+        login: "octocat",
       }),
     );
     const client = new SessionApiClient({ baseUrl, fetch });
@@ -32,6 +33,7 @@ describe("SessionApiClient", () => {
       accessToken: "ghu_abc",
       tokenType: "bearer",
       expiresIn: 28800,
+      login: "octocat",
     });
     const [url, init] = fetch.mock.calls[0] ?? [];
     expect(url).toBe(`${baseUrl}/session`);
@@ -42,6 +44,46 @@ describe("SessionApiClient", () => {
       code_verifier: "the-verifier",
       redirect_uri: "http://localhost:5173/callback",
     });
+  });
+
+  it("parses the login of a refresh", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      jsonResponse(200, {
+        access_token: "ghu_def",
+        token_type: "bearer",
+        expires_in: 28800,
+        login: "octocat",
+      }),
+    );
+    const client = new SessionApiClient({ baseUrl, fetch });
+
+    await expect(client.refreshSession()).resolves.toMatchObject({
+      accessToken: "ghu_def",
+      login: "octocat",
+    });
+  });
+
+  it.each([
+    ["without a login", {}],
+    ["with a login that is not a string", { login: 42 }],
+  ])("rejects a token response %s as unexpected_response", async (_, extra) => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      jsonResponse(200, {
+        access_token: "ghu_abc",
+        token_type: "bearer",
+        expires_in: 28800,
+        ...extra,
+      }),
+    );
+    const client = new SessionApiClient({ baseUrl, fetch });
+
+    await expect(client.refreshSession()).rejects.toMatchObject({
+      status: 200,
+      code: "unexpected_response",
+    });
+    await expect(
+      client.createSession({ code: "c", codeVerifier: "v", redirectUri: "r" }),
+    ).rejects.toMatchObject({ status: 200, code: "unexpected_response" });
   });
 
   it("maps a 400 invalid_grant body to a typed error", async () => {

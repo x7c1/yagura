@@ -6,7 +6,7 @@ import {
   type MockPullRequestNode,
 } from "./pull-requests";
 
-/** The GitHub login the mock answers `GET /user` with. */
+/** The GitHub login the mock session API answers with. */
 export const mockLogin = "mock-user";
 
 /** The organization the mock reports the GitHub App installed on. */
@@ -62,12 +62,10 @@ export interface RecordedRequest {
  * flow to complete:
  *
  * - `POST /session` with any code signs the mock session in and issues an
- *   access token;
- * - `POST /session/refresh` issues a new access token while signed in, and
- *   answers `401 invalid_session` otherwise;
+ *   access token for {@link mockLogin}, answering with that login;
+ * - `POST /session/refresh` issues a new access token, with the login, while
+ *   signed in, and answers `401 invalid_session` otherwise;
  * - `DELETE /session` signs out;
- * - `GET /user` answers {@link mockLogin} for a token the mock issued while
- *   signed in, and `401` for any other;
  * - `GET /user/installations` answers an installation on each of the
  *   `organizations` option's organizations, by default {@link mockOrganization};
  * - `GET /orgs/{org}/members` answers {@link mockMemberLogins} for any of
@@ -127,13 +125,6 @@ export class ApiMock {
         await this.#record(request);
         this.signedIn = false;
         return new HttpResponse(null, { status: 204 });
-      }),
-      http.get(`${githubApi}/user`, async ({ request }) => {
-        await this.#record(request);
-        if (!this.#authorized(request)) {
-          return badCredentials();
-        }
-        return HttpResponse.json({ login: mockLogin });
       }),
       http.get(`${githubApi}/user/installations`, async ({ request }) => {
         await this.#record(request);
@@ -342,6 +333,7 @@ export class ApiMock {
       access_token: accessToken,
       token_type: "bearer",
       expires_in: accessTokenLifetimeSeconds,
+      login: mockLogin,
     });
   }
 

@@ -73,7 +73,7 @@ export class SessionController {
   #state: SessionState = { status: "pending" };
   #restoring: Promise<void> | undefined;
   #callback: Promise<void> | undefined;
-  #refreshing: Promise<boolean> | undefined;
+  #refreshing: Promise<SessionTokens | undefined> | undefined;
   #signingOut = false;
   /** The last sign-out, which settles once the state is signed out. */
   #signOut: Promise<void> | undefined;
@@ -146,7 +146,7 @@ export class SessionController {
 
   /**
    * Restores the session on page load: with no token in memory, asks the
-   * session API for one once, then finds the viewer's login. Repeated calls
+   * session API once for a token and the viewer's login. Repeated calls
    * share the first attempt. Does nothing after `handleCallback`, whose
    * outcome (including its error) is already the session state.
    *
@@ -234,7 +234,7 @@ export class SessionController {
    * Runs a GitHub API call with the current access token. While the session
    * is not confirmed yet, waits for the restore first, and fails when it
    * did not confirm the same viewer. On a 401 the token is refreshed and the
-   * call retried once.
+   * call retried once, unless the refresh answered with another login.
    */
   async withAccessToken<T>(
     call: (accessToken: string) => Promise<T>,
@@ -262,6 +262,7 @@ export class SessionController {
   /** {@link withAccessToken} without waiting for the restore. */
   async #withToken<T>(call: (accessToken: string) => Promise<T>): Promise<T> {
     const token = this.#requireToken();
+    const state = this.#state;
     try {
       return await call(token);
     } catch (error) {
@@ -269,8 +270,12 @@ export class SessionController {
         throw error;
       }
     }
-    if (!(await this.#refresh())) {
+    const tokens = await this.#refresh();
+    if (tokens === undefined) {
       throw new Error("The session has ended");
+    }
+    if (state.status === "signed-in" && tokens.login !== state.login) {
+      throw new Error(`Signed in as ${tokens.login} instead`);
     }
     return call(this.#requireToken());
   }
@@ -287,8 +292,9 @@ export class SessionController {
     }
     const signOuts = this.#signOuts;
     try {
-      if (await this.#refresh()) {
-        await this.#loadViewer(signOuts);
+      const tokens = await this.#refresh();
+      if (tokens !== undefined) {
+        this.#confirm(tokens.login, signOuts);
       }
     } catch (error) {
       if (signOuts === this.#signOuts) {
@@ -306,7 +312,7 @@ export class SessionController {
         storage: this.#options.storage,
       });
       this.#tokens.set(tokens);
-      await this.#loadViewer(this.#signOuts);
+      this.#confirm(tokens.login, this.#signOuts);
     } catch (error) {
       this.#tokens.clear();
       this.#signedOut(describe(error));
@@ -314,51 +320,57 @@ export class SessionController {
   }
 
   /**
-   * Finds the viewer's login, signs them in confirmed and remembers them as
-   * the last viewer; unless they signed out since `signOuts` was counted.
+   * Signs the viewer in, confirmed, as the `login` the session API answered
+   * with, and remembers them as the last viewer; unless they signed out
+   * since `signOuts` was counted.
    */
-  async #loadViewer(signOuts: number): Promise<void> {
-    const viewer = await this.#withToken((token) =>
-      this.#options.githubApi.getViewer(token),
-    );
+  #confirm(login: string, signOuts: number): void {
     if (signOuts !== this.#signOuts) {
       return;
     }
-    this.#lastViewer.remember(viewer.login);
-    this.#setState({
-      status: "signed-in",
-      login: viewer.login,
-      confirmed: true,
-    });
+    this.#lastViewer.remember(login);
+    this.#setState({ status: "signed-in", login, confirmed: true });
   }
 
   /**
-   * Replaces the access token from the refresh cookie. When the session API
-   * answers 401, the session has ended: resolves `false`, forgets the last
-   * viewer and signs out. Other failures reject. A refresh answered after a
-   * sign-out resolves `false` and keeps no token.
+   * Replaces the access token from the refresh cookie, and resolves the
+   * session API's answer. When the session API answers 401, the session has
+   * ended: resolves `undefined`, forgets the last viewer and signs out.
+   * Other failures reject. A refresh answered after a sign-out resolves
+   * `undefined` and keeps no token. When a confirmed session's refresh
+   * answers with another login (the refresh cookie, shared by the browser's
+   * tabs, now belongs to someone who signed in elsewhere), the session
+   * switches to that login.
    */
-  #refresh(): Promise<boolean> {
+  #refresh(): Promise<SessionTokens | undefined> {
     const signOuts = this.#signOuts;
     this.#refreshing ??= this.#options.sessionApi
       .refreshSession()
       .then(
         (tokens: SessionTokens) => {
           if (signOuts !== this.#signOuts) {
-            return false;
+            return undefined;
           }
           this.#tokens.set(tokens);
-          return true;
+          const state = this.#state;
+          if (
+            state.status === "signed-in" &&
+            state.confirmed &&
+            state.login !== tokens.login
+          ) {
+            this.#confirm(tokens.login, signOuts);
+          }
+          return tokens;
         },
         (error: unknown) => {
           if (signOuts !== this.#signOuts) {
-            return false;
+            return undefined;
           }
           this.#tokens.clear();
           if (error instanceof SessionApiError && error.status === 401) {
             this.#lastViewer.forget();
             this.#signedOut();
-            return false;
+            return undefined;
           }
           throw error;
         },
