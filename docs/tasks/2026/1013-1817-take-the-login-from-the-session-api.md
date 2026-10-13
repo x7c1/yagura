@@ -90,7 +90,7 @@ returned login instead of `GET /user`.
 
 ### Before merge (verified outside the check command)
 
-- [ ] Against the dev session API through the proxy: a reload signs in with
+- [x] Against the dev session API through the proxy: a reload signs in with
       no request to `api.github.com/user`, and the header shows the right
       login.
 
