@@ -86,7 +86,11 @@ Review counts and review latency are not shown.
 Pull requests are found with GitHub's GraphQL `search`, one search per
 member and measure, with `author:<login>` and a date range (`created:` for
 opened, `merged:` for merged). A search can page through at most 1,000
-results; one member's 14 days stays well within that.
+results; one member's 14 days stays well within that. A search asks only
+for what places a pull request on a day: its node id, state, creation and
+merge times. GitHub computes `additions` and `deletions` per pull request,
+so a search asking for them takes seconds, also for pull requests the cache
+already holds.
 
 The range is written with the local offset, so that days start at local
 midnight. It starts at the earliest day the browser cache (below) cannot
@@ -97,10 +101,24 @@ when today is still fresh in the cache, it ends at the last second before
 today (`created:<start>..<end>`). Either way there are at most two
 searches per member, and none for a member the cache answers entirely.
 
-Pull requests the cache holds that are not merged are fetched again by
-node id rather than searched, with GraphQL `nodes(ids: [...])` lookups of
-up to 100 ids each. An id that comes back `null` (the pull request was deleted,
-or the user can no longer see it) is dropped.
+The rest of a pull request (title, repository, author, lines) is fetched by
+node id, with GraphQL `nodes(ids: [...])` lookups of up to 100 ids each. As
+soon as a search answers, one lookup fetches the pull requests it found that
+the cache lacks: those not stored, and those stored but not merged, unless
+they were stored within the last 10 minutes and the search reports the same
+state. A stored merged pull request is final and is not fetched again.
+
+The pull requests the cache holds that are not merged, once their 10
+minutes have passed, are fetched again by node id rather than searched.
+Which they are is known from the cache alone, so their lookup is sent
+together with the searches, without waiting for them.
+
+Within one load, each id is looked up at most once: one that a search finds
+while the refresh above already covers it is not looked up again, and where
+the search and the lookup disagree on its state or merge, the lookup's
+answer is taken. An id that comes back `null` (the pull request was
+deleted, or the user can no longer see it) is dropped. At most four
+requests, searches and lookups together, run at once, lookups first.
 
 Every request runs in the browser with the signed-in user's token and counts
 against that user's rate limit. The browser cache (below) keeps the number of
@@ -115,9 +133,9 @@ installed on the member's personal account and on the organization. Pull
 requests in repositories of accounts the app is not installed on were not
 covered by that check.
 
-One member with a couple of hundred pull requests in the period takes a few
-seconds per search page, because `additions` and `deletions` are computed per
-pull request; the browser cache is what keeps later visits fast.
+Looking up a couple of hundred pull requests by id takes a few seconds,
+because `additions` and `deletions` are computed per pull request; the
+browser cache is what keeps later visits fast.
 
 ## The browser cache
 
@@ -147,8 +165,11 @@ searched again once it is over. A day with no pull requests is stored too,
 so that it counts as fetched. An unmerged pull request found to be merged
 becomes lasting.
 
-When one request fails, what the others fetched before it is stored all the
-same, so that retrying after the failure searches only what is still missing.
+When one request fails, no further request is sent, and what the others
+fetched before it is stored all the same, so that retrying after the
+failure searches only what is still missing. A day is stored only together
+with the pull requests it lists: when a search succeeds but the lookup of
+what it found fails, its days are not stored and are searched again.
 
 Entries that fall out of the 14-day period are removed without waiting for
 their expiry, when the view loads.

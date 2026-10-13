@@ -77,10 +77,13 @@ export interface RecordedRequest {
  *   (open, merged, one created before the period and merged in it, closed,
  *   across three repositories), filtered by the query's `author:`,
  *   `is:merged`, `created:` and `merged:` qualifiers (`>=` and `a..b`
- *   ranges). It answers a `nodes(ids:)` lookup with the fixtures of those
- *   ids, and `null` with a `NOT_FOUND` error for an unknown one, as GitHub
- *   does. It tells the two apart by the `query` and `ids` variables and
- *   does not parse the GraphQL document.
+ *   ranges), each with its id, state and times only, as the app's search
+ *   asks for. It answers a `nodes(ids:)` lookup with the whole fixtures of
+ *   those ids, and `null` with a `NOT_FOUND` error for an unknown one, as
+ *   GitHub does. It tells the two apart by the `query` and `ids` variables
+ *   and does not parse the GraphQL document. {@link holdGraphql} holds
+ *   chosen answers back, so that tests can observe what is sent while
+ *   another request is still waiting.
  *
  * The GitHub endpoints answer `401` for a token the mock did not issue while
  * signed in, as GitHub does for a bad token, and fit on a single page.
@@ -91,7 +94,8 @@ export class ApiMock {
   readonly #issued = new Set<string>();
   readonly #requests: RecordedRequest[] = [];
   readonly #organizations: readonly string[];
-  readonly #pullRequests: readonly MockPullRequestNode[];
+  readonly #pullRequests: MockPullRequestNode[];
+  readonly #holds: Hold[] = [];
 
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
@@ -168,6 +172,7 @@ export class ApiMock {
         const variables = isRecord(body) ? body.variables : undefined;
         const query = isRecord(variables) ? variables.query : undefined;
         const ids = isRecord(variables) ? variables.ids : undefined;
+        await this.#held(isRecord(variables) ? variables : {});
         if (isStringArray(ids)) {
           return this.#lookUpNodes(ids);
         }
@@ -183,7 +188,15 @@ export class ApiMock {
           data: {
             search: {
               pageInfo: { hasNextPage: false, endCursor: null },
-              nodes: searchMockPullRequests(this.#pullRequests, query),
+              nodes: searchMockPullRequests(this.#pullRequests, query).map(
+                ({ __typename, id, state, createdAt, mergedAt }) => ({
+                  __typename,
+                  id,
+                  state,
+                  createdAt,
+                  mergedAt,
+                }),
+              ),
             },
           },
         });
@@ -227,6 +240,30 @@ export class ApiMock {
     );
   }
 
+  /**
+   * Adds a pull request to those the mock serves, as if it were opened
+   * after the mock was created.
+   */
+  addPullRequest(pullRequest: MockPullRequestNode): void {
+    this.#pullRequests.push(pullRequest);
+  }
+
+  /**
+   * Holds back the answer to every GraphQL request whose variables `match`
+   * accepts until the returned function is called. A held request is
+   * recorded when it arrives, so it shows in {@link requests} while held.
+   */
+  holdGraphql(
+    match: (variables: Readonly<Record<string, unknown>>) => boolean,
+  ): () => void {
+    let release!: () => void;
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    this.#holds.push({ match, released });
+    return release;
+  }
+
   /** Forgets the requests recorded so far. */
   clearRequests(): void {
     this.#requests.length = 0;
@@ -244,6 +281,15 @@ export class ApiMock {
       ({ body }) =>
         isRecord(body) && isRecord(body.variables) ? [body.variables] : [],
     );
+  }
+
+  /** Waits for the release of each hold that `variables` match. */
+  async #held(variables: Readonly<Record<string, unknown>>): Promise<void> {
+    for (const { match, released } of this.#holds) {
+      if (match(variables)) {
+        await released;
+      }
+    }
   }
 
   #lookUpNodes(ids: readonly string[]): Response {
@@ -301,6 +347,12 @@ export class ApiMock {
     });
     return body;
   }
+}
+
+/** Answers held back by {@link ApiMock.holdGraphql}. */
+interface Hold {
+  readonly match: (variables: Readonly<Record<string, unknown>>) => boolean;
+  readonly released: Promise<void>;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

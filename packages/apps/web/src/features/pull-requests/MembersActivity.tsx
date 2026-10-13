@@ -25,7 +25,7 @@ export function MembersActivity(props: {
         {
           search: (query) =>
             controller.withAccessToken((token) =>
-              controller.githubApi.searchPullRequests(token, query),
+              controller.githubApi.searchPullRequestIds(token, query),
             ),
           getPullRequests: (ids) =>
             controller.withAccessToken((token) =>

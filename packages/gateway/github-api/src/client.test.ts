@@ -159,6 +159,12 @@ function pullRequestNode(overrides: Record<string, unknown> = {}) {
   };
 }
 
+/** A pull request node as the search answers it: the id, state and times. */
+function foundNode(overrides: Record<string, unknown> = {}) {
+  const { __typename, id, state, createdAt, mergedAt } = pullRequestNode();
+  return { __typename, id, state, createdAt, mergedAt, ...overrides };
+}
+
 function searchPage(
   nodes: unknown[],
   endCursor: string | null = null,
@@ -183,54 +189,39 @@ function requestBody(init: RequestInit | undefined): {
   };
 }
 
-describe("GitHubApiClient.searchPullRequests", () => {
-  it("follows the end cursor and maps the fields", async () => {
+describe("GitHubApiClient.searchPullRequestIds", () => {
+  it("follows the end cursor and maps the id, state and times", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async (_url, init) =>
       requestBody(init).variables.after === "cursor-1"
         ? searchPage([
-            pullRequestNode({
-              id: "PR_2",
-              title: "Fix a typo",
-              url: "https://github.com/someone/dotfiles/pull/7",
-              repository: { nameWithOwner: "someone/dotfiles" },
-              author: null,
-              state: "OPEN",
-              mergedAt: null,
-            }),
-            pullRequestNode({ id: "PR_3", state: "CLOSED", mergedAt: null }),
+            foundNode({ id: "PR_2", state: "OPEN", mergedAt: null }),
+            foundNode({ id: "PR_3", state: "CLOSED", mergedAt: null }),
           ])
-        : searchPage([pullRequestNode(), { __typename: "Issue" }], "cursor-1"),
+        : searchPage([foundNode(), { __typename: "Issue" }], "cursor-1"),
     );
     const client = new GitHubApiClient({ fetch });
 
     await expect(
-      client.searchPullRequests("ghu_abc", "is:pr author:octocat"),
+      client.searchPullRequestIds("ghu_abc", "is:pr author:octocat"),
     ).resolves.toEqual([
       {
         id: "PR_1",
-        title: "Add the chart",
-        url: "https://github.com/acme/app/pull/1",
-        repository: "acme/app",
-        author: "octocat",
         state: "merged",
         createdAt: new Date("2026-10-01T10:00:00Z"),
         mergedAt: new Date("2026-10-02T11:30:00Z"),
-        additions: 12,
-        deletions: 3,
       },
       {
         id: "PR_2",
-        title: "Fix a typo",
-        url: "https://github.com/someone/dotfiles/pull/7",
-        repository: "someone/dotfiles",
-        author: "ghost",
         state: "open",
         createdAt: new Date("2026-10-01T10:00:00Z"),
         mergedAt: null,
-        additions: 12,
-        deletions: 3,
       },
-      expect.objectContaining({ id: "PR_3", state: "closed", mergedAt: null }),
+      {
+        id: "PR_3",
+        state: "closed",
+        createdAt: new Date("2026-10-01T10:00:00Z"),
+        mergedAt: null,
+      },
     ]);
     expect(fetch).toHaveBeenCalledTimes(2);
     for (const [url, init] of fetch.mock.calls) {
@@ -242,6 +233,8 @@ describe("GitHubApiClient.searchPullRequests", () => {
       const { query, variables } = requestBody(init);
       expect(query).toContain("search(type: ISSUE");
       expect(query).toContain("first: 100");
+      // The lines are computed per pull request; the search leaves them out.
+      expect(query).not.toContain("additions");
       expect(variables.query).toBe("is:pr author:octocat");
     }
     expect(
@@ -262,7 +255,7 @@ describe("GitHubApiClient.searchPullRequests", () => {
     const client = new GitHubApiClient({ fetch });
 
     const error = await client
-      .searchPullRequests("ghu_abc", "is:pr")
+      .searchPullRequestIds("ghu_abc", "is:pr")
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(GitHubApiError);
@@ -280,7 +273,7 @@ describe("GitHubApiClient.searchPullRequests", () => {
     const client = new GitHubApiClient({ fetch });
 
     const error = await client
-      .searchPullRequests("expired", "is:pr")
+      .searchPullRequestIds("expired", "is:pr")
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(GitHubApiError);
@@ -290,12 +283,12 @@ describe("GitHubApiClient.searchPullRequests", () => {
 
   it("rejects a pull request with an unknown state", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
-      searchPage([pullRequestNode({ state: "DRAFT" })]),
+      searchPage([foundNode({ state: "DRAFT" })]),
     );
     const client = new GitHubApiClient({ fetch });
 
     const error = await client
-      .searchPullRequests("ghu_abc", "is:pr")
+      .searchPullRequestIds("ghu_abc", "is:pr")
       .catch((e: unknown) => e);
 
     expect(error).toBeInstanceOf(GitHubApiError);
@@ -350,7 +343,11 @@ describe("GitHubApiClient.getPullRequests", () => {
   it("leaves out ids that come back null, and other nodes", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       nodesPage(
-        [null, pullRequestNode({ id: "PR_2" }), { __typename: "Issue" }],
+        [
+          null,
+          pullRequestNode({ id: "PR_2", author: null }),
+          { __typename: "Issue" },
+        ],
         [
           {
             type: "NOT_FOUND",
@@ -369,6 +366,8 @@ describe("GitHubApiClient.getPullRequests", () => {
     ]);
 
     expect(pullRequests.map(({ id }) => id)).toEqual(["PR_2"]);
+    // A deleted account's pull request has no author.
+    expect(pullRequests[0]?.author).toBe("ghost");
   });
 
   it("turns other GraphQL errors into an error", async () => {

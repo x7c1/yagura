@@ -1,7 +1,7 @@
 import { dayKeyOf, periodDayKeys, startOfDay, startOfNextDay } from "./days";
 import { measures, measureTime, type Measure } from "./measures";
 import type { Period } from "./period";
-import type { PullRequest } from "./pull-request";
+import type { FoundPullRequest, PullRequest } from "./pull-request";
 import type { SearchSpan } from "./queries";
 
 // Planning for the browser cache (docs/design/activity-view.md, "The
@@ -156,12 +156,12 @@ export function planSearch(
  * {@link measureTime}), with an entry for each of `days`, empty for a day
  * without any. Results on other days are left out.
  */
-export function splitIntoDays(
-  pullRequests: readonly PullRequest[],
+export function splitIntoDays<T extends FoundPullRequest>(
+  pullRequests: readonly T[],
   measure: Measure,
   days: readonly string[],
-): Map<string, PullRequest[]> {
-  const byDay = new Map<string, PullRequest[]>(days.map((day) => [day, []]));
+): Map<string, T[]> {
+  const byDay = new Map<string, T[]>(days.map((day) => [day, []]));
   for (const pr of pullRequests) {
     const time = measureTime(pr, measure);
     if (time !== null) {
@@ -172,30 +172,86 @@ export function splitIntoDays(
 }
 
 /**
+ * The ids among `found` (a search's results at `now`) whose details are
+ * fetched by id: those not stored, and those stored but not merged, whose
+ * state or lines may have changed, unless they were stored within the short
+ * life and the search reports the same state. A stored merged pull request
+ * is final and is not fetched again. Each id is listed once.
+ */
+export function idsNeedingDetails(
+  activity: MemberActivity,
+  found: readonly FoundPullRequest[],
+  now: Date,
+): string[] {
+  const ids = new Set<string>();
+  for (const { id, state } of found) {
+    const stored = activity.pullRequests.get(id);
+    const current =
+      stored !== undefined &&
+      (stored.pullRequest.state === "merged" ||
+        (isWithinShortLife(stored.storedAt, now) &&
+          stored.pullRequest.state === state));
+    if (!current) {
+      ids.add(id);
+    }
+  }
+  return [...ids];
+}
+
+/**
  * Stores the results of the search planned by `plan`, made at `fetchedAt`:
  * each of the plan's days, empty ones included, replacing what was stored
  * for them, and the pull requests found.
+ *
+ * `found` are the search's results; `details` are the pull requests fetched
+ * by id for them, `null` for an id whose lookup found nothing. A found pull
+ * request with details is stored with them and placed on the days they
+ * give, so that the lookup's answer wins over the search's where the two
+ * disagree on the state or the merge. One without details keeps its stored
+ * record, which is not renewed; one whose lookup found nothing (deleted, or
+ * no longer visible) is dropped, from the days that listed it too.
+ *
+ * Throws when a found pull request on one of the plan's days has neither
+ * details nor a stored record: its day would be stored without them.
  */
 export function recordSearch(
   activity: MemberActivity,
   measure: Measure,
   plan: SearchPlan,
-  results: readonly PullRequest[],
+  found: readonly FoundPullRequest[],
+  details: ReadonlyMap<string, PullRequest | null>,
   fetchedAt: Date,
 ): MemberActivity {
   const days = new Map(activity.days[measure]);
   const pullRequests = new Map(activity.pullRequests);
-  for (const [day, found] of splitIntoDays(results, measure, plan.days)) {
-    days.set(day, { fetchedAt, ids: found.map(({ id }) => id) });
-    for (const pullRequest of found) {
-      pullRequests.set(pullRequest.id, { storedAt: fetchedAt, pullRequest });
+  const dropped = new Set<string>();
+  const placed: FoundPullRequest[] = [];
+  for (const result of found) {
+    const detail = details.get(result.id);
+    if (detail === null) {
+      dropped.add(result.id);
+    } else {
+      placed.push(detail ?? result);
+    }
+  }
+  for (const [day, onDay] of splitIntoDays(placed, measure, plan.days)) {
+    days.set(day, { fetchedAt, ids: onDay.map(({ id }) => id) });
+    for (const { id } of onDay) {
+      const pullRequest = details.get(id);
+      if (pullRequest) {
+        pullRequests.set(id, { storedAt: fetchedAt, pullRequest });
+      } else if (!pullRequests.has(id)) {
+        throw new Error(`No details of the pull request ${id} to store`);
+      }
     }
   }
   // A pull request the search no longer finds is listed by no day now.
-  return withListedPullRequests({
-    days: { ...activity.days, [measure]: days },
-    pullRequests,
-  });
+  return withListedPullRequests(
+    withoutIds(
+      { days: { ...activity.days, [measure]: days }, pullRequests },
+      dropped,
+    ),
+  );
 }
 
 /**
@@ -236,29 +292,12 @@ export function recordRefresh(
     }
     const pullRequest = byId.get(id);
     if (pullRequest === undefined) {
-      pullRequests.delete(id);
       dropped.add(id);
     } else {
       pullRequests.set(id, { storedAt: fetchedAt, pullRequest });
     }
   }
-  if (dropped.size === 0) {
-    return { ...activity, pullRequests };
-  }
-  const withoutDropped = (days: ReadonlyMap<string, FetchedDay>) =>
-    new Map(
-      [...days].map(([day, fetched]) => [
-        day,
-        { ...fetched, ids: fetched.ids.filter((id) => !dropped.has(id)) },
-      ]),
-    );
-  return {
-    days: {
-      opened: withoutDropped(activity.days.opened),
-      merged: withoutDropped(activity.days.merged),
-    },
-    pullRequests,
-  };
+  return withoutIds({ ...activity, pullRequests }, dropped);
 }
 
 /** The pull requests the stored days list, each once. */
@@ -266,6 +305,32 @@ export function storedPullRequests(activity: MemberActivity): PullRequest[] {
   return [...activity.pullRequests.values()].map(
     ({ pullRequest }) => pullRequest,
   );
+}
+
+/** `activity` without the pull requests `ids`, in its days too. */
+function withoutIds(
+  activity: MemberActivity,
+  ids: ReadonlySet<string>,
+): MemberActivity {
+  if (ids.size === 0) {
+    return activity;
+  }
+  const withoutDropped = (days: ReadonlyMap<string, FetchedDay>) =>
+    new Map(
+      [...days].map(([day, fetched]) => [
+        day,
+        { ...fetched, ids: fetched.ids.filter((id) => !ids.has(id)) },
+      ]),
+    );
+  return {
+    days: {
+      opened: withoutDropped(activity.days.opened),
+      merged: withoutDropped(activity.days.merged),
+    },
+    pullRequests: new Map(
+      [...activity.pullRequests].filter(([id]) => !ids.has(id)),
+    ),
+  };
 }
 
 /** `activity` without the pull requests no day lists. */
