@@ -1,6 +1,6 @@
 # Activity view
 
-The activity view is the page a signed-in user lands on: the pull requests
+The activity view is what a signed-in user sees: the pull requests
 that the members of an organization opened and merged over the last 14
 days. Members use it to see that development is moving and to notice when it
 stalls. It does not try to show imbalance between repositories or between
@@ -51,13 +51,36 @@ zone, so "today" and each day in the chart are the user's local days.
 
 ## The screen
 
-One page, with:
+Two pages, one per question the view answers:
 
-- a **summary table** with a row per member: opened, merged, additions,
-  deletions;
-- a **chart** of the opened and merged counts per day;
-- a **list of pull requests**: title, repository, author, state, additions,
-  deletions, and a link to the pull request on GitHub.
+- **Activity**, at `/`, answers what happened on which day. It has a
+  **chart** of the opened and merged counts per day, and below it a **list
+  of pull requests**: title, repository, author, state, additions,
+  deletions, and a link to the pull request on GitHub. It is the page that
+  opens first, after sign-in too.
+- **Members**, at `/members`, answers who has been quiet. It has a
+  **summary table**, under the heading "Per member", with a row per member:
+  opened, merged, additions, deletions.
+
+Both pages show the organization (with its selector when there are
+several), the period, and the "Updating…" note or an update's failure
+(below).
+
+While signed in, the header shows a tab per page beside the name, the
+current one marked, and the document title names the page ("Members ·
+yagura"), so that the browser's tabs and history tell the pages apart. The
+tabs are links to the pages' addresses, so that a page can be opened in a
+new tab, copied or bookmarked; a plain click switches the page without
+loading it, adding a history entry, and the browser's back and forward
+buttons switch between the pages too. Any other address (but the sign-in
+callback's) shows Activity, and the address is replaced with `/` without
+adding a history entry. While signed out, no tabs are shown, and `/members`
+shows the same signed-out page as `/`.
+
+Both pages are drawn from one load of the members' pull requests, so that
+switching between them fetches nothing again and shows the same data at
+once. The bar chosen in the chart (below) is not kept when leaving
+Activity.
 
 The chart has a group for every day of the period, a day with nothing
 included, so that a quiet day shows as a gap rather than going missing. A
@@ -66,13 +89,13 @@ was merged for "merged", which may be two different days.
 
 Choosing a day's "opened" or "merged" in the chart narrows the list to that
 day's pull requests of that kind; a day and kind with none cannot be chosen.
-The narrowing applies to the list only: the summary table keeps covering the
-whole period. Above the narrowed list, the view says what it is narrowed to
-("Merged on Oct 3") with a way to show all again; choosing the same bar again
-clears it too.
+The narrowing applies to the list only: the summary table on Members keeps
+covering the whole period. Above the narrowed list, the view says what it is
+narrowed to ("Merged on Oct 3") with a way to show all again; choosing the
+same bar again clears it too.
 
-The summary table and the list cover the same period, shown once above
-them, and the table adds up to the list when it is not narrowed. A pull
+The summary table and the list cover the same period, shown above each,
+and the table adds up to the list when it is not narrowed. A pull
 request opened and merged in the period counts toward both the member's
 opened and merged, but its lines are summed once. Members with no pull
 requests in the period are listed with zeros: a member with nothing in two

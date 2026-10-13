@@ -43,6 +43,50 @@ describe("MemoryLocation", () => {
     expect(location.assigned.map(String)).toEqual(["https://github.com/login"]);
     expect(() => location.replace("http://localhost:5173/")).toThrow();
   });
+
+  it("pushes history entries and moves back and forward through them", () => {
+    const location = new MemoryLocation("http://localhost:5173/");
+    const popped: string[] = [];
+    const unsubscribe = location.onPopState(() =>
+      popped.push(location.pathname),
+    );
+
+    location.push("/members");
+    expect(location.href).toBe("http://localhost:5173/members");
+    expect(popped).toEqual([]);
+
+    location.back();
+    expect(location.pathname).toBe("/");
+    location.forward();
+    expect(location.pathname).toBe("/members");
+    expect(popped).toEqual(["/", "/members"]);
+
+    unsubscribe();
+    location.back();
+    expect(popped).toEqual(["/", "/members"]);
+    expect(() => location.back()).toThrow();
+    expect(() => location.push("https://github.com/")).toThrow();
+  });
+
+  it("drops the entries after the current one on a push, and keeps them on a replace", () => {
+    const location = new MemoryLocation("http://localhost:5173/");
+    location.push("/a");
+    location.push("/b");
+    location.back();
+    location.replace("/c");
+    expect(location.entries).toEqual([
+      "http://localhost:5173/",
+      "http://localhost:5173/c",
+      "http://localhost:5173/b",
+    ]);
+    location.push("/d");
+    expect(location.entries).toEqual([
+      "http://localhost:5173/",
+      "http://localhost:5173/c",
+      "http://localhost:5173/d",
+    ]);
+    expect(() => location.forward()).toThrow();
+  });
 });
 
 describe("ManualTimer", () => {

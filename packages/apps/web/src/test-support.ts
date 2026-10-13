@@ -10,13 +10,15 @@ import type { PullRequest } from "@yagura/activity";
 import { ApiMock, mockPullRequests } from "@yagura/api-mocks";
 import { GitHubApiClient } from "@yagura/github-api";
 import { SessionApiClient } from "@yagura/session-api";
-import { screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect } from "vitest";
 import { setupServer } from "msw/node";
 import { SessionController } from "./features/session";
 
 export const sessionApi = "http://localhost:8787";
 export const redirectUri = "http://localhost:5173/callback";
+/** The address of the members page. */
+export const membersPageUrl = "http://localhost:5173/members";
 
 /** The MSW server every test shares; `test-setup.ts` starts and resets it. */
 export const server = setupServer();
@@ -78,6 +80,11 @@ export function testController(options: TestControllerOptions = {}) {
     clock: options.clock,
   });
   return { controller, mock, storage, lastViewer, location, timer, cache };
+}
+
+/** Switches to the page of the tab named `name`, as a plain click does. */
+export function showPage(name: "Activity" | "Members"): void {
+  fireEvent.click(screen.getByRole("link", { name }));
 }
 
 /**

@@ -6,6 +6,7 @@ import {
   useStoredThenFetched,
   type StoredThenFetchedSource,
 } from "../../shared";
+import type { Page } from "../pages";
 import { MembersActivity } from "../pull-requests";
 import { useSession, type SessionController } from "../session";
 import {
@@ -32,11 +33,12 @@ interface Installations {
 
 /**
  * The organization the GitHub App is installed on, and its members' recent
- * pull requests, summarized per member and listed. With several
- * organizations, a selector switches between them, and the one selected is
- * selected again on the next load while it is still listed.
+ * pull requests on `page`: charted per day and listed, or summarized per
+ * member. With several organizations, a selector switches between them, and
+ * the one selected is selected again on the next load while it is still
+ * listed. What is loaded stays when `page` changes.
  */
-export function OrganizationMembers() {
+export function OrganizationMembers(props: { readonly page: Page }) {
   const { controller } = useSession();
   const source = useMemo((): StoredThenFetchedSource<Installations> => {
     const list = shortLivedSource(controller, installationsList, (token) =>
@@ -102,6 +104,7 @@ export function OrganizationMembers() {
       <OrganizationView
         organizations={organizations}
         initial={organizations.find(({ login }) => login === selected) ?? first}
+        page={props.page}
       />
     </>
   );
@@ -134,9 +137,10 @@ function shortLivedSource<T>(
 function OrganizationView(props: {
   readonly organizations: readonly Organization[];
   readonly initial: Organization;
+  readonly page: Page;
 }) {
   const { controller } = useSession();
-  const { organizations } = props;
+  const { organizations, page } = props;
   const [chosen, setChosen] = useState<string>();
   // Until the user chooses, and when the chosen organization is no longer
   // listed (the list fetched behind the stored one differs), the initial
@@ -172,14 +176,14 @@ function OrganizationView(props: {
         )}
         <h2 className={styles.name}>{selected}</h2>
       </div>
-      <Members key={selected} org={selected} />
+      <Members key={selected} org={selected} page={page} />
     </section>
   );
 }
 
-function Members(props: { readonly org: string }) {
+function Members(props: { readonly org: string; readonly page: Page }) {
   const { controller } = useSession();
-  const { org } = props;
+  const { org, page } = props;
   const source = useMemo(
     () =>
       shortLivedSource(controller, membersList(org), (token) =>
@@ -214,7 +218,7 @@ function Members(props: { readonly org: string }) {
           No members of {org} are visible to you.
         </p>
       ) : (
-        <MembersActivity org={org} members={value} />
+        <MembersActivity org={org} members={value} page={page} />
       )}
     </>
   );

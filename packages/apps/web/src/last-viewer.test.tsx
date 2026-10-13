@@ -15,6 +15,7 @@ import {
   pullRequestTitles,
   server,
   sessionApi,
+  showPage,
   shownMemberSummaryRows,
   shownPullRequestTitles,
   testController,
@@ -100,7 +101,8 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
   it("draws the cached activity while the refresh is held, and keeps it after", async () => {
     const view = page();
     await view.load();
-    const cachedRows = shownMemberSummaryRows();
+    showPage("Members");
+    const cachedRows = await memberSummaryRows();
     expect(view.lastViewer.get(lastViewerKey)).toBe(mockLogin);
 
     view.advanceTo(10 * minute);
@@ -110,7 +112,9 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     await screen.findByRole("table", { name: "Pull requests" });
     expect(set).not.toHaveBeenCalled();
     expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
+    showPage("Members");
     expect(shownMemberSummaryRows()).toEqual(cachedRows);
+    showPage("Activity");
     expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
     expect(view.mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
     // Nothing is sent to GitHub before the token arrives.
@@ -127,6 +131,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     });
     expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    showPage("Members");
     expect(await memberSummaryRows()).toEqual(cachedRows);
     // The fetch that follows the confirmation stores what it fetched.
     expect(set).toHaveBeenCalled();

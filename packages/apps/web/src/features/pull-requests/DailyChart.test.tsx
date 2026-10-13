@@ -14,6 +14,7 @@ import {
   memberSummaryRows,
   mockDomainPullRequests,
   pullRequestTitles,
+  showPage,
   testController,
 } from "../../test-support";
 import { dayFormat } from "./format";
@@ -140,13 +141,16 @@ describe("DailyChart", () => {
 
   it("leaves the summary table covering the whole period", async () => {
     await renderChart();
+    showPage("Members");
     const before = await memberSummaryRows();
+    showPage("Activity");
 
     fireEvent.click(
-      screen.getByRole("button", {
+      await screen.findByRole("button", {
         name: barName(dayWith("merged"), "merged"),
       }),
     );
+    showPage("Members");
 
     expect(await memberSummaryRows()).toEqual(before);
   });
