@@ -2,10 +2,13 @@
  * The screens before the pages: no header or footer, one panel in the
  * middle of the viewport, on the page background with the cards' border
  * and shadow, so that it reads as the same app as the pages after sign-in.
+ * The theme control sits under the panel, the two centred together.
  */
 .screen {
   display: grid;
   place-items: center;
+  align-content: center;
+  gap: var(--space-4);
   min-height: 100vh;
   min-height: 100dvh;
   padding: var(--space-4);

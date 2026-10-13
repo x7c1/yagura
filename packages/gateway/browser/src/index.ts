@@ -1,3 +1,8 @@
+export {
+  DomElementAttribute,
+  MemoryElementAttribute,
+} from "./element-attribute";
+export type { ElementAttribute } from "./element-attribute";
 export { MemoryElementWidths, ResizeObserverWidths } from "./element-widths";
 export type { ElementWidths } from "./element-widths";
 export { IndexedDbStore, MemoryJsonStore } from "./json-store";

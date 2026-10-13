@@ -14,6 +14,7 @@ import {
   server,
   showPage,
   testController,
+  testTheme,
   testWidths,
 } from "../../test-support";
 import { PullRequestList } from "./PullRequestList";
@@ -24,7 +25,9 @@ describe("MembersActivity", () => {
   it("lists the members' pull requests of the period, newest first", async () => {
     const { controller, mock } = testController({ signedIn: true });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
     // Opened and merged in the period: found by both searches, listed once.
@@ -39,7 +42,9 @@ describe("MembersActivity", () => {
   it("names the period beside the heading of the members' table", async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
     await pullRequestTitles();
     showPage("Members");
 
@@ -54,7 +59,9 @@ describe("MembersActivity", () => {
   it("shows a pull request's details and links to it", async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     const [, row] = await pullRequestRows();
     const cells = within(row as HTMLElement).getAllByRole("cell");
@@ -77,7 +84,9 @@ describe("MembersActivity", () => {
   it('heads the last column "Date" and marks each date with its instant', async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     const rows = await pullRequestRows();
     const table = screen.getByRole("table", { name: "Pull requests" });
@@ -93,7 +102,9 @@ describe("MembersActivity", () => {
   it("bands the rows by day, alternating where the day changes", async () => {
     const { controller } = testController({ signedIn: true });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     const rows = await pullRequestRows();
     const days = rows.map((row) =>
@@ -204,7 +215,9 @@ describe("MembersActivity", () => {
       ),
     );
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(
       await screen.findByText(
@@ -223,7 +236,9 @@ describe("MembersActivity", () => {
       ),
     );
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       `Could not load the pull requests of ${mockOrganization}'s members`,

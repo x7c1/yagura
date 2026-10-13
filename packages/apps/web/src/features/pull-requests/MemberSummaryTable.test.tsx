@@ -17,6 +17,7 @@ import {
   server,
   showPage,
   testController,
+  testTheme,
   testWidths,
 } from "../../test-support";
 
@@ -76,7 +77,9 @@ describe("MemberSummaryTable", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(await memberSummaryRows()).toEqual(expectedRows());
   });
@@ -98,7 +101,9 @@ describe("MemberSummaryTable", () => {
       }),
     );
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     const rows = await memberSummaryRows();
     expect(rows.find(([login]) => login === "mock-carol")).toEqual([
@@ -117,7 +122,9 @@ describe("MemberSummaryTable", () => {
       url: membersPageUrl,
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
     await memberSummaryRows();
     showPage("Activity");
     await pullRequestRows();
@@ -134,7 +141,9 @@ describe("MemberSummaryTable", () => {
     });
     server.use(http.post(graphqlUrl, emptySearch));
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(await memberSummaryRows()).toEqual([
       ...mockMemberLogins.map((login) => [login, "0", "0", "+0", "−0"]),

@@ -53,69 +53,59 @@
   --sign-in-panel-width: 26rem;
   --sign-in-button-height: 2.5rem;
 
-  /* Colours: light. */
-  color-scheme: light;
-  --color-bg: #ffffff;
-  --color-surface: #f6f8fa;
+  /*
+   * Colours, each as its light and its dark value. `light-dark()` picks
+   * one by the `color-scheme` in effect, which follows the operating
+   * system unless the viewer chose a theme (below), so that the dark
+   * values are written once and native controls and scrollbars follow the
+   * same choice.
+   */
+  color-scheme: light dark;
+  --color-bg: light-dark(#ffffff, #0d1117);
+  --color-surface: light-dark(#f6f8fa, #151b23);
   /* The rows of every other day in the pull request list. */
-  --color-band: #f6f8fa;
-  --color-text: #1f2328;
-  --color-text-muted: #59636e;
-  --color-border: #d1d9e0;
-  --color-border-subtle: #e8ebef;
-  --color-border-strong: #818b98;
-  --color-link: #0969da;
-  --color-focus: #0969da;
+  --color-band: light-dark(#f6f8fa, #1c232c);
+  --color-text: light-dark(#1f2328, #e6edf3);
+  --color-text-muted: light-dark(#59636e, #9198a1);
+  --color-border: light-dark(#d1d9e0, #3d444d);
+  --color-border-subtle: light-dark(#e8ebef, #262c36);
+  --color-border-strong: light-dark(#818b98, #656c76);
+  --color-link: light-dark(#0969da, #4493f8);
+  --color-focus: light-dark(#0969da, #4493f8);
   /* What marks the current place, such as the current tab's underline. */
-  --color-accent: #bc4c00;
+  --color-accent: light-dark(#bc4c00, #f78166);
   /* Lifts a card off the page, just enough to be felt. */
-  --shadow-card: 0 1px 2px rgb(31 35 40 / 0.06);
-  --color-primary: #1f883d;
-  --color-primary-hover: #1a7f37;
+  --shadow-card: 0 1px 2px light-dark(rgb(31 35 40 / 0.06), rgb(1 4 9 / 0.6));
+  --color-primary: light-dark(#1f883d, #238636);
+  /*
+   * In dark, darker rather than lighter, so that white text keeps AA
+   * contrast.
+   */
+  --color-primary-hover: light-dark(#1a7f37, #1f7a32);
   --color-on-primary: #ffffff;
-  --color-control-bg: #f6f8fa;
-  --color-control-hover: #eef1f4;
-  --color-opened: #0969da;
-  --color-merged: #8250df;
-  --color-closed: #cf222e;
-  --color-additions: #1a7f37;
-  --color-deletions: #cf222e;
-  --color-error: #cf222e;
-  --color-error-bg: #ffebe9;
-  --color-error-border: #ff8182;
+  --color-control-bg: light-dark(#f6f8fa, #212830);
+  --color-control-hover: light-dark(#eef1f4, #262c36);
+  --color-opened: light-dark(#0969da, #4493f8);
+  --color-merged: light-dark(#8250df, #ab7df8);
+  --color-closed: light-dark(#cf222e, #f85149);
+  --color-additions: light-dark(#1a7f37, #3fb950);
+  --color-deletions: light-dark(#cf222e, #f85149);
+  --color-error: light-dark(#cf222e, #f85149);
+  --color-error-bg: light-dark(#ffebe9, #25171c);
+  --color-error-border: light-dark(#ff8182, #8e1519);
 }
 
-/* Colours: dark, from the OS setting. */
-@media (prefers-color-scheme: dark) {
-  :root {
-    color-scheme: dark;
-    --color-bg: #0d1117;
-    --color-surface: #151b23;
-    --color-band: #1c232c;
-    --color-text: #e6edf3;
-    --color-text-muted: #9198a1;
-    --color-border: #3d444d;
-    --color-border-subtle: #262c36;
-    --color-border-strong: #656c76;
-    --color-link: #4493f8;
-    --color-focus: #4493f8;
-    --color-accent: #f78166;
-    --shadow-card: 0 1px 2px rgb(1 4 9 / 0.6);
-    --color-primary: #238636;
-    /* Darker, not lighter, so that white text keeps AA contrast. */
-    --color-primary-hover: #1f7a32;
-    --color-on-primary: #ffffff;
-    --color-control-bg: #212830;
-    --color-control-hover: #262c36;
-    --color-opened: #4493f8;
-    --color-merged: #ab7df8;
-    --color-closed: #f85149;
-    --color-additions: #3fb950;
-    --color-deletions: #f85149;
-    --color-error: #f85149;
-    --color-error-bg: #25171c;
-    --color-error-border: #8e1519;
-  }
+/*
+ * The theme the viewer chose, set on the root element as `data-theme` by
+ * the app and, before the first paint, by the early script in
+ * `index.html`. Without it, the theme follows the operating system.
+ */
+:root[data-theme="light"] {
+  color-scheme: light;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
 }
 
 *,

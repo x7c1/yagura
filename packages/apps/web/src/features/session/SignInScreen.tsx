@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { buttonStyles } from "../../shared";
+import { ThemeControl } from "../theme";
 import { useSession } from "./session-context";
 import styles from "./SignInScreen.module.css";
 
@@ -52,7 +53,8 @@ export function SignInScreen() {
  * name as the page's one heading and the line that says what it is, the
  * same as the README's first line. `children` takes the button's place,
  * above the note on what signing in gives the app, which every state shows
- * so that the panel keeps its size from one to the next.
+ * so that the panel keeps its size from one to the next. The theme control
+ * sits under the panel, quietly, as the screen has no footer to hold it.
  */
 export function SignInFrame(props: { readonly children: ReactNode }) {
   return (
@@ -73,6 +75,7 @@ export function SignInFrame(props: { readonly children: ReactNode }) {
           browser. The server stores nothing.
         </p>
       </div>
+      <ThemeControl />
     </main>
   );
 }

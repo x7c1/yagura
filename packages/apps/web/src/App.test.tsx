@@ -3,7 +3,12 @@ import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
 import { saveHandoff } from "./features/session/handoff";
-import { sessionApi, testController, testWidths } from "./test-support";
+import {
+  sessionApi,
+  testController,
+  testTheme,
+  testWidths,
+} from "./test-support";
 
 const description =
   "See your organization's development activity on GitHub at a glance.";
@@ -12,7 +17,9 @@ describe("App", () => {
   it("shows the sign-in screen when refresh answers 401", async () => {
     const { controller, mock } = testController();
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(
       await screen.findByRole("button", { name: "Sign in with GitHub" }),
@@ -38,7 +45,9 @@ describe("App", () => {
       ({ url }) => url === `${sessionApi}/session/refresh`,
     );
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(screen.getByRole("heading", { name: "Yagura" })).toBeVisible();
     expect(screen.getByText(description)).toBeInTheDocument();
@@ -60,7 +69,9 @@ describe("App", () => {
   it("restores the session on reload and signs out", async () => {
     const { controller, mock } = testController({ signedIn: true });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(controller.accessToken).toBe("ghu_mock_1");
 
@@ -87,7 +98,9 @@ describe("App", () => {
     });
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(screen.getByRole("status")).toHaveTextContent("Signing in…");
     expect(screen.getByRole("heading", { name: "Yagura" })).toBeVisible();
@@ -111,7 +124,9 @@ describe("App", () => {
     }
     location.assign(mockAuthorize(authorizeUrl));
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(location.pathname).toBe("/");
@@ -124,7 +139,9 @@ describe("App", () => {
       url: "http://localhost:5173/callback?code=abc&state=forged",
     });
 
-    render(<App session={controller} widths={testWidths()} />);
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("state");

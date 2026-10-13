@@ -1,4 +1,5 @@
 import {
+  DomElementAttribute,
   GlobalTimer,
   IndexedDbStore,
   ResizeObserverWidths,
@@ -13,6 +14,7 @@ import { createRoot } from "react-dom/client";
 import { App, callbackPath } from "./App";
 import { loadConfig, type Config } from "./config";
 import { SessionController } from "./features/session";
+import { ThemeController, themeAttributeName } from "./features/theme";
 import "./global.css";
 
 // The composition root: the one module that touches `window`, to build the
@@ -43,6 +45,7 @@ async function startApiMock(
 async function main(container: HTMLElement): Promise<void> {
   const config = loadConfig();
   const storage = new WebStorageStore(() => window.sessionStorage);
+  const localStore = new WebStorageStore(() => window.localStorage);
   const location = new WindowLocation(window);
   const authorize = await startApiMock(config, storage);
 
@@ -53,7 +56,7 @@ async function main(container: HTMLElement): Promise<void> {
     clientId: config.githubClientId || "mock-client-id",
     redirectUri: location.origin + callbackPath,
     storage,
-    lastViewer: new WebStorageStore(() => window.localStorage),
+    lastViewer: localStore,
     location,
     timer: new GlobalTimer(),
     cache: new IndexedDbStore(() => window.indexedDB),
@@ -66,6 +69,15 @@ async function main(container: HTMLElement): Promise<void> {
         session={session}
         widths={
           new ResizeObserverWidths((callback) => new ResizeObserver(callback))
+        }
+        theme={
+          new ThemeController({
+            store: localStore,
+            root: new DomElementAttribute(
+              document.documentElement,
+              themeAttributeName,
+            ),
+          })
         }
       />
     </StrictMode>,

@@ -42,6 +42,7 @@ import {
   showPage,
   showsOrganization,
   testController,
+  testTheme,
   testWidths,
 } from "./test-support";
 
@@ -96,7 +97,13 @@ function page(cache: JsonStore = new MemoryJsonStore()) {
       });
       mock = test.mock;
       server.use(...handlers);
-      render(<App session={test.controller} widths={testWidths()} />);
+      render(
+        <App
+          session={test.controller}
+          widths={testWidths()}
+          theme={testTheme()}
+        />,
+      );
     },
     /**
      * Renders the app and resolves to the listed titles once nothing is

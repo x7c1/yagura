@@ -1,5 +1,6 @@
 import {
   ManualTimer,
+  MemoryElementAttribute,
   MemoryElementWidths,
   MemoryJsonStore,
   MemoryLocation,
@@ -15,6 +16,7 @@ import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect } from "vitest";
 import { setupServer } from "msw/node";
 import { SessionController } from "./features/session";
+import { ThemeController } from "./features/theme";
 
 export const sessionApi = "http://localhost:8787";
 export const redirectUri = "http://localhost:5173/callback";
@@ -89,6 +91,16 @@ export function testController(options: TestControllerOptions = {}) {
  */
 export function testWidths(width = 1000): MemoryElementWidths {
   return new MemoryElementWidths(width);
+}
+
+/**
+ * A theme controller over memory implementations of the browser, so that a
+ * test that does not look at the theme leaves the document as it is.
+ */
+export function testTheme(
+  store: KeyValueStore = new MemoryStore(),
+): ThemeController {
+  return new ThemeController({ store, root: new MemoryElementAttribute() });
 }
 
 /** Switches to the page of the tab named `name`, as a plain click does. */

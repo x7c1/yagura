@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  DomElementAttribute,
   ManualTimer,
+  MemoryElementAttribute,
   MemoryElementWidths,
   MemoryLocation,
   MemoryStore,
@@ -178,5 +180,38 @@ describe("MemoryElementWidths", () => {
 
     expect(seen).toEqual([640, 375]);
     expect(widths.observing).toBe(0);
+  });
+});
+
+describe("DomElementAttribute", () => {
+  it("sets and removes the attribute on the element", () => {
+    const attributes = new Map<string, string>();
+    // Enough of an element for the attribute's calls, as the tests run
+    // without a document.
+    const element = {
+      setAttribute: (name: string, value: string) => {
+        attributes.set(name, value);
+      },
+      removeAttribute: (name: string) => {
+        attributes.delete(name);
+      },
+    } as unknown as Element;
+    const attribute = new DomElementAttribute(element, "data-theme");
+
+    attribute.set("dark");
+    expect(attributes.get("data-theme")).toBe("dark");
+    attribute.set(undefined);
+    expect(attributes.has("data-theme")).toBe(false);
+  });
+});
+
+describe("MemoryElementAttribute", () => {
+  it("starts absent and keeps what is set", () => {
+    const attribute = new MemoryElementAttribute();
+    expect(attribute.get()).toBeUndefined();
+    attribute.set("light");
+    expect(attribute.get()).toBe("light");
+    attribute.set(undefined);
+    expect(attribute.get()).toBeUndefined();
   });
 });
