@@ -149,15 +149,15 @@ Through the API mock with a memory store, an injected clock and
 
 ### Before merge (verified outside the check command)
 
-- [ ] Against the dev session API through the proxy, with the cache's
+- [x] Against the dev session API through the proxy, with the cache's
       stored times moved back 11 minutes: on reload, the summary table and
       the list are on screen while GraphQL responses are still pending
       (shown by comparing the time the table first appears with the
       requests' resource timing), "Updating…" shows and goes away without
       moving the layout, and the final list matches the one on `main`.
-- [ ] Against the dev session API, a reload within 10 minutes makes no
+- [x] Against the dev session API, a reload within 10 minutes makes no
       request to `/user/installations`, the members endpoint or GraphQL.
-- [ ] With `VITE_API_MOCK=1` and the cache cleared, the member table with
+- [x] With `VITE_API_MOCK=1` and the cache cleared, the member table with
       placeholders shows before the pull requests arrive.
 
 ## Out of scope
