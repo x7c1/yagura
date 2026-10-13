@@ -25,9 +25,11 @@ import {
 import { viewerCachePrefix } from "./shared";
 import {
   memberSummaryRows,
+  membersPageUrl,
   mockDomainPullRequests,
   pullRequestTitles,
   server,
+  showPage,
   shownMemberSummaryRows,
   shownPullRequestTitles,
   testController,
@@ -50,6 +52,7 @@ const firstLoad = new Date(2026, 9, 12, 15, 30);
  */
 function page(cache: JsonStore = new MemoryJsonStore()) {
   let now = firstLoad;
+  let url: string | undefined;
   let mock: ApiMock | undefined;
   return {
     cache,
@@ -63,6 +66,10 @@ function page(cache: JsonStore = new MemoryJsonStore()) {
     advanceTo(ms: number): void {
       now = new Date(firstLoad.getTime() + ms);
     },
+    /** Opens the app at `pageUrl` from now on, instead of at its root. */
+    at(pageUrl: string): void {
+      url = pageUrl;
+    },
     /**
      * Renders the app, without waiting for anything. `handlers` take
      * precedence over the API mock's.
@@ -75,6 +82,7 @@ function page(cache: JsonStore = new MemoryJsonStore()) {
         cache,
         clock: () => now,
         mock,
+        url,
       });
       mock = test.mock;
       server.use(...handlers);
@@ -424,6 +432,7 @@ describe("Drawing from the cache first", () => {
   it("shows the stored pull requests while the update runs, then the fetched ones", async () => {
     const view = page();
     await view.load();
+    showPage("Members");
     const cachedRows = shownMemberSummaryRows();
     view.mock.addPullRequest(newPullRequest);
     view.advanceTo(10 * minute);
@@ -434,9 +443,12 @@ describe("Drawing from the cache first", () => {
 
     await screen.findByText("Updating…");
     expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
-    expect(shownMemberSummaryRows()).toEqual(cachedRows);
     expect(chart()).toBeInTheDocument();
     expect(view.mock.searches.length).toBeGreaterThan(0);
+    showPage("Members");
+    expect(shownMemberSummaryRows()).toEqual(cachedRows);
+    expect(updating()).toBeInTheDocument();
+    showPage("Activity");
 
     release();
 
@@ -488,6 +500,7 @@ describe("Drawing from the cache first", () => {
 
   it("lists the members with placeholders while nothing is stored", async () => {
     const view = page();
+    view.at(membersPageUrl);
     view.open();
     // The mock exists once the app is rendered.
     const release = view.mock.holdGraphql(() => true);
@@ -498,17 +511,20 @@ describe("Drawing from the cache first", () => {
       ...mockMemberLogins.map((login) => [login, ...placeholders]),
       ["Total", ...placeholders],
     ]);
+    showPage("Activity");
     expect(screen.getByText("Loading pull requests…")).toBeInTheDocument();
     expect(chart()).not.toBeInTheDocument();
 
     release();
 
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    showPage("Members");
     expect((await memberSummaryRows()).flat()).not.toContain("…");
   });
 
   it("keeps the placeholders when nothing is stored and the fetch fails, and retries", async () => {
     const view = page();
+    view.at(membersPageUrl);
     let failing = true;
 
     view.open(failSearches(() => failing));
@@ -521,6 +537,14 @@ describe("Drawing from the cache first", () => {
       "Total",
     ]);
     expect(shownMemberSummaryRows()[0]?.slice(1)).toEqual(["…", "…", "…", "…"]);
+    // On the activity page, the failure takes the place of the list.
+    showPage("Activity");
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      `Could not load the pull requests of ${mockOrganization}'s members`,
+    );
+    expect(
+      screen.queryByText("Loading pull requests…"),
+    ).not.toBeInTheDocument();
 
     failing = false;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
@@ -589,6 +613,7 @@ describe("Drawing from the cache first", () => {
     view.advanceTo(10 * minute);
     const fewer = mockMemberLogins.filter((login) => login !== "mock-carol");
 
+    view.at(membersPageUrl);
     view.open(
       http.get(membersUrl.replace(/\?.*$/, ""), () =>
         HttpResponse.json(fewer.map((login) => ({ login, avatar_url: "" }))),

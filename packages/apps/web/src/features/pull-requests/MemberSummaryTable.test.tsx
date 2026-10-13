@@ -11,9 +11,11 @@ import { describe, expect, it } from "vitest";
 import { App } from "../../App";
 import {
   memberSummaryRows,
+  membersPageUrl,
   mockDomainPullRequests,
   pullRequestRows,
   server,
+  showPage,
   testController,
 } from "../../test-support";
 
@@ -70,6 +72,7 @@ describe("MemberSummaryTable", () => {
     const { controller } = testController({
       signedIn: true,
       clock: () => now,
+      url: membersPageUrl,
     });
 
     render(<App session={controller} />);
@@ -81,6 +84,7 @@ describe("MemberSummaryTable", () => {
     const { controller } = testController({
       signedIn: true,
       clock: () => now,
+      url: membersPageUrl,
     });
     server.use(
       http.post(graphqlUrl, async ({ request }) => {
@@ -109,10 +113,12 @@ describe("MemberSummaryTable", () => {
     const { controller, mock } = testController({
       signedIn: true,
       clock: () => now,
+      url: membersPageUrl,
     });
 
     render(<App session={controller} />);
     await memberSummaryRows();
+    showPage("Activity");
     await pullRequestRows();
 
     // One search per member and measure, not one set each for the table and
@@ -120,8 +126,11 @@ describe("MemberSummaryTable", () => {
     expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
   });
 
-  it("lists every member with zeros above the empty list", async () => {
-    const { controller } = testController({ signedIn: true });
+  it("lists every member with zeros when the list is empty", async () => {
+    const { controller } = testController({
+      signedIn: true,
+      url: membersPageUrl,
+    });
     server.use(http.post(graphqlUrl, emptySearch));
 
     render(<App session={controller} />);
@@ -130,6 +139,7 @@ describe("MemberSummaryTable", () => {
       ...mockMemberLogins.map((login) => [login, "0", "0", "+0", "−0"]),
       ["Total", "0", "0", "+0", "−0"],
     ]);
+    showPage("Activity");
     expect(
       screen.getByText(
         `No pull requests by ${mockOrganization}'s members in the last 14 days.`,

@@ -11,7 +11,10 @@ export function PullRequestList(props: {
   const { pullRequests, period } = props;
   return (
     <div className={styles.scroll}>
-      <table aria-label="Pull requests" className={styles.table}>
+      <table
+        aria-label="Pull requests"
+        className={`${tableStyles.table} ${styles.table}`}
+      >
         <thead>
           <tr>
             <th scope="col">Title</th>

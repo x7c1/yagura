@@ -23,7 +23,10 @@ export function MemberSummaryTable(props: {
       ? members.map(({ login }) => ({ login }))
       : summary.members.map((row) => ({ login: row.login, counts: row }));
   return (
-    <table aria-label="Members" className={styles.table}>
+    <table
+      aria-label="Members"
+      className={`${tableStyles.table} ${styles.table}`}
+    >
       <thead>
         <tr>
           <th scope="col">Member</th>

@@ -1,6 +1,4 @@
-.table {
-  composes: table from "../../shared/table.module.css";
-}
+/* `.table` is applied with the shared table class, which it adjusts. */
 
 /* A member's row heading is not bold; the total's is (see below). */
 .table th {

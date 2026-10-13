@@ -3,7 +3,12 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
-import { memberSummaryRows, server, testController } from "../../test-support";
+import {
+  memberSummaryRows,
+  membersPageUrl,
+  server,
+  testController,
+} from "../../test-support";
 
 const membersUrl = (org: string) =>
   `https://api.github.com/orgs/${org}/members`;
@@ -16,7 +21,10 @@ async function memberLogins(): Promise<string[]> {
 
 describe("OrganizationMembers", () => {
   it("shows the organization and its members after sign-in", async () => {
-    const { controller, mock } = testController({ signedIn: true });
+    const { controller, mock } = testController({
+      signedIn: true,
+      url: membersPageUrl,
+    });
 
     render(<App session={controller} />);
 
@@ -34,7 +42,10 @@ describe("OrganizationMembers", () => {
   });
 
   it("hides the members after sign-out", async () => {
-    const { controller } = testController({ signedIn: true });
+    const { controller } = testController({
+      signedIn: true,
+      url: membersPageUrl,
+    });
 
     render(<App session={controller} />);
     await screen.findByRole("table", { name: "Members" });
@@ -62,7 +73,10 @@ describe("OrganizationMembers", () => {
   });
 
   it("shows an error when the members request fails, and retries", async () => {
-    const { controller } = testController({ signedIn: true });
+    const { controller } = testController({
+      signedIn: true,
+      url: membersPageUrl,
+    });
     server.use(
       http.get(
         membersUrl(mockOrganization),
@@ -103,6 +117,7 @@ describe("OrganizationMembers", () => {
     const { controller, mock } = testController({
       signedIn: true,
       organizations: ["other-org", mockOrganization],
+      url: membersPageUrl,
     });
 
     render(<App session={controller} />);

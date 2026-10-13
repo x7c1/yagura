@@ -3,10 +3,7 @@
   overflow-x: auto;
 }
 
-.table {
-  composes: table from "../../shared/table.module.css";
-}
-
+/* `.table` is applied with the shared table class, which it adjusts. */
 .table th,
 .table td {
   vertical-align: top;
