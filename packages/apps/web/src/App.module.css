@@ -1,40 +1,104 @@
-/* The bar across the top: the name and the tabs left, the session right. */
+/*
+ * The bar across the top: the tabs left, on the bar's bottom edge, and the
+ * organization and the session right. The app's name is in the footer
+ * instead, so that the bar holds only what is used on every visit.
+ */
 .header {
   background: var(--color-surface);
   border-bottom: var(--border-width) solid var(--color-border);
 }
 
 .bar,
-.main {
+.main,
+.footer {
   max-width: var(--content-max-width);
   margin: 0 auto;
   padding-left: var(--space-4);
   padding-right: var(--space-4);
 }
 
+/*
+ * The tabs take their own width and the session the rest. On a phone, the
+ * session takes a row of its own above the tabs, so that the organization
+ * and the login get the full width rather than what the tabs leave.
+ */
 .bar {
-  display: flex;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  grid-template-areas: "tabs session";
   align-items: center;
-  justify-content: space-between;
-  gap: var(--space-2) var(--space-4);
-  padding-top: var(--space-3);
-  padding-bottom: var(--space-3);
+  column-gap: var(--space-4);
 }
 
-/* The name, and the tabs beside it, or below it when they do not fit. */
-.brand {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2) var(--space-5);
+@media (max-width: 40rem) {
+  .bar {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      "session"
+      "tabs";
+  }
 }
 
-.title {
-  font-size: var(--font-size-xl);
+/* Read out by assistive tech, but not drawn. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 
+/*
+ * The tabs sit on the bar's bottom edge, reaching over the header's border
+ * so that the current tab's underline takes its place.
+ */
+.tabs {
+  grid-area: tabs;
+  align-self: end;
+  margin-bottom: calc(-1 * var(--border-width));
+}
+
+.session {
+  grid-area: session;
+  min-width: 0;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+}
+
+/*
+ * Where the members' view draws the organization. It adds no box of its
+ * own, so that what is drawn there lines up with the login beside it.
+ */
+.organizationSlot {
+  display: contents;
+}
+
+/*
+ * What the page holds, the cards and any failure above them, one under
+ * another with the same space between them.
+ */
 .main {
-  padding-top: var(--space-5);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  padding-top: var(--space-4);
   padding-bottom: var(--space-6);
+}
+
+/* The app's name, quietly, under everything else. */
+.footer {
+  padding-top: var(--space-4);
+  padding-bottom: var(--space-5);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  text-align: center;
+}
+
+.footerLink {
+  color: inherit;
+}
+
+.footerLink:hover {
+  color: var(--color-link);
 }

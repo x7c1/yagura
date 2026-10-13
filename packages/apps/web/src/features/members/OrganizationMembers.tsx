@@ -1,5 +1,6 @@
 import type { Organization } from "@yagura/github-api";
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   Failure,
   sectionStyles,
@@ -32,13 +33,17 @@ interface Installations {
 }
 
 /**
- * The organization the GitHub App is installed on, and its members' recent
- * pull requests on `page`: charted per day and listed, or summarized per
- * member. With several organizations, a selector switches between them, and
- * the one selected is selected again on the next load while it is still
- * listed. What is loaded stays when `page` changes.
+ * The organization the GitHub App is installed on, drawn into
+ * `organizationSlot` in the header, and its members' recent pull requests
+ * on `page`: charted per day and listed, or summarized per member. With
+ * several organizations, a selector switches between them, and the one
+ * selected is selected again on the next load while it is still listed.
+ * What is loaded stays when `page` changes.
  */
-export function OrganizationMembers(props: { readonly page: Page }) {
+export function OrganizationMembers(props: {
+  readonly page: Page;
+  readonly organizationSlot: HTMLElement | null;
+}) {
   const { controller } = useSession();
   const source = useMemo((): StoredThenFetchedSource<Installations> => {
     const list = shortLivedSource(controller, installationsList, (token) =>
@@ -69,22 +74,24 @@ export function OrganizationMembers(props: { readonly page: Page }) {
   const { value, error, retry } = useStoredThenFetched(source);
 
   if (value === undefined) {
-    return error === undefined ? (
-      <p className={sectionStyles.note}>Loading organizations…</p>
-    ) : (
-      <Failure
-        message={`Could not load your organizations: ${error}`}
-        retry={retry}
-      />
+    return (
+      <div className={sectionStyles.section}>
+        {error === undefined ? (
+          <p className={sectionStyles.note}>Loading organizations…</p>
+        ) : (
+          <Failure
+            message={`Could not load your organizations: ${error}`}
+            retry={retry}
+          />
+        )}
+      </div>
     );
   }
   const failure = error !== undefined && (
-    <div className={styles.failure}>
-      <Failure
-        message={`Could not update your organizations: ${error}`}
-        retry={retry}
-      />
-    </div>
+    <Failure
+      message={`Could not update your organizations: ${error}`}
+      retry={retry}
+    />
   );
   const { organizations, selected } = value;
   const first = organizations[0];
@@ -92,9 +99,11 @@ export function OrganizationMembers(props: { readonly page: Page }) {
     return (
       <>
         {failure}
-        <p className={sectionStyles.note}>
-          The yagura GitHub App is not installed on any of your organizations.
-        </p>
+        <div className={sectionStyles.section}>
+          <p className={sectionStyles.note}>
+            The Yagura GitHub App is not installed on any of your organizations.
+          </p>
+        </div>
       </>
     );
   }
@@ -105,6 +114,7 @@ export function OrganizationMembers(props: { readonly page: Page }) {
         organizations={organizations}
         initial={organizations.find(({ login }) => login === selected) ?? first}
         page={props.page}
+        organizationSlot={props.organizationSlot}
       />
     </>
   );
@@ -131,53 +141,77 @@ function shortLivedSource<T>(
 }
 
 /**
- * The selected organization and its members. `initial` is selected until
- * the user chooses another; the choice is stored in the viewer's cache.
+ * The selected organization, drawn into `organizationSlot` in the header,
+ * and its members below. `initial` is selected until the user chooses
+ * another; the choice is stored in the viewer's cache.
  */
 function OrganizationView(props: {
   readonly organizations: readonly Organization[];
   readonly initial: Organization;
   readonly page: Page;
+  readonly organizationSlot: HTMLElement | null;
 }) {
   const { controller } = useSession();
-  const { organizations, page } = props;
+  const { organizations, page, organizationSlot } = props;
   const [chosen, setChosen] = useState<string>();
   // Until the user chooses, and when the chosen organization is no longer
   // listed (the list fetched behind the stored one differs), the initial
   // one is shown: the one selected on an earlier load while it is listed,
   // else the first, as when the list is loaded without the cache.
-  const selected =
-    organizations.find(({ login }) => login === chosen)?.login ??
-    props.initial.login;
+  const organization =
+    organizations.find(({ login }) => login === chosen) ?? props.initial;
+  const selected = organization.login;
+
+  // Drawn in the header, apart from the members, so that it stays put while
+  // they load and change, and the selector keeps its focus when another
+  // organization is chosen. The slash parts it from the login after it.
+  const identity = (
+    <span className={styles.identity}>
+      <OrganizationAvatar organization={organization} />
+      {organizations.length > 1 ? (
+        <select
+          aria-label="Organization"
+          className={styles.selector}
+          value={selected}
+          onChange={(event) => {
+            const login = event.target.value;
+            setChosen(login);
+            void controller.viewerCache().set(selectedOrganizationKey, login);
+          }}
+        >
+          {organizations.map(({ login }) => (
+            <option key={login} value={login}>
+              {login}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <span className={styles.name}>{selected}</span>
+      )}
+      <span className={styles.separator}>/</span>
+    </span>
+  );
 
   return (
-    <section>
-      <div className={styles.heading}>
-        {organizations.length > 1 && (
-          <label className={styles.selector}>
-            Organization{" "}
-            <select
-              value={selected}
-              onChange={(event) => {
-                const login = event.target.value;
-                setChosen(login);
-                void controller
-                  .viewerCache()
-                  .set(selectedOrganizationKey, login);
-              }}
-            >
-              {organizations.map(({ login }) => (
-                <option key={login} value={login}>
-                  {login}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <h2 className={styles.name}>{selected}</h2>
-      </div>
+    <>
+      {organizationSlot && createPortal(identity, organizationSlot)}
       <Members key={selected} org={selected} page={page} />
-    </section>
+    </>
+  );
+}
+
+/**
+ * The organization's avatar, or, when it is not known (a list stored before
+ * avatars were kept), the first letter of its login in the avatar's place.
+ */
+function OrganizationAvatar(props: { readonly organization: Organization }) {
+  const { login, avatarUrl } = props.organization;
+  return avatarUrl === undefined ? (
+    <span className={styles.avatar} aria-hidden="true">
+      {[...login][0]?.toUpperCase()}
+    </span>
+  ) : (
+    <img className={styles.avatar} src={avatarUrl} alt="" />
   );
 }
 
@@ -194,29 +228,33 @@ function Members(props: { readonly org: string; readonly page: Page }) {
   const { value, error, retry } = useStoredThenFetched(source);
 
   if (value === undefined) {
-    return error === undefined ? (
-      <p className={sectionStyles.note}>Loading members…</p>
-    ) : (
-      <Failure
-        message={`Could not load the members of ${org}: ${error}`}
-        retry={retry}
-      />
+    return (
+      <div className={sectionStyles.section}>
+        {error === undefined ? (
+          <p className={sectionStyles.note}>Loading members…</p>
+        ) : (
+          <Failure
+            message={`Could not load the members of ${org}: ${error}`}
+            retry={retry}
+          />
+        )}
+      </div>
     );
   }
   return (
     <>
       {error !== undefined && (
-        <div className={styles.failure}>
-          <Failure
-            message={`Could not update the members of ${org}: ${error}`}
-            retry={retry}
-          />
-        </div>
+        <Failure
+          message={`Could not update the members of ${org}: ${error}`}
+          retry={retry}
+        />
       )}
       {value.length === 0 ? (
-        <p className={sectionStyles.note}>
-          No members of {org} are visible to you.
-        </p>
+        <div className={sectionStyles.section}>
+          <p className={sectionStyles.note}>
+            No members of {org} are visible to you.
+          </p>
+        </div>
       ) : (
         <MembersActivity org={org} members={value} page={page} />
       )}

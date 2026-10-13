@@ -12,6 +12,7 @@ import {
   pullRequestRows,
   pullRequestTitles,
   server,
+  showPage,
   testController,
   testWidths,
 } from "../../test-support";
@@ -31,8 +32,22 @@ describe("MembersActivity", () => {
       screen.getAllByRole("link", { name: "Fix the sign-out redirect" }),
     ).toHaveLength(1);
     expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
+    // The chart's axis shows the days, so the activity page names no period.
+    expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
+  });
+
+  it("names the period beside the heading of the members' table", async () => {
+    const { controller } = testController({ signedIn: true });
+
+    render(<App session={controller} widths={testWidths()} />);
+    await pullRequestTitles();
+    showPage("Members");
+
+    const heading = screen.getByRole("heading", { name: "Per member" });
     expect(
-      screen.getByText(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/),
+      within(heading.parentElement as HTMLElement).getByText(
+        /^Last 14 days · [A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/,
+      ),
     ).toBeInTheDocument();
   });
 
@@ -49,7 +64,7 @@ describe("MembersActivity", () => {
       "mock-alice",
       "merged",
       "+18 −4",
-      expect.stringMatching(/^[A-Z][a-z]{2} \d{1,2} \d{2}:\d{2}$/),
+      expect.stringMatching(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
     ]);
     const link = within(row as HTMLElement).getByRole("link");
     expect(link).toHaveAttribute(
@@ -123,16 +138,55 @@ describe("MembersActivity", () => {
           opened("still open", null),
         ]}
         period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
+        members={[]}
       />,
     );
 
     const table = screen.getByRole("table", { name: "Pull requests" });
     const rows = within(table).getAllByRole("row").slice(1);
     expect(rows.map((row) => row.querySelector("time")?.textContent)).toEqual([
-      "Oct 10 09:30",
-      "Oct 8 11:00",
+      "2026-10-10 09:30",
+      "2026-10-08 11:00",
     ]);
     expect(rows.map((row) => row.dataset["band"])).toEqual(["0", "1"]);
+  });
+
+  it("shows a member author's avatar, and any other author's login alone", () => {
+    const by = (id: string, author: string): PullRequest => ({
+      id,
+      state: "open",
+      createdAt: new Date(2026, 9, 8, 11, 0),
+      mergedAt: null,
+      title: id,
+      url: `https://github.com/${mockOrganization}/web/pull/${id}`,
+      repository: `${mockOrganization}/web`,
+      author,
+      additions: 1,
+      deletions: 1,
+    });
+
+    render(
+      <PullRequestList
+        pullRequests={[by("1", "mock-alice"), by("2", "outsider")]}
+        period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
+        members={[{ login: "mock-alice", avatarUrl: "https://avatars/alice" }]}
+      />,
+    );
+
+    const table = screen.getByRole("table", { name: "Pull requests" });
+    const authors = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) => row.querySelectorAll("td")[2] as HTMLElement);
+    expect(authors.map((cell) => cell.textContent)).toEqual([
+      "mock-alice",
+      "outsider",
+    ]);
+    expect(authors[0]?.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://avatars/alice",
+    );
+    expect(authors[1]?.querySelector("img")).toBeNull();
   });
 
   it("says so when the members have no pull requests in the period", async () => {

@@ -1,25 +1,52 @@
-/* The organization's selector, if any, and its name above its members. */
-.heading {
+/*
+ * The organization in the header, before the login: its avatar, its name or
+ * the selector between several, and the slash that parts it from the login.
+ * It keeps to one line, and a name too long for the room is cut short with
+ * an ellipsis rather than pushing the header wider than the screen.
+ */
+.identity {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  gap: var(--space-2);
-  margin-bottom: var(--space-4);
-}
-
-.selector {
-  display: flex;
-  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
+  min-width: 0;
+}
+
+/*
+ * A rounded square, as GitHub draws an organization's avatar. Without an
+ * image, the login's first letter on the surface colour takes its place.
+ */
+.avatar {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: var(--avatar-size);
+  height: var(--avatar-size);
+  border: var(--border-width) solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-surface);
   color: var(--color-text-muted);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
 }
 
 .name {
-  font-size: var(--font-size-xl);
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-weight: var(--font-weight-semibold);
 }
 
-/* The failure of an update shown above what is still drawn. */
-.failure {
-  margin-bottom: var(--space-4);
+/* The selector reads as the name it holds, at the name's weight. */
+.selector {
+  min-width: 0;
+  max-width: 100%;
+  font-weight: var(--font-weight-semibold);
+}
+
+.separator {
+  flex: none;
+  color: var(--color-text-muted);
 }

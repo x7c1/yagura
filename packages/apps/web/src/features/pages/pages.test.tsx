@@ -89,7 +89,7 @@ describe("Pages", () => {
     expect(summaryTable()).toBeInTheDocument();
     expect(chart()).not.toBeInTheDocument();
     expect(tab("Members")).toHaveAttribute("aria-current", "page");
-    expect(document.title).toBe("Members · yagura");
+    expect(document.title).toBe("Members · Yagura");
     // Drawn at once from what the activity page loaded.
     expect(screen.queryByText("…")).not.toBeInTheDocument();
 
@@ -99,7 +99,7 @@ describe("Pages", () => {
     expect(chart()).toBeInTheDocument();
     expect(summaryTable()).not.toBeInTheDocument();
     expect(tab("Activity")).toHaveAttribute("aria-current", "page");
-    expect(document.title).toBe("Activity · yagura");
+    expect(document.title).toBe("Activity · Yagura");
 
     act(() => location.forward());
 
@@ -167,7 +167,9 @@ describe("Pages", () => {
 
       await screen.findByRole("button", { name: "Sign in with GitHub" });
       expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
-      expect(screen.queryByRole("link")).not.toBeInTheDocument();
+      for (const name of ["Activity", "Members"]) {
+        expect(screen.queryByRole("link", { name })).not.toBeInTheDocument();
+      }
       expect(summaryTable()).not.toBeInTheDocument();
       expect(document.title).not.toContain("·");
       expect(location.href).toBe(url);

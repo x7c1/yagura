@@ -5,7 +5,7 @@ import {
   type Period,
 } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
-import { useMemo, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { Failure, sectionStyles, useStoredThenFetched } from "../../shared";
 import type { Page } from "../pages";
 import { useSession } from "../session";
@@ -17,18 +17,20 @@ import {
 import { formatPeriod } from "./format";
 import styles from "./MembersActivity.module.css";
 import { MemberSummaryTable } from "./MemberSummaryTable";
+import { SectionHeading, UpdatingNote } from "./SectionHeading";
 
 /**
- * What the organization's members opened or merged lately, on `page`: the
- * period, then a chart per day and the list of pull requests (the
- * activity), or a summary table with a row per member (the members). Both
- * pages are drawn from one fetch, made here above them, so that switching
- * between them fetches nothing again.
+ * What the organization's members opened or merged lately, on `page`: a
+ * chart per day and the list of pull requests (the activity), or a summary
+ * table with a row per member under the period it covers (the members).
+ * Both pages are drawn from one fetch, made here above them, so that
+ * switching between them fetches nothing again.
  *
  * What the browser cache holds is drawn at once, and the fetch brings it up
- * to date behind it, with a note beside the period while it runs. When the
- * cache holds nothing, the table lists the members with placeholders, and
- * the chart and the list say they are loading, until the fetch answers.
+ * to date behind it, with a note in the first card's heading row while it
+ * runs, and its failure above the cards. When the cache holds nothing, the
+ * table lists the members with placeholders, and the chart and the list say
+ * they are loading, until the fetch answers.
  */
 export function MembersActivity(props: {
   readonly org: string;
@@ -83,19 +85,26 @@ export function MembersActivity(props: {
     // Nothing is drawn yet: the failure takes the place of what is loading.
     return (
       <>
-        <PeriodLine period={loadingPeriod} updating={false} />
-        {page === "members" && <PerMember members={members} />}
+        {page === "members" && (
+          <PerMember
+            members={members}
+            period={loadingPeriod}
+            updating={false}
+          />
+        )}
         {failure ? (
           <div className={sectionStyles.section}>{failure}</div>
         ) : (
           page === "activity" && (
             <>
               <section className={sectionStyles.section}>
-                <h3 className={sectionStyles.heading}>Per day</h3>
+                <SectionHeading aside={<UpdatingNote updating={false} />}>
+                  Per day
+                </SectionHeading>
                 <p className={sectionStyles.note}>Loading…</p>
               </section>
               <section className={sectionStyles.section}>
-                <h3 className={sectionStyles.heading}>Pull requests</h3>
+                <SectionHeading>Pull requests</SectionHeading>
                 <p className={sectionStyles.note}>Loading pull requests…</p>
               </section>
             </>
@@ -108,10 +117,12 @@ export function MembersActivity(props: {
   const { period, pullRequests } = value;
   return (
     <>
-      <PeriodLine period={period} updating={updating} failure={failure} />
+      {failure}
       {page === "members" ? (
         <PerMember
           members={members}
+          period={period}
+          updating={updating}
           summary={summarizeByMember(
             members.map(({ login }) => login),
             pullRequests,
@@ -119,7 +130,13 @@ export function MembersActivity(props: {
           )}
         />
       ) : (
-        <DailyActivity org={org} pullRequests={pullRequests} period={period} />
+        <DailyActivity
+          org={org}
+          members={members}
+          pullRequests={pullRequests}
+          period={period}
+          updating={updating}
+        />
       )}
     </>
   );
@@ -127,38 +144,31 @@ export function MembersActivity(props: {
 
 /**
  * The members page's body: the summary table under its heading, as the
- * activity page's sections are.
+ * activity page's sections are, with the period the table covers at the
+ * heading's right and the note that an update is running before it.
  */
 function PerMember(props: {
   readonly members: readonly Member[];
+  readonly period: Period;
+  readonly updating: boolean;
   readonly summary?: ActivitySummary;
 }) {
   return (
     <section className={sectionStyles.section}>
-      <h3 className={sectionStyles.heading}>Per member</h3>
+      <SectionHeading
+        aside={
+          <div className={styles.aside}>
+            <UpdatingNote
+              updating={props.updating}
+              className={styles.updatingNote}
+            />
+            <p className={styles.period}>{formatPeriod(props.period)}</p>
+          </div>
+        }
+      >
+        Per member
+      </SectionHeading>
       <MemberSummaryTable members={props.members} summary={props.summary} />
     </section>
-  );
-}
-
-/**
- * The period, and beside it the note that an update is running or, in its
- * place, the update's failure.
- */
-function PeriodLine(props: {
-  readonly period: Period;
-  readonly updating: boolean;
-  readonly failure?: ReactNode;
-}) {
-  const { period, updating, failure } = props;
-  return (
-    <div className={styles.periodLine}>
-      <p className={styles.period}>{formatPeriod(period)}</p>
-      {failure || (
-        <span role="status" className={styles.updatingNote}>
-          {updating && "Updating…"}
-        </span>
-      )}
-    </div>
   );
 }

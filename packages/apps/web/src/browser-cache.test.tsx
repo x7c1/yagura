@@ -14,7 +14,13 @@ import {
   type MockPullRequestNode,
 } from "@yagura/api-mocks";
 import { MemoryJsonStore, type JsonStore } from "@yagura/browser";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { http, HttpResponse, type HttpHandler } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
@@ -24,14 +30,17 @@ import {
 } from "./features/pull-requests/activity-record";
 import { viewerCachePrefix } from "./shared";
 import {
-  memberSummaryRows,
+  findOrganization,
   membersPageUrl,
+  memberSummaryRows,
   mockDomainPullRequests,
+  organizationIdentity,
   pullRequestTitles,
   server,
-  showPage,
   shownMemberSummaryRows,
   shownPullRequestTitles,
+  showPage,
+  showsOrganization,
   testController,
   testWidths,
 } from "./test-support";
@@ -568,14 +577,49 @@ describe("Drawing from the cache first", () => {
       expect(view.mock.requestsTo("GET", installationsUrl)).toHaveLength(1);
       expect(view.mock.requestsTo("GET", membersUrl)).toHaveLength(1);
     });
+    expect(showsOrganization(mockOrganization)).toBe(true);
+    // The organization's avatar is stored with it, so that it is drawn
+    // before the installations are fetched again.
     expect(
-      screen.getByRole("heading", { name: mockOrganization }),
-    ).toBeVisible();
+      organizationIdentity(mockOrganization).querySelector("img"),
+    ).toHaveAttribute("src", expect.stringMatching(/^data:image\/svg\+xml,/));
 
     release();
 
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("draws a stored organization without an avatar with its initial until the fetch brings the avatar", async () => {
+    const view = page();
+    await view.load();
+    view.advanceTo(10 * minute);
+    // As stored before the organization's avatar was kept.
+    await view.cache.set(`${viewerCachePrefix(mockLogin)}installations`, {
+      storedAt: firstLoad.getTime(),
+      items: [{ login: mockOrganization }],
+    });
+    const release = view.mock.holdRequests(
+      ({ url }) => url === installationsUrl,
+    );
+
+    view.open();
+
+    const identity = () => organizationIdentity(mockOrganization);
+    await findOrganization(mockOrganization);
+    expect(identity().querySelector("img")).toBeNull();
+    expect(
+      within(identity()).getByText(mockOrganization.charAt(0).toUpperCase()),
+    ).toHaveAttribute("aria-hidden", "true");
+
+    release();
+
+    await vi.waitFor(() => {
+      expect(identity().querySelector("img")).toHaveAttribute(
+        "src",
+        expect.stringMatching(/^data:image\/svg\+xml,/),
+      );
+    });
   });
 
   it("shows the first fetched organization when the stored one is no longer listed", async () => {
@@ -599,13 +643,11 @@ describe("Drawing from the cache first", () => {
       }),
     );
 
-    await screen.findByRole("heading", { name: mockOrganization });
+    await findOrganization(mockOrganization);
     answer();
 
-    await screen.findByRole("heading", { name: "other-org" });
-    expect(
-      screen.queryByRole("heading", { name: mockOrganization }),
-    ).not.toBeInTheDocument();
+    await findOrganization("other-org");
+    expect(showsOrganization(mockOrganization)).toBe(false);
   });
 
   it("draws again with a fetched member list that differs from the stored one", async () => {

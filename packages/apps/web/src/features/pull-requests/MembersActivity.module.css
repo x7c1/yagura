@@ -1,22 +1,31 @@
-/* The period line, with the update's note or failure beside it. */
-.periodLine {
+/*
+ * What sits at the right of the "Per member" heading: the period the table
+ * covers, muted and flush with the card's right edge, and before it the
+ * room for the note that an update is running, so that the period does not
+ * move when the note comes and goes.
+ */
+.aside {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-2) var(--space-4);
-  margin-bottom: var(--space-3);
+  gap: var(--space-1) var(--space-3);
 }
 
 .period {
-  font-weight: var(--font-weight-semibold);
+  color: var(--color-text-muted);
 }
 
 /*
- * Room for the "Updating…" note, kept while it is absent, so that its
- * coming and going does not move anything.
+ * On a phone, the period and the note wrap under the heading, at the left,
+ * so the period comes first and the note follows it.
  */
-.updatingNote {
-  display: inline-block;
-  min-width: var(--note-min-width);
-  color: var(--color-text-muted);
+@media (max-width: 40rem) {
+  .period {
+    order: -1;
+  }
+
+  /* Under the aside, so that it wins over the note's own alignment. */
+  .aside .updatingNote {
+    text-align: left;
+  }
 }

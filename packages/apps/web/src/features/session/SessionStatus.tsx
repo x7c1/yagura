@@ -1,10 +1,14 @@
-import { useEffect } from "react";
+import { useEffect, type ReactNode } from "react";
 import { buttonStyles } from "../../shared";
 import { useSession } from "./session-context";
 import styles from "./SessionStatus.module.css";
 
-/** The sign-in button, or the signed-in login with a sign-out button. */
-export function SessionStatus() {
+/**
+ * The sign-in button, or the signed-in login with a sign-out button and,
+ * before the login, `organization`, which the page fills in once it knows
+ * the organization.
+ */
+export function SessionStatus(props: { readonly organization?: ReactNode }) {
   const { controller, state } = useSession();
 
   useEffect(() => {
@@ -33,9 +37,17 @@ export function SessionStatus() {
       );
     case "signed-in":
       return (
-        <div className={styles.status}>
-          <span className={styles.login}>{state.login}</span>{" "}
-          <button type="button" onClick={() => void controller.signOut()}>
+        <div className={`${styles.status} ${styles.signedIn}`}>
+          <span className={styles.identity}>
+            {props.organization}
+            <span className={styles.login}>{state.login}</span>
+          </span>
+          {/* Quiet, so that the bar's emphasis stays on the tabs. */}
+          <button
+            type="button"
+            className={`${buttonStyles.quiet} ${styles.signOut}`}
+            onClick={() => void controller.signOut()}
+          >
             Sign out
           </button>
         </div>

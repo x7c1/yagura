@@ -97,6 +97,36 @@ export function showPage(name: "Activity" | "Members"): void {
 }
 
 /**
+ * Whether the header shows the organization `name`: chosen in the
+ * "Organization" selector when there are several, else as its name.
+ */
+export function showsOrganization(name: string): boolean {
+  const banner = screen.getByRole("banner");
+  const selector = within(banner).queryByRole<HTMLSelectElement>("combobox", {
+    name: "Organization",
+  });
+  return selector === null
+    ? within(banner).queryByText(name) !== null
+    : selector.value === name;
+}
+
+/** Waits until the header shows the organization `name`. */
+export async function findOrganization(name: string): Promise<void> {
+  await waitFor(() => {
+    expect(showsOrganization(name)).toBe(true);
+  });
+}
+
+/**
+ * The organization's part of the header, holding its avatar, when it is
+ * shown alone, without a selector.
+ */
+export function organizationIdentity(name: string): HTMLElement {
+  const banner = screen.getByRole("banner");
+  return within(banner).getByText(name).parentElement as HTMLElement;
+}
+
+/**
  * Waits until the view is not loading or updating anything: no "Loading…",
  * no "Updating…" note, and no "…" placeholder in the summary table, which
  * the Members page shows instead of a "Loading…" note.

@@ -1,3 +1,11 @@
+/*
+ * The table scrolls inside here when it is wider than the card, as the
+ * logins keep to one line, so that the page never scrolls sideways.
+ */
+.scroll {
+  overflow-x: auto;
+}
+
 /* `.table` is applied with the shared table class, which it adjusts. */
 
 /* A member's row heading is not bold; the total's is (see below). */
@@ -12,23 +20,6 @@
     padding-left: var(--space-1);
     padding-right: var(--space-1);
   }
-}
-
-/*
- * The member: the avatar beside the login. A long login breaks anywhere,
- * which also lets the column narrow, so the table fits a phone's width.
- */
-.member {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  overflow-wrap: anywhere;
-}
-
-.avatar {
-  flex: none;
-  border-radius: var(--radius-pill);
-  background: var(--color-surface);
 }
 
 .table .numeric {

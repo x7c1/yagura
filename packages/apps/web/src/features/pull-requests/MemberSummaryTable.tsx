@@ -2,6 +2,7 @@ import type { ActivityCounts, ActivitySummary } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
 import type { ReactNode } from "react";
 import { tableStyles } from "../../shared";
+import { MemberLogin } from "./MemberLogin";
 import styles from "./MemberSummaryTable.module.css";
 
 /**
@@ -23,51 +24,44 @@ export function MemberSummaryTable(props: {
       ? members.map(({ login }) => ({ login }))
       : summary.members.map((row) => ({ login: row.login, counts: row }));
   return (
-    <table
-      aria-label="Members"
-      className={`${tableStyles.table} ${styles.table}`}
-    >
-      <thead>
-        <tr>
-          <th scope="col">Member</th>
-          <th scope="col" className={styles.numeric}>
-            Opened
-          </th>
-          <th scope="col" className={styles.numeric}>
-            Merged
-          </th>
-          <th scope="col" className={styles.numeric}>
-            Additions
-          </th>
-          <th scope="col" className={styles.numeric}>
-            Deletions
-          </th>
-        </tr>
-      </thead>
-      <tbody>
-        {rows.map(({ login, counts }) => (
-          <CountsRow
-            key={login}
-            label={
-              <span className={styles.member}>
-                <img
-                  className={styles.avatar}
-                  src={avatars.get(login)}
-                  alt=""
-                  width={24}
-                  height={24}
-                />{" "}
-                {login}
-              </span>
-            }
-            counts={counts}
-          />
-        ))}
-      </tbody>
-      <tfoot>
-        <CountsRow label="Total" counts={summary?.total} />
-      </tfoot>
-    </table>
+    <div className={styles.scroll}>
+      <table
+        aria-label="Members"
+        className={`${tableStyles.table} ${styles.table}`}
+      >
+        <thead>
+          <tr>
+            <th scope="col">Member</th>
+            <th scope="col" className={styles.numeric}>
+              Opened
+            </th>
+            <th scope="col" className={styles.numeric}>
+              Merged
+            </th>
+            <th scope="col" className={styles.numeric}>
+              Additions
+            </th>
+            <th scope="col" className={styles.numeric}>
+              Deletions
+            </th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map(({ login, counts }) => (
+            <CountsRow
+              key={login}
+              label={
+                <MemberLogin login={login} avatarUrl={avatars.get(login)} />
+              }
+              counts={counts}
+            />
+          ))}
+        </tbody>
+        <tfoot>
+          <CountsRow label="Total" counts={summary?.total} />
+        </tfoot>
+      </table>
+    </div>
   );
 }
 

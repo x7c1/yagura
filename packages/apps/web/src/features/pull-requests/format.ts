@@ -1,4 +1,4 @@
-import type { Period } from "@yagura/activity";
+import { periodDays, type Period } from "@yagura/activity";
 
 /** A day as its month and day, for example "Oct 12". */
 export const dayFormat = new Intl.DateTimeFormat("en-US", {
@@ -7,16 +7,21 @@ export const dayFormat = new Intl.DateTimeFormat("en-US", {
 });
 
 /**
- * A moment as its month, day and 24-hour time in the local time zone, for
- * example "Oct 13 14:05".
+ * A moment as its date and 24-hour time in the local time zone, every part
+ * padded to a fixed width so that a column of them lines up, for example
+ * "2026-10-03 14:05".
  */
-export function formatDayTime(time: Date): string {
-  return `${dayFormat.format(time)} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
+export function formatDateTime(time: Date): string {
+  const date = `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())}`;
+  return `${date} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
 }
 
-/** The period as its first and last days, for example "Sep 29 – Oct 12". */
+/**
+ * The period as the number of its days and its first and last days, for
+ * example "Last 14 days · Sep 29 – Oct 12".
+ */
 export function formatPeriod(period: Period): string {
-  return `${dayFormat.format(period.start)} – ${dayFormat.format(period.end)}`;
+  return `Last ${periodDays} days · ${dayFormat.format(period.start)} – ${dayFormat.format(period.end)}`;
 }
 
 function pad(value: number): string {

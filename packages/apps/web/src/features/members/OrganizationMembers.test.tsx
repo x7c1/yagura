@@ -4,9 +4,11 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
 import {
-  memberSummaryRows,
+  findOrganization,
   membersPageUrl,
+  memberSummaryRows,
   server,
+  showsOrganization,
   testController,
   testWidths,
 } from "../../test-support";
@@ -29,9 +31,7 @@ describe("OrganizationMembers", () => {
 
     render(<App session={controller} widths={testWidths()} />);
 
-    expect(
-      await screen.findByRole("heading", { name: mockOrganization }),
-    ).toBeInTheDocument();
+    await findOrganization(mockOrganization);
     expect(await memberLogins()).toEqual(mockMemberLogins);
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(
@@ -53,9 +53,7 @@ describe("OrganizationMembers", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     await screen.findByRole("button", { name: "Sign in with GitHub" });
-    expect(
-      screen.queryByRole("heading", { name: mockOrganization }),
-    ).not.toBeInTheDocument();
+    expect(showsOrganization(mockOrganization)).toBe(false);
   });
 
   it("says so when the app is installed on none of the user's organizations", async () => {
@@ -68,7 +66,7 @@ describe("OrganizationMembers", () => {
 
     expect(
       await screen.findByText(
-        "The yagura GitHub App is not installed on any of your organizations.",
+        "The Yagura GitHub App is not installed on any of your organizations.",
       ),
     ).toBeInTheDocument();
   });
@@ -123,17 +121,13 @@ describe("OrganizationMembers", () => {
 
     render(<App session={controller} widths={testWidths()} />);
 
-    expect(
-      await screen.findByRole("heading", { name: mockOrganization }),
-    ).toBeInTheDocument();
+    await findOrganization(mockOrganization);
     await memberLogins();
     fireEvent.change(screen.getByRole("combobox", { name: "Organization" }), {
       target: { value: "other-org" },
     });
 
-    expect(
-      await screen.findByRole("heading", { name: "other-org" }),
-    ).toBeInTheDocument();
+    await findOrganization("other-org");
     expect(await memberLogins()).toEqual(mockMemberLogins);
     expect(
       mock.requestsTo("GET", `${membersUrl("other-org")}?per_page=100`),

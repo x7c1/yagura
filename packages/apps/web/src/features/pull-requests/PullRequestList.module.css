@@ -17,6 +17,21 @@
   overflow-wrap: anywhere;
 }
 
+/*
+ * A title is a link in the text colour, so that the list reads as text,
+ * and shows itself as a link where the pointer or the focus is.
+ */
+.table .title a {
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.table .title a:hover,
+.table .title a:focus-visible {
+  color: var(--color-link);
+  text-decoration: underline;
+}
+
 .muted {
   color: var(--color-text-muted);
 }

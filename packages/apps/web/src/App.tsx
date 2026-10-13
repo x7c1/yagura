@@ -45,6 +45,11 @@ export function App(props: {
     }
   }, [location, onCallback, known]);
   const page = known ?? "activity";
+  // Where the organization is shown, beside the login in the header. The
+  // members' view, which loads the organizations, draws it there.
+  const [organizationSlot, setOrganizationSlot] = useState<HTMLElement | null>(
+    null,
+  );
 
   // Drop the code and state from the address bar and the history entry.
   const leaveCallback = useCallback(() => {
@@ -70,22 +75,46 @@ export function App(props: {
       <ElementWidthsProvider widths={props.widths}>
         <header className={styles.header}>
           <div className={styles.bar}>
-            <div className={styles.brand}>
-              <h1 className={styles.title}>yagura</h1>
-              {!onCallback && (
-                <SignedInTabs current={page} onNavigate={navigate} />
-              )}
-            </div>
-            {!onCallback && <SessionStatus />}
+            {/*
+             * The app's name heads the page for assistive tech only; it is
+             * shown in the footer, out of the way of what the page is for.
+             */}
+            <h1 className={styles.visuallyHidden}>Yagura</h1>
+            {!onCallback && (
+              <>
+                <div className={styles.tabs}>
+                  <SignedInTabs current={page} onNavigate={navigate} />
+                </div>
+                <div className={styles.session}>
+                  <SessionStatus
+                    organization={
+                      <span
+                        ref={setOrganizationSlot}
+                        className={styles.organizationSlot}
+                      />
+                    }
+                  />
+                </div>
+              </>
+            )}
           </div>
         </header>
         <main className={styles.main}>
           {onCallback ? (
             <CallbackHandler onDone={leaveCallback} />
           ) : (
-            <Home page={page} />
+            <Home page={page} organizationSlot={organizationSlot} />
           )}
         </main>
+        <footer className={styles.footer}>
+          Powered by{" "}
+          <a
+            href="https://github.com/x7c1/yagura"
+            className={styles.footerLink}
+          >
+            Yagura
+          </a>
+        </footer>
       </ElementWidthsProvider>
     </SessionProvider>
   );
@@ -103,9 +132,13 @@ function SignedInTabs(props: {
 /**
  * While signed in, the organization's members, on `page`, with the page's
  * name in the document title, so that the browser's tab and history tell
- * the pages apart.
+ * the pages apart. The organization itself is drawn into
+ * `organizationSlot`, in the header.
  */
-function Home(props: { readonly page: Page }) {
+function Home(props: {
+  readonly page: Page;
+  readonly organizationSlot: HTMLElement | null;
+}) {
   const { state } = useSession();
   const signedIn = state.status === "signed-in";
   useEffect(() => {
@@ -113,12 +146,16 @@ function Home(props: { readonly page: Page }) {
       return;
     }
     const previous = document.title;
-    document.title = `${pageLabels[props.page]} · yagura`;
+    document.title = `${pageLabels[props.page]} · Yagura`;
     return () => {
       document.title = previous;
     };
   }, [signedIn, props.page]);
   return signedIn ? (
-    <OrganizationMembers key={state.login} page={props.page} />
+    <OrganizationMembers
+      key={state.login}
+      page={props.page}
+      organizationSlot={props.organizationSlot}
+    />
   ) : null;
 }
