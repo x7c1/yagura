@@ -98,10 +98,14 @@ export function showPage(name: "Activity" | "Members"): void {
 
 /**
  * Whether the header shows the organization `name`: chosen in the
- * "Organization" selector when there are several, else as its name.
+ * "Organization" selector when there are several, else as its name. The
+ * sign-in screen has no header, so it shows no organization.
  */
 export function showsOrganization(name: string): boolean {
-  const banner = screen.getByRole("banner");
+  const banner = screen.queryByRole("banner");
+  if (banner === null) {
+    return false;
+  }
   const selector = within(banner).queryByRole<HTMLSelectElement>("combobox", {
     name: "Organization",
   });

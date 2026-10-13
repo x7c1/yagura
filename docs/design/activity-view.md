@@ -74,8 +74,9 @@ one marked, and on the right the organization's avatar and name, the
 login after a slash ("my-org / octocat"), and a "Sign out" button. With
 several organizations, the organization's name is its selector. While the
 organizations load, or when the app is installed on none, the login
-stands alone. On a narrow screen the button wraps under the names, and a
-name too long for the room is cut short with an ellipsis. The app's name
+stands alone. On a narrow screen the session takes a row of its own above
+the tabs, the names at the left and the button at the right, and a name
+too long for the room is cut short with an ellipsis. The app's name
 is in the footer, out of the way. The document title names the page
 ("Members · Yagura"), so that the browser's tabs and history tell the
 pages apart. The tabs are links to the pages' addresses,
@@ -83,8 +84,22 @@ so that a page can be opened in a new tab, copied or bookmarked; a plain
 click switches the page without loading it, adding a history entry, and
 the browser's back and forward buttons switch between the pages too. Any
 other address (but the sign-in callback's) shows Activity, and the address
-is replaced with `/` without adding a history entry. While signed out, no
-tabs are shown, and `/members` shows the same signed-out page as `/`.
+is replaced with `/` without adding a history entry.
+
+Signed out, there is no page frame: no header, tabs or footer. The screen
+is for signing in alone, one panel in the middle of the viewport with the
+app's name as the page's heading, the README's first line saying what the
+app is, the "Sign in with GitHub" button, and under it a short note on
+what signing in gives the app (it only reads what the visitor can already
+see on GitHub, in their browser, and the server stores nothing). A failed
+sign-in's message, or a sign-out's the server did not confirm, shows in
+the panel above the button, marked as a failure in words as well as
+colour. Every address, `/members` too, shows this same screen. While the
+session is being restored without a remembered last viewer, and while the
+sign-in callback completes, the same panel shows "Loading…" or "Signing
+in…" in the button's place, above the same note, so that the screen does
+not jump between these states and the button never flashes before a
+restored session replaces it.
 
 Both pages are drawn from one load of the members' pull requests, so that
 switching between them fetches nothing again and shows the same data at

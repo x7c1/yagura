@@ -1,0 +1,90 @@
+/*
+ * The screens before the pages: no header or footer, one panel in the
+ * middle of the viewport, on the page background with the cards' border
+ * and shadow, so that it reads as the same app as the pages after sign-in.
+ */
+.screen {
+  display: grid;
+  place-items: center;
+  min-height: 100vh;
+  min-height: 100dvh;
+  padding: var(--space-4);
+}
+
+.panel {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: var(--sign-in-panel-width);
+  padding: var(--space-6) var(--space-5);
+  text-align: center;
+  background: var(--color-bg);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+/* On a phone, a smaller padding leaves the text more of the width. */
+@media (max-width: 40rem) {
+  .panel {
+    padding: var(--space-5) var(--space-4);
+  }
+}
+
+.name {
+  font-size: var(--font-size-display);
+}
+
+.tagline {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-lg);
+}
+
+/*
+ * The button, or what stands in its place while loading or signing in,
+ * with any failure above it. The least height is the button's, so that the
+ * panel keeps its size when the button replaces "Loading…".
+ */
+.action {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: var(--sign-in-button-height);
+  margin-top: var(--space-3);
+}
+
+.signIn {
+  min-height: var(--sign-in-button-height);
+  padding-left: var(--space-5);
+  padding-right: var(--space-5);
+  font-size: var(--font-size-lg);
+}
+
+.progress,
+.note {
+  color: var(--color-text-muted);
+}
+
+.note {
+  font-size: var(--font-size-sm);
+}
+
+/* A failure is marked in words as well as in colour. */
+.error {
+  width: 100%;
+  padding: var(--space-2) var(--space-3);
+  text-align: left;
+  color: var(--color-error);
+  background: var(--color-error-bg);
+  border: var(--border-width) solid var(--color-error-border);
+  border-radius: var(--radius-md);
+}
+
+.errorTitle {
+  font-weight: var(--font-weight-semibold);
+}
