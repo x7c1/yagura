@@ -14,8 +14,10 @@ export function viewerCachePrefix(login: string): string {
  *
  * The cache only saves requests, so it never fails: a failing store reads
  * as empty and ignores writes, with a warning in the console. Writes are
- * also ignored once `isCurrent` says the viewer is no longer signed in, so
- * that a load finishing after sign-out does not store anything again.
+ * also ignored while `isCurrent` says the session is not confirmed as the
+ * viewer: before the session is confirmed, so that an ended session never
+ * writes, and after sign-out, so that a load finishing then does not store
+ * anything again.
  */
 export class ViewerCache {
   readonly #store: JsonStore;

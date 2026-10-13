@@ -18,7 +18,17 @@ import { TokenHolder } from "./token-holder";
 export type SessionState =
   | { readonly status: "pending" }
   | { readonly status: "signed-out"; readonly error?: string }
-  | { readonly status: "signed-in"; readonly login: string };
+  | {
+      readonly status: "signed-in";
+      readonly login: string;
+      /**
+       * Whether the session API has confirmed the session as `login`. On a
+       * page load, the last viewer is signed in unconfirmed at once, so
+       * that the view draws from their cache while the session is
+       * restored behind it; see {@link SessionController.restore}.
+       */
+      readonly confirmed: boolean;
+    };
 
 export interface SessionControllerOptions {
   readonly sessionApi: SessionApiClient;
@@ -28,6 +38,11 @@ export interface SessionControllerOptions {
   readonly redirectUri: string;
   /** Holds the sign-in handoff across the redirect to GitHub. */
   readonly storage: KeyValueStore;
+  /**
+   * Remembers the last viewer's login across page loads, tabs and browser
+   * restarts (`localStorage` in the browser); see {@link LastViewer}.
+   */
+  readonly lastViewer: KeyValueStore;
   /** The page's address, read on the callback and left afterwards. */
   readonly location: PageLocation;
   /** Schedules the access token's refresh before it expires. */
@@ -54,14 +69,23 @@ export class SessionController {
   readonly #options: SessionControllerOptions;
   readonly #tokens: TokenHolder;
   readonly #listeners = new Set<() => void>();
+  readonly #lastViewer: LastViewer;
   #state: SessionState = { status: "pending" };
   #restoring: Promise<void> | undefined;
   #callback: Promise<void> | undefined;
   #refreshing: Promise<boolean> | undefined;
   #signingOut = false;
+  /** The last sign-out, which settles once the state is signed out. */
+  #signOut: Promise<void> | undefined;
+  /**
+   * Counts sign-outs, so that a restore or refresh that was in flight when
+   * the viewer signed out does not sign them in again.
+   */
+  #signOuts = 0;
 
   constructor(options: SessionControllerOptions) {
     this.#options = options;
+    this.#lastViewer = new LastViewer(options.lastViewer);
     this.#tokens = new TokenHolder(
       options.timer,
       () => void this.#refreshOnExpiry(),
@@ -84,8 +108,11 @@ export class SessionController {
   }
 
   /**
-   * The signed-in viewer's part of the browser cache. It stops storing
-   * once the viewer signs out, whose entries {@link signOut} deletes.
+   * The signed-in viewer's part of the browser cache. It reads from the
+   * start, but stores only while the session is confirmed as the viewer,
+   * so that a session that has ended never writes into the cache. It
+   * stops storing once the viewer signs out, whose entries
+   * {@link signOut} deletes.
    */
   viewerCache(): ViewerCache {
     const state = this.#state;
@@ -99,6 +126,7 @@ export class SessionController {
       () =>
         !this.#signingOut &&
         this.#state.status === "signed-in" &&
+        this.#state.confirmed &&
         this.#state.login === login,
     );
   }
@@ -118,12 +146,24 @@ export class SessionController {
 
   /**
    * Restores the session on page load: with no token in memory, asks the
-   * session API for one once. Repeated calls share the first attempt. Does
-   * nothing after `handleCallback`, whose outcome (including its error) is
-   * already the session state.
+   * session API for one once, then finds the viewer's login. Repeated calls
+   * share the first attempt. Does nothing after `handleCallback`, whose
+   * outcome (including its error) is already the session state.
+   *
+   * When a last viewer is remembered, they are signed in unconfirmed at
+   * once, before anything is asked, so that the view draws their cached
+   * activity without waiting. The restore then confirms them, switches to
+   * the login it finds, or signs out: forgetting the last viewer when the
+   * session has ended (`401`), keeping them on any other failure.
    */
   restore(): Promise<void> {
-    this.#restoring ??= this.#restore();
+    if (this.#restoring === undefined) {
+      const login = this.#canRestore() ? this.#lastViewer.get() : undefined;
+      if (login !== undefined) {
+        this.#setState({ status: "signed-in", login, confirmed: false });
+      }
+      this.#restoring = this.#restore();
+    }
     return this.#restoring;
   }
 
@@ -155,17 +195,32 @@ export class SessionController {
   }
 
   /**
-   * Signs out: forgets the access token, deletes the viewer's entries from
-   * the browser cache, and ends the session.
+   * Signs out: forgets the access token and the last viewer, deletes the
+   * viewer's entries from the browser cache, and ends the session. A
+   * restore still in flight no longer signs anyone in.
+   *
+   * `DELETE /session` is sent only once a refresh in flight has answered:
+   * its answer sets a new refresh cookie, which, arriving after the answer
+   * that clears the cookie, would keep the session alive for the next load.
    */
-  async signOut(): Promise<void> {
+  signOut(): Promise<void> {
+    this.#signOut = this.#signOutNow();
+    return this.#signOut;
+  }
+
+  async #signOutNow(): Promise<void> {
     const state = this.#state;
+    const refreshing = this.#refreshing;
     this.#signingOut = true;
+    this.#signOuts += 1;
     this.#tokens.clear();
+    this.#lastViewer.forget();
     try {
       if (state.status === "signed-in") {
         await clearViewerCache(this.#options.cache, state.login);
       }
+      // Its outcome no longer matters: the count of sign-outs drops it.
+      await refreshing?.catch(() => undefined);
       await this.#options.sessionApi.deleteSession();
       this.#signedOut();
     } catch (error) {
@@ -176,12 +231,36 @@ export class SessionController {
   }
 
   /**
-   * Runs a GitHub API call with the current access token. On a 401 the token
-   * is refreshed and the call retried once.
+   * Runs a GitHub API call with the current access token. While the session
+   * is not confirmed yet, waits for the restore first, and fails when it
+   * did not confirm the same viewer. On a 401 the token is refreshed and the
+   * call retried once.
    */
   async withAccessToken<T>(
     call: (accessToken: string) => Promise<T>,
   ): Promise<T> {
+    const state = this.#state;
+    if (state.status === "signed-in" && !state.confirmed) {
+      await this.#restoring;
+      // A sign-out under way fails the call only once it is signed out and
+      // the view is gone, so that the view does not show a failure meanwhile.
+      await this.#signOut;
+      const now = this.#state;
+      if (
+        now.status !== "signed-in" ||
+        this.#tokens.accessToken === undefined
+      ) {
+        throw new Error("The session has ended");
+      }
+      if (now.login !== state.login) {
+        throw new Error(`Signed in as ${now.login} instead`);
+      }
+    }
+    return this.#withToken(call);
+  }
+
+  /** {@link withAccessToken} without waiting for the restore. */
+  async #withToken<T>(call: (accessToken: string) => Promise<T>): Promise<T> {
     const token = this.#requireToken();
     try {
       return await call(token);
@@ -196,19 +275,25 @@ export class SessionController {
     return call(this.#requireToken());
   }
 
+  #canRestore(): boolean {
+    return (
+      this.#callback === undefined && this.#tokens.accessToken === undefined
+    );
+  }
+
   async #restore(): Promise<void> {
-    if (
-      this.#callback !== undefined ||
-      this.#tokens.accessToken !== undefined
-    ) {
+    if (!this.#canRestore()) {
       return;
     }
+    const signOuts = this.#signOuts;
     try {
       if (await this.#refresh()) {
-        await this.#loadViewer();
+        await this.#loadViewer(signOuts);
       }
     } catch (error) {
-      this.#signedOut(describe(error));
+      if (signOuts === this.#signOuts) {
+        this.#signedOut(describe(error));
+      }
     }
   }
 
@@ -221,35 +306,57 @@ export class SessionController {
         storage: this.#options.storage,
       });
       this.#tokens.set(tokens);
-      await this.#loadViewer();
+      await this.#loadViewer(this.#signOuts);
     } catch (error) {
       this.#tokens.clear();
       this.#signedOut(describe(error));
     }
   }
 
-  async #loadViewer(): Promise<void> {
-    const viewer = await this.withAccessToken((token) =>
+  /**
+   * Finds the viewer's login, signs them in confirmed and remembers them as
+   * the last viewer; unless they signed out since `signOuts` was counted.
+   */
+  async #loadViewer(signOuts: number): Promise<void> {
+    const viewer = await this.#withToken((token) =>
       this.#options.githubApi.getViewer(token),
     );
-    this.#setState({ status: "signed-in", login: viewer.login });
+    if (signOuts !== this.#signOuts) {
+      return;
+    }
+    this.#lastViewer.remember(viewer.login);
+    this.#setState({
+      status: "signed-in",
+      login: viewer.login,
+      confirmed: true,
+    });
   }
 
   /**
-   * Replaces the access token from the refresh cookie. Resolves `false` and
-   * signs out when the session API answers 401; other failures reject.
+   * Replaces the access token from the refresh cookie. When the session API
+   * answers 401, the session has ended: resolves `false`, forgets the last
+   * viewer and signs out. Other failures reject. A refresh answered after a
+   * sign-out resolves `false` and keeps no token.
    */
   #refresh(): Promise<boolean> {
+    const signOuts = this.#signOuts;
     this.#refreshing ??= this.#options.sessionApi
       .refreshSession()
       .then(
         (tokens: SessionTokens) => {
+          if (signOuts !== this.#signOuts) {
+            return false;
+          }
           this.#tokens.set(tokens);
           return true;
         },
         (error: unknown) => {
+          if (signOuts !== this.#signOuts) {
+            return false;
+          }
           this.#tokens.clear();
           if (error instanceof SessionApiError && error.status === 401) {
+            this.#lastViewer.forget();
             this.#signedOut();
             return false;
           }
@@ -292,6 +399,54 @@ export class SessionController {
       listener();
     }
   }
+}
+
+/**
+ * The login of the viewer who signed in last in this browser, kept in a
+ * {@link KeyValueStore} over `localStorage` rather than in the IndexedDB
+ * cache: it is read synchronously, so that the last viewer is signed in
+ * (unconfirmed) before anything is asked of IndexedDB or the network, and
+ * it stays apart from the cache entries a sign-out deletes by prefix.
+ *
+ * Like the cache, it only saves time: a store that fails reads as nothing
+ * remembered and ignores writes, with a warning in the console.
+ */
+class LastViewer {
+  static readonly #key = "yagura.last-viewer";
+  readonly #store: KeyValueStore;
+
+  constructor(store: KeyValueStore) {
+    this.#store = store;
+  }
+
+  get(): string | undefined {
+    try {
+      return this.#store.get(LastViewer.#key);
+    } catch (error) {
+      warnLastViewer("read", error);
+      return undefined;
+    }
+  }
+
+  remember(login: string): void {
+    try {
+      this.#store.set(LastViewer.#key, login);
+    } catch (error) {
+      warnLastViewer("remember", error);
+    }
+  }
+
+  forget(): void {
+    try {
+      this.#store.remove(LastViewer.#key);
+    } catch (error) {
+      warnLastViewer("forget", error);
+    }
+  }
+}
+
+function warnLastViewer(action: string, error: unknown): void {
+  console.warn(`Could not ${action} the last viewer:`, error);
 }
 
 function describe(error: unknown): string {

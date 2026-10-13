@@ -29,6 +29,8 @@ export interface TestControllerOptions {
   /** The organizations the mock reports the GitHub App installed on. */
   readonly organizations?: readonly string[];
   readonly storage?: KeyValueStore;
+  /** Where the last viewer is remembered; defaults to an empty memory store. */
+  readonly lastViewer?: KeyValueStore;
   /** The browser cache; defaults to an empty memory store. */
   readonly cache?: JsonStore;
   /**
@@ -59,6 +61,7 @@ export function testController(options: TestControllerOptions = {}) {
     });
   server.use(...mock.handlers);
   const storage = options.storage ?? new MemoryStore();
+  const lastViewer = options.lastViewer ?? new MemoryStore();
   const cache = options.cache ?? new MemoryJsonStore();
   const location = new MemoryLocation(options.url ?? "http://localhost:5173/");
   const timer = new ManualTimer();
@@ -68,12 +71,13 @@ export function testController(options: TestControllerOptions = {}) {
     clientId: "Iv1.test",
     redirectUri,
     storage,
+    lastViewer,
     location,
     timer,
     cache,
     clock: options.clock,
   });
-  return { controller, mock, storage, location, timer, cache };
+  return { controller, mock, storage, lastViewer, location, timer, cache };
 }
 
 /**

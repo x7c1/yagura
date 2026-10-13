@@ -176,7 +176,10 @@ Entries that fall out of the 14-day period are removed without waiting for
 their expiry, when the view loads.
 
 The cache is kept per signed-in login, so that two users of the same browser
-never see each other's results, and it is cleared on sign-out.
+never see each other's results, and it is cleared on sign-out. The
+organization the viewer last selected is kept in the cache too, under its own
+key, and is selected again on the next load while the installations (stored
+or fetched) still list it; otherwise the first one is.
 
 The cache only saves requests. When IndexedDB is unavailable or fails
 (private browsing, blocked storage, a full quota), the view fetches
@@ -185,8 +188,21 @@ everything as if nothing were stored, and the failure is not shown.
 ### Drawing from the cache first
 
 The view draws what the cache holds at once and brings it up to date behind
-it, so that once the session is restored, a reload waits on none of the
-view's requests before showing the members' pull requests:
+it, so that a reload waits on none of the view's requests before showing the
+members' pull requests.
+
+It does not wait for the session either. The browser remembers the login of
+the last viewer who signed in (outside the cache, and forgotten on sign-out
+or when the session has ended). On a page load, that viewer's cache is drawn
+while the session is restored behind it (see the session API's design). Until
+the session is confirmed as that login, nothing is written to the cache and
+the view's requests wait for the access token. When it is confirmed as
+another login, the view is drawn again from that login's cache; nothing is
+drawn from the cache of a viewer who is not the last one until the session
+is confirmed as theirs. Without a remembered viewer, nothing is drawn until
+the session is restored.
+
+What is drawn, and when:
 
 - A stored installation or member list is drawn at once, also past its
   short life; it is then fetched again, and drawn again if the fetched list

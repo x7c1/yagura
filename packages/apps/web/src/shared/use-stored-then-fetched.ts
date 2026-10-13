@@ -67,7 +67,14 @@ export function useStoredThenFetched<T>(
     );
     void (async () => {
       // The cache only saves requests: a failing read is drawn as nothing.
-      const stored = await source.stored().catch(() => undefined);
+      // `try` also catches a source that throws instead of rejecting, as
+      // one does when the viewer signed out before this effect ran.
+      let stored: Stored<T> | undefined;
+      try {
+        stored = await source.stored();
+      } catch {
+        stored = undefined;
+      }
       if (!current) {
         return;
       }

@@ -11,6 +11,8 @@ import {
 } from "../../test-support";
 import { loadHandoff, saveHandoff } from "./handoff";
 
+const lastViewerKey = "yagura.last-viewer";
+
 /** A memory store whose `failing` operation throws, as blocked storage does. */
 function failingStore(failing: "get" | "set"): MemoryStore {
   const store = new MemoryStore();
@@ -36,8 +38,8 @@ describe("SessionController.handleCallback", () => {
     expect(loadHandoff(storage)).toBeUndefined();
   });
 
-  it("exchanges the code, keeps the token in memory, and clears the handoff", async () => {
-    const { controller, mock, storage } = testController();
+  it("exchanges the code, keeps the token in memory, clears the handoff, and remembers the viewer", async () => {
+    const { controller, mock, storage, lastViewer } = testController();
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
     await controller.handleCallback("?code=abc&state=s1");
@@ -50,8 +52,13 @@ describe("SessionController.handleCallback", () => {
       redirect_uri: redirectUri,
     });
     expect(controller.accessToken).toBe("ghu_mock_1");
-    expect(controller.state).toEqual({ status: "signed-in", login: mockLogin });
+    expect(controller.state).toEqual({
+      status: "signed-in",
+      login: mockLogin,
+      confirmed: true,
+    });
     expect(loadHandoff(storage)).toBeUndefined();
+    expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
   });
 
   it("surfaces invalid_grant from the session API", async () => {
@@ -191,5 +198,148 @@ describe("SessionController.withAccessToken", () => {
       }),
     ).rejects.toBeInstanceOf(GitHubApiError);
     expect(calls).toBe(2);
+  });
+});
+
+describe("SessionController.restore with a remembered last viewer", () => {
+  const refreshUrl = `${sessionApi}/session/refresh`;
+
+  function remembering(login: string, signedIn: boolean) {
+    const lastViewer = new MemoryStore();
+    lastViewer.set(lastViewerKey, login);
+    const test = testController({ signedIn, lastViewer });
+    const release = test.mock.holdRequests(({ url }) => url === refreshUrl);
+    return { ...test, release };
+  }
+
+  it("signs the last viewer in unconfirmed at once, then confirms them", async () => {
+    const { controller, release } = remembering(mockLogin, true);
+
+    const restored = controller.restore();
+
+    expect(controller.state).toEqual({
+      status: "signed-in",
+      login: mockLogin,
+      confirmed: false,
+    });
+    release();
+    await restored;
+    expect(controller.state).toEqual({
+      status: "signed-in",
+      login: mockLogin,
+      confirmed: true,
+    });
+  });
+
+  it("drops cache writes until the session is confirmed", async () => {
+    const { controller, cache, release } = remembering(mockLogin, true);
+    const restored = controller.restore();
+
+    await controller.viewerCache().set("before", 1);
+    release();
+    await restored;
+    await controller.viewerCache().set("after", 2);
+
+    expect(await controller.viewerCache().get("before")).toBeUndefined();
+    expect(await controller.viewerCache().get("after")).toBe(2);
+    expect(await cache.get(`${mockLogin}/after`)).toBe(2);
+  });
+
+  it("runs a GitHub call once the restore has the token", async () => {
+    const { controller, mock, release } = remembering(mockLogin, true);
+    void controller.restore();
+
+    const token = controller.withAccessToken(async (token) => token);
+    await vi.waitFor(() => {
+      expect(mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
+    });
+    release();
+
+    expect(await token).toBe("ghu_mock_1");
+  });
+
+  it("forgets the last viewer and fails waiting calls when the session has ended", async () => {
+    const { controller, lastViewer, release } = remembering(mockLogin, false);
+    const restored = controller.restore();
+    const call = controller.withAccessToken(async (token) => token);
+
+    release();
+    await restored;
+
+    expect(controller.state).toEqual({ status: "signed-out" });
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+    await expect(call).rejects.toThrow("The session has ended");
+  });
+
+  it("keeps the last viewer when the refresh fails otherwise", async () => {
+    const { controller, lastViewer, release } = remembering(mockLogin, true);
+    server.use(
+      http.post(refreshUrl, () =>
+        HttpResponse.json({ error: "upstream_error" }, { status: 502 }),
+      ),
+    );
+
+    release();
+    await controller.restore();
+
+    expect(controller.state).toMatchObject({ status: "signed-out" });
+    expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
+  });
+
+  it("switches to the login the session is confirmed as", async () => {
+    const { controller, lastViewer, release } = remembering(
+      "someone-else",
+      true,
+    );
+    const restored = controller.restore();
+    const call = controller.withAccessToken(async (token) => token);
+
+    release();
+    await restored;
+
+    expect(controller.state).toEqual({
+      status: "signed-in",
+      login: mockLogin,
+      confirmed: true,
+    });
+    expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
+    await expect(call).rejects.toThrow(`Signed in as ${mockLogin} instead`);
+  });
+
+  it("stays signed out when the viewer signs out before the restore answers", async () => {
+    const { controller, mock, lastViewer, release } = remembering(
+      mockLogin,
+      true,
+    );
+    const restored = controller.restore();
+    await vi.waitFor(() => {
+      expect(mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
+    });
+
+    const signedOut = controller.signOut();
+    // The refresh's cookie must not land after the one DELETE clears.
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(mock.requestsTo("DELETE", `${sessionApi}/session`)).toEqual([]);
+    release();
+    await Promise.all([signedOut, restored]);
+
+    expect(mock.requestsTo("DELETE", `${sessionApi}/session`)).toHaveLength(1);
+    expect(controller.state).toEqual({ status: "signed-out" });
+    expect(controller.accessToken).toBeUndefined();
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+  });
+
+  it("reads a failing store as nothing remembered", async () => {
+    const lastViewer = failingStore("get");
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { controller } = testController({ signedIn: true, lastViewer });
+
+    const restored = controller.restore();
+    expect(controller.state).toEqual({ status: "pending" });
+    await restored;
+
+    expect(controller.state).toMatchObject({ status: "signed-in" });
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
