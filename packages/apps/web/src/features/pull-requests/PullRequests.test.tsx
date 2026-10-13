@@ -27,8 +27,7 @@ describe("MembersActivity", () => {
     expect(
       screen.getAllByRole("link", { name: "Fix the sign-out redirect" }),
     ).toHaveLength(1);
-    const searches = mock.requestsTo("POST", graphqlUrl);
-    expect(searches).toHaveLength(2 * mockMemberLogins.length);
+    expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
     expect(
       screen.getByText(/^[A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/),
     ).toBeInTheDocument();

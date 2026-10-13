@@ -1,5 +1,5 @@
 import { isWithin, type Period } from "./period";
-import type { PullRequest } from "./pull-request";
+import type { FoundPullRequest, PullRequest } from "./pull-request";
 
 /** What a pull request counts as in the view: opened, or merged. */
 export type Measure = "opened" | "merged";
@@ -10,7 +10,10 @@ export const measures: readonly Measure[] = ["opened", "merged"];
  * When the pull request counts for `measure`: its creation for opened, its
  * merge for merged (`null` when it is not merged).
  */
-export function measureTime(pr: PullRequest, measure: Measure): Date | null {
+export function measureTime(
+  pr: FoundPullRequest,
+  measure: Measure,
+): Date | null {
   return measure === "opened" ? pr.createdAt : pr.mergedAt;
 }
 

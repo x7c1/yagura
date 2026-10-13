@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   emptyMemberActivity,
+  idsNeedingDetails,
   isDayComplete,
   isWithinLastingLife,
   isWithinShortLife,
@@ -17,7 +18,11 @@ import {
 import { periodDayKeys } from "./days";
 import type { Measure } from "./measures";
 import { periodEndingAt } from "./period";
-import type { PullRequest, PullRequestState } from "./pull-request";
+import type {
+  FoundPullRequest,
+  PullRequest,
+  PullRequestState,
+} from "./pull-request";
 
 // The test script runs in America/New_York (UTC−4 in October).
 
@@ -224,20 +229,77 @@ describe("splitIntoDays", () => {
   });
 });
 
+/** What a search reports of `pull`, optionally in another state. */
+function light(
+  pull: PullRequest,
+  changes: Partial<FoundPullRequest> = {},
+): FoundPullRequest {
+  const { id, state, createdAt, mergedAt } = pull;
+  return { id, state, createdAt, mergedAt, ...changes };
+}
+
+describe("idsNeedingDetails", () => {
+  const merged = pr(
+    "merged",
+    "2026-10-12T08:00:00-04:00",
+    "2026-10-12T09:00:00-04:00",
+  );
+  const fresh = pr("fresh", "2026-10-12T08:00:00-04:00");
+  const old = pr("old", "2026-10-12T08:00:00-04:00");
+  const stored = activity("opened", {}, [
+    [merged, ago(day)],
+    [fresh, ago(10 * minute - 1)],
+    [old, ago(10 * minute)],
+  ]);
+
+  it("lists ids not stored, and stored unmerged ones past the short life", () => {
+    const found = [
+      light(pr("new", "2026-10-12T10:00:00-04:00")),
+      light(merged),
+      light(fresh),
+      light(old),
+    ];
+
+    expect(idsNeedingDetails(stored, found, now)).toEqual(["new", "old"]);
+  });
+
+  it("lists a fresh unmerged one the search reports in another state", () => {
+    const found = [
+      light(fresh, {
+        state: "merged",
+        mergedAt: new Date("2026-10-12T15:00:00-04:00"),
+      }),
+      light(merged, { state: "closed", mergedAt: null }),
+    ];
+
+    expect(idsNeedingDetails(stored, found, now)).toEqual(["fresh"]);
+  });
+
+  it("lists an id found twice once", () => {
+    const found = pr("new", "2026-10-12T10:00:00-04:00");
+
+    expect(
+      idsNeedingDetails(stored, [light(found), light(found)], now),
+    ).toEqual(["new"]);
+  });
+});
+
 describe("recordSearch", () => {
-  it("stores every planned day, empty ones included, and the pull requests", () => {
+  const plan = {
+    days: ["2026-10-11", "2026-10-12"],
+    from: new Date("2026-10-11T00:00:00-04:00"),
+    to: undefined,
+  };
+
+  it("stores every planned day, empty ones included, and the details", () => {
     const found = pr("a", "2026-10-11T10:00:00-04:00");
-    const plan = {
-      days: ["2026-10-11", "2026-10-12"],
-      from: new Date("2026-10-11T00:00:00-04:00"),
-      to: undefined,
-    };
 
     const stored = recordSearch(
       emptyMemberActivity,
       "opened",
       plan,
-      [found],
+      [light(found)],
+      new Map([["a", found]]),
       now,
     );
 
@@ -254,6 +316,101 @@ describe("recordSearch", () => {
     });
   });
 
+  it("keeps the stored record of a pull request found without details", () => {
+    const merged = pr(
+      "merged",
+      "2026-10-10T10:00:00-04:00",
+      "2026-10-12T09:00:00-04:00",
+    );
+    const stored = activity("merged", {}, [[merged, fetchedToday]]);
+
+    const updated = recordSearch(
+      stored,
+      "merged",
+      plan,
+      [light(merged)],
+      new Map(),
+      now,
+    );
+
+    expect(updated.days.merged.get("2026-10-12")).toEqual({
+      fetchedAt: now,
+      ids: ["merged"],
+    });
+    expect(updated.pullRequests.get("merged")).toEqual({
+      storedAt: fetchedToday,
+      pullRequest: merged,
+    });
+  });
+
+  it("places a pull request by its details where the search disagrees", () => {
+    const open = pr("a", "2026-10-11T10:00:00-04:00");
+
+    const stored = recordSearch(
+      emptyMemberActivity,
+      "merged",
+      plan,
+      [
+        light(open, {
+          state: "merged",
+          mergedAt: new Date("2026-10-12T09:00:00-04:00"),
+        }),
+      ],
+      new Map([["a", open]]),
+      now,
+    );
+
+    expect(stored.days.merged.get("2026-10-12")?.ids).toEqual([]);
+    expect(stored.pullRequests.size).toBe(0);
+  });
+
+  it("drops a pull request whose lookup found nothing, from other days too", () => {
+    const gone = pr(
+      "gone",
+      "2026-10-05T10:00:00-04:00",
+      "2026-10-12T09:00:00-04:00",
+    );
+    const stored: MemberActivity = {
+      days: {
+        opened: new Map([
+          ["2026-10-05", { fetchedAt: fetchedToday, ids: ["gone"] }],
+        ]),
+        merged: new Map(),
+      },
+      pullRequests: new Map([
+        ["gone", { storedAt: ago(day), pullRequest: gone }],
+      ]),
+    };
+
+    const updated = recordSearch(
+      stored,
+      "merged",
+      plan,
+      [light(gone)],
+      new Map([["gone", null]]),
+      now,
+    );
+
+    expect(updated.days.merged.get("2026-10-12")?.ids).toEqual([]);
+    expect(updated.days.opened.get("2026-10-05")?.ids).toEqual([]);
+    expect(updated.pullRequests.size).toBe(0);
+  });
+
+  it("refuses to store a day with a pull request lacking details", () => {
+    const found = pr("a", "2026-10-11T10:00:00-04:00");
+
+    expect(() =>
+      recordSearch(
+        emptyMemberActivity,
+        "opened",
+        plan,
+        [light(found)],
+        new Map(),
+        now,
+      ),
+    ).toThrow("pull request a ");
+  });
+
   it("replaces a day and drops the pull requests it no longer finds", () => {
     const gone = pr("gone", "2026-10-12T08:00:00-04:00");
     const stored = activity(
@@ -261,13 +418,8 @@ describe("recordSearch", () => {
       { "2026-10-12": { fetchedAt: fetchedToday, ids: ["gone"] } },
       [[gone, fetchedToday]],
     );
-    const plan = {
-      days: ["2026-10-12"],
-      from: new Date("2026-10-12T00:00:00-04:00"),
-      to: undefined,
-    };
 
-    const updated = recordSearch(stored, "opened", plan, [], now);
+    const updated = recordSearch(stored, "opened", plan, [], new Map(), now);
 
     expect(updated.days.opened.get("2026-10-12")?.ids).toEqual([]);
     expect(updated.pullRequests.size).toBe(0);

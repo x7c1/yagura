@@ -1,4 +1,8 @@
-import type { PullRequest, PullRequestState } from "@yagura/activity";
+import type {
+  FoundPullRequest,
+  PullRequest,
+  PullRequestState,
+} from "@yagura/activity";
 import { GitHubApiError } from "./error";
 
 const baseUrl = "https://api.github.com";
@@ -25,12 +29,23 @@ const pullRequestFields = `
     deletions
   }`;
 
-/** One page of a pull request search. */
-const searchPullRequestsQuery = `
-query SearchPullRequests($query: String!, $after: String) {
+/**
+ * One page of a pull request search, with only what places a pull request
+ * on a day: GitHub computes the lines per pull request, which makes a search
+ * asking for them slow.
+ */
+const searchPullRequestIdsQuery = `
+query SearchPullRequestIds($query: String!, $after: String) {
   search(type: ISSUE, query: $query, first: ${pageSize}, after: $after) {
     pageInfo { hasNextPage endCursor }
-    nodes {${pullRequestFields}
+    nodes {
+      __typename
+      ... on PullRequest {
+        id
+        state
+        createdAt
+        mergedAt
+      }
     }
   }
 }`;
@@ -170,19 +185,20 @@ export class GitHubApiClient {
 
   /**
    * The GraphQL `search` for pull requests matching `query` (GitHub's search
-   * syntax), following every page. Results that are not pull requests, such
-   * as issues, are left out.
+   * syntax), following every page, with each pull request's id, state and
+   * times only; {@link getPullRequests} looks up the rest. Results that are
+   * not pull requests, such as issues, are left out.
    */
-  async searchPullRequests(
+  async searchPullRequestIds(
     accessToken: string,
     query: string,
-  ): Promise<PullRequest[]> {
-    const pullRequests: PullRequest[] = [];
+  ): Promise<FoundPullRequest[]> {
+    const pullRequests: FoundPullRequest[] = [];
     let after: string | null = null;
     do {
       const { response, data } = await this.#graphql(
         accessToken,
-        searchPullRequestsQuery,
+        searchPullRequestIdsQuery,
         { query, after },
       );
       const page = parseSearchPage(data);
@@ -342,7 +358,7 @@ export class GitHubApiClient {
  */
 function parseSearchPage(
   data: unknown,
-): { pullRequests: PullRequest[]; endCursor: string | null } | undefined {
+): { pullRequests: FoundPullRequest[]; endCursor: string | null } | undefined {
   const search = isRecord(data) ? data.search : undefined;
   if (!isRecord(search) || !Array.isArray(search.nodes)) {
     return undefined;
@@ -358,12 +374,12 @@ function parseSearchPage(
     }
     endCursor = pageInfo.endCursor;
   }
-  const pullRequests: PullRequest[] = [];
+  const pullRequests: FoundPullRequest[] = [];
   for (const node of search.nodes) {
     if (isRecord(node) && node.__typename !== "PullRequest") {
       continue;
     }
-    const pullRequest = parsePullRequest(node);
+    const pullRequest = parseFoundPullRequest(node);
     if (pullRequest === undefined) {
       return undefined;
     }
@@ -398,15 +414,33 @@ function parseNodes(data: unknown): PullRequest[] | undefined {
   return pullRequests;
 }
 
-function parsePullRequest(node: unknown): PullRequest | undefined {
+/** The id, state and times of a pull request node. */
+function parseFoundPullRequest(node: unknown): FoundPullRequest | undefined {
   if (!isRecord(node)) {
     return undefined;
   }
-  const { id, title, url, repository, author, additions, deletions } = node;
+  const { id } = node;
   const state =
     typeof node.state === "string" ? pullRequestStates[node.state] : undefined;
   const createdAt = parseTime(node.createdAt);
   const mergedAt = node.mergedAt === null ? null : parseTime(node.mergedAt);
+  if (
+    typeof id !== "string" ||
+    state === undefined ||
+    createdAt === undefined ||
+    mergedAt === undefined
+  ) {
+    return undefined;
+  }
+  return { id, state, createdAt, mergedAt };
+}
+
+function parsePullRequest(node: unknown): PullRequest | undefined {
+  const found = parseFoundPullRequest(node);
+  if (found === undefined || !isRecord(node)) {
+    return undefined;
+  }
+  const { title, url, repository, author, additions, deletions } = node;
   const repositoryName = isRecord(repository)
     ? repository.nameWithOwner
     : undefined;
@@ -414,28 +448,21 @@ function parsePullRequest(node: unknown): PullRequest | undefined {
   const login =
     author === null ? ghostLogin : isRecord(author) ? author.login : undefined;
   if (
-    typeof id !== "string" ||
     typeof title !== "string" ||
     typeof url !== "string" ||
     typeof repositoryName !== "string" ||
     typeof login !== "string" ||
-    state === undefined ||
-    createdAt === undefined ||
-    mergedAt === undefined ||
     typeof additions !== "number" ||
     typeof deletions !== "number"
   ) {
     return undefined;
   }
   return {
-    id,
+    ...found,
     title,
     url,
     repository: repositoryName,
     author: login,
-    state,
-    createdAt,
-    mergedAt,
     additions,
     deletions,
   };

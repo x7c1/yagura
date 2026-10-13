@@ -1,5 +1,6 @@
 export {
   emptyMemberActivity,
+  idsNeedingDetails,
   isWithinShortLife,
   planSearch,
   pruneMemberActivity,
@@ -27,7 +28,11 @@ export {
 export type { Measure } from "./measures";
 export { periodDays, periodEndingAt } from "./period";
 export type { Period } from "./period";
-export type { PullRequest, PullRequestState } from "./pull-request";
+export type {
+  FoundPullRequest,
+  PullRequest,
+  PullRequestState,
+} from "./pull-request";
 export { searchQuery } from "./queries";
 export type { SearchSpan } from "./queries";
 export { summarizeByMember } from "./summary";
