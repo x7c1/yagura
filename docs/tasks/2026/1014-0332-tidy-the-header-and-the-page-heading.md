@@ -114,14 +114,21 @@ avatar below.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity and the
-      Members pages in light and dark at desktop width, and of the Activity
-      page in light at 375px, show: underline tabs that do not look like
-      the Sign out button, a header of at most two rows at 375px, the
-      one-line heading band with the organization's avatar and "Last 14
-      days · …", each section as a card, and no horizontal page scroll at
-      375px. Needs a person: the user approves the look before merge.
-- [ ] Keyboard: tabbing through the page shows a visible focus ring on
+The layout changed after the user reviewed it in use: the organization
+moved into the header beside the login, the heading band was dropped (the
+activity page shows no period; the members page shows it in its card's
+heading), and the app's name moved to a "Powered by Yagura" footer. The
+items below are checked against that final layout.
+
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity and the
+      Members pages in light and dark at desktop width, and of both pages
+      in light at 375px, show: underline tabs that do not look like the
+      Sign out button, `[avatar] org / login` beside Sign out, a header of
+      at most two rows at 375px, the period only on the Members page, each
+      section as a card, and no horizontal page scroll at 375px. Needs a
+      person: the user approved the look while reviewing it in use, and
+      asked for the final layout themselves.
+- [x] Keyboard: tabbing through the page shows a visible focus ring on
       both tabs, the Sign out button, the chart bars and the list links.
 
 ## Out of scope
