@@ -105,7 +105,7 @@ The data, the selection behaviour and what the list shows do not change.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity page at
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity page at
       1280px, 768px and 375px, in light and dark:
   - every bar's count is readable;
   - the date labels are at the design's type size, not scaled down;
@@ -114,7 +114,7 @@ The data, the selection behaviour and what the list shows do not change.
 
   The screenshots are shown to the user, and the user approves the look
   before merge.
-- [ ] Choosing a bar with the mouse and with the keyboard narrows the list,
+- [x] Choosing a bar with the mouse and with the keyboard narrows the list,
       in both layouts.
 
 ## Out of scope
