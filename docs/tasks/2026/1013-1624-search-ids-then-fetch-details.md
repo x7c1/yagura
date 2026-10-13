@@ -134,11 +134,11 @@ Through the API mock with a memory store and an injected clock:
 
 ### Before merge (verified outside the check command)
 
-- [ ] Against the dev session API through the proxy, with the cache
+- [x] Against the dev session API through the proxy, with the cache
       cleared: the first load shows the same number of pull requests as
       `gh search prs` for the same member and period, and the time to the
       list is recorded in the PR next to the time on `main`.
-- [ ] Against the dev session API, a reload more than 10 minutes after the
+- [x] Against the dev session API, a reload more than 10 minutes after the
       previous load: in the network panel, the `nodes(ids:)` refresh starts
       before today's searches finish, no lookup carries an id merged before
       the previous load, and the time until the last GraphQL response is
