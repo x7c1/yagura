@@ -104,12 +104,12 @@ Aim for a quiet, dense, readable dashboard, not a marketing page.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots in light and in dark
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots in light and in dark
       mode at desktop width, and in light mode at 375px width, show every
       section styled, no horizontal page scroll at 375px, and the chart
       following the theme. The screenshots are shown to the user, and the
       user approves the look before merge.
-- [ ] Keyboard: tabbing through the page shows a visible focus ring on the
+- [x] Keyboard: tabbing through the page shows a visible focus ring on the
       sign-out button, the organization selector (when present), the chart
       bars and the list links.
 
