@@ -1,14 +1,24 @@
 import { latestEventIn, type Period, type PullRequest } from "@yagura/activity";
 import { tableStyles } from "../../shared";
-import { dayFormat } from "./format";
+import { dayBands } from "./day-bands";
+import { formatDayTime } from "./format";
 import styles from "./PullRequestList.module.css";
 
-/** The pull requests, newest first, as they are given. */
+/**
+ * The pull requests, newest first, as they are given. The rows of each day
+ * share a background, alternating from one day to the next, so that the
+ * days stand apart.
+ */
 export function PullRequestList(props: {
   readonly pullRequests: readonly PullRequest[];
   readonly period: Period;
 }) {
   const { pullRequests, period } = props;
+  const rows = pullRequests.map((pr) => ({
+    pr,
+    time: latestEventIn(pr, period),
+  }));
+  const bands = dayBands(rows.map((row) => row.time));
   return (
     <div className={styles.scroll}>
       <table
@@ -22,12 +32,16 @@ export function PullRequestList(props: {
             <th scope="col">Author</th>
             <th scope="col">State</th>
             <th scope="col">Lines</th>
-            <th scope="col">Opened or merged</th>
+            <th scope="col">Date</th>
           </tr>
         </thead>
         <tbody>
-          {pullRequests.map((pr) => (
-            <tr key={pr.id}>
+          {rows.map(({ pr, time }, index) => (
+            <tr
+              key={pr.id}
+              data-band={bands[index]}
+              className={bands[index] === 1 ? styles.tinted : undefined}
+            >
               <td className={styles.title}>
                 <a href={pr.url} target="_blank" rel="noreferrer">
                   {pr.title}
@@ -45,7 +59,7 @@ export function PullRequestList(props: {
                 <span className={tableStyles.deletions}>−{pr.deletions}</span>
               </td>
               <td className={`${styles.numeric} ${styles.muted}`}>
-                {dayFormat.format(latestEventIn(pr, period))}
+                <time dateTime={time.toISOString()}>{formatDayTime(time)}</time>
               </td>
             </tr>
           ))}

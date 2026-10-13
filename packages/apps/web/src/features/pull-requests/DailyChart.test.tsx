@@ -13,6 +13,7 @@ import { App } from "../../App";
 import {
   memberSummaryRows,
   mockDomainPullRequests,
+  pullRequestRows,
   pullRequestTitles,
   showPage,
   testController,
@@ -155,6 +156,10 @@ describe("DailyChart", () => {
       expect(await pullRequestTitles()).toEqual(
         narrowedTitles(day.day, "merged"),
       );
+      // One day's rows share the first band.
+      expect(
+        (await pullRequestRows()).map((row) => row.dataset["band"]),
+      ).toEqual(narrowedTitles(day.day, "merged").map(() => "0"));
       expect(bar).toHaveAttribute("aria-pressed", "true");
       expect(
         screen.getByText(`Merged on ${dayFormat.format(startOfDay(day.day))}`, {

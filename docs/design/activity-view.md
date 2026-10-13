@@ -55,9 +55,9 @@ Two pages, one per question the view answers:
 
 - **Activity**, at `/`, answers what happened on which day. It has a
   **chart** of the opened and merged counts per day, and below it a **list
-  of pull requests**: title, repository, author, state, additions,
-  deletions, and a link to the pull request on GitHub. It is the page that
-  opens first, after sign-in too.
+  of pull requests**, newest first: title, repository, author, state,
+  additions, deletions, a link to the pull request on GitHub, and a
+  **Date** column. It is the page that opens first, after sign-in too.
 - **Members**, at `/members`, answers who has been quiet. It has a
   **summary table**, under the heading "Per member", with a row per member:
   opened, merged, additions, deletions.
@@ -113,6 +113,17 @@ The narrowing applies to the list only: the summary table on Members keeps
 covering the whole period. Above the narrowed list, the view says what it is
 narrowed to ("Merged on Oct 3") with a way to show all again; choosing the
 same bar again clears it too.
+
+The list's Date is when the pull request's latest event in the period
+happened: when it was merged if it was merged in the period, otherwise
+when it was opened. It is shown with its time, in the viewer's time zone
+and 24-hour form ("Oct 13 14:05"), on one line. The rows of each day share
+a background, alternating from one day to the next, the newest day's on
+the page background, so that where one day ends and the next begins shows
+without comparing dates. The days are counted in the viewer's time zone,
+as in the chart. The bands follow the dates shown, in a list narrowed by
+the chart too: narrowed to the pull requests opened on a day, one merged
+on a later day shows that later date, on that day's band.
 
 The summary table and the list cover the same period, shown above each,
 and the table adds up to the list when it is not narrowed. A pull
