@@ -4,8 +4,8 @@ import {
   type Period,
 } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
-import { useMemo, useState, type CSSProperties, type ReactNode } from "react";
-import { Failure, useStoredThenFetched } from "../../shared";
+import { useMemo, useState, type ReactNode } from "react";
+import { Failure, sectionStyles, useStoredThenFetched } from "../../shared";
 import { useSession } from "../session";
 import { DailyActivity } from "./DailyActivity";
 import {
@@ -13,24 +13,8 @@ import {
   storedMembersPullRequests,
 } from "./fetch-pull-requests";
 import { formatPeriod } from "./format";
+import styles from "./MembersActivity.module.css";
 import { MemberSummaryTable } from "./MemberSummaryTable";
-
-/** The period line, with the update's note or failure beside it. */
-const periodLine: CSSProperties = {
-  display: "flex",
-  flexWrap: "wrap",
-  alignItems: "baseline",
-  columnGap: "1em",
-};
-
-/**
- * Room for the "Updating…" note, kept while it is absent, so that its
- * coming and going does not move anything.
- */
-const updatingNote: CSSProperties = {
-  display: "inline-block",
-  minWidth: "7em",
-};
 
 /**
  * What the organization's members opened or merged lately: the period, a
@@ -95,15 +79,17 @@ export function MembersActivity(props: {
       <>
         <PeriodLine period={loadingPeriod} updating={false} />
         <MemberSummaryTable members={members} />
-        {failure || (
+        {failure ? (
+          <div className={sectionStyles.section}>{failure}</div>
+        ) : (
           <>
-            <section>
-              <h3>Per day</h3>
-              <p>Loading…</p>
+            <section className={sectionStyles.section}>
+              <h3 className={sectionStyles.heading}>Per day</h3>
+              <p className={sectionStyles.note}>Loading…</p>
             </section>
-            <section>
-              <h3>Pull requests</h3>
-              <p>Loading pull requests…</p>
+            <section className={sectionStyles.section}>
+              <h3 className={sectionStyles.heading}>Pull requests</h3>
+              <p className={sectionStyles.note}>Loading pull requests…</p>
             </section>
           </>
         )}
@@ -139,10 +125,10 @@ function PeriodLine(props: {
 }) {
   const { period, updating, failure } = props;
   return (
-    <div style={periodLine}>
-      <p>{formatPeriod(period)}</p>
+    <div className={styles.periodLine}>
+      <p className={styles.period}>{formatPeriod(period)}</p>
       {failure || (
-        <span role="status" style={updatingNote}>
+        <span role="status" className={styles.updatingNote}>
           {updating && "Updating…"}
         </span>
       )}

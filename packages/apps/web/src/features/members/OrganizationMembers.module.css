@@ -1,0 +1,25 @@
+/* The organization's selector, if any, and its name above its members. */
+.heading {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
+}
+
+.selector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--color-text-muted);
+}
+
+.name {
+  font-size: var(--font-size-xl);
+}
+
+/* The failure of an update shown above what is still drawn. */
+.failure {
+  margin-bottom: var(--space-4);
+}

@@ -12,6 +12,7 @@ import { createRoot } from "react-dom/client";
 import { App, callbackPath } from "./App";
 import { loadConfig, type Config } from "./config";
 import { SessionController } from "./features/session";
+import "./global.css";
 
 // The composition root: the one module that touches `window`, to build the
 // browser implementations everything else receives.

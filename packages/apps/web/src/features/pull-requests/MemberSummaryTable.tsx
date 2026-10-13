@@ -1,8 +1,8 @@
 import type { ActivityCounts, ActivitySummary } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
-import type { CSSProperties, ReactNode } from "react";
-
-const numeric: CSSProperties = { textAlign: "right" };
+import type { ReactNode } from "react";
+import { tableStyles } from "../../shared";
+import styles from "./MemberSummaryTable.module.css";
 
 /**
  * The summary table: a row per member in the order of `summary`, with the
@@ -23,20 +23,20 @@ export function MemberSummaryTable(props: {
       ? members.map(({ login }) => ({ login }))
       : summary.members.map((row) => ({ login: row.login, counts: row }));
   return (
-    <table aria-label="Members">
+    <table aria-label="Members" className={styles.table}>
       <thead>
         <tr>
           <th scope="col">Member</th>
-          <th scope="col" style={numeric}>
+          <th scope="col" className={styles.numeric}>
             Opened
           </th>
-          <th scope="col" style={numeric}>
+          <th scope="col" className={styles.numeric}>
             Merged
           </th>
-          <th scope="col" style={numeric}>
+          <th scope="col" className={styles.numeric}>
             Additions
           </th>
-          <th scope="col" style={numeric}>
+          <th scope="col" className={styles.numeric}>
             Deletions
           </th>
         </tr>
@@ -46,10 +46,16 @@ export function MemberSummaryTable(props: {
           <CountsRow
             key={login}
             label={
-              <>
-                <img src={avatars.get(login)} alt="" width={24} height={24} />{" "}
+              <span className={styles.member}>
+                <img
+                  className={styles.avatar}
+                  src={avatars.get(login)}
+                  alt=""
+                  width={24}
+                  height={24}
+                />{" "}
                 {login}
-              </>
+              </span>
             }
             counts={counts}
           />
@@ -74,14 +80,32 @@ function CountsRow(props: {
   return (
     <tr>
       <th scope="row">{label}</th>
-      <td style={numeric}>{counts?.opened ?? countPlaceholder}</td>
-      <td style={numeric}>{counts?.merged ?? countPlaceholder}</td>
-      <td style={numeric}>
-        {counts === undefined ? countPlaceholder : `+${counts.additions}`}
-      </td>
-      <td style={numeric}>
-        {counts === undefined ? countPlaceholder : `−${counts.deletions}`}
-      </td>
+      <NumberCell value={counts?.opened} />
+      <NumberCell value={counts?.merged} />
+      <NumberCell
+        value={counts && `+${counts.additions}`}
+        tone={tableStyles.additions}
+      />
+      <NumberCell
+        value={counts && `−${counts.deletions}`}
+        tone={tableStyles.deletions}
+      />
     </tr>
   );
+}
+
+/**
+ * A number in tabular figures, coloured by `tone` if given, or the
+ * placeholder when `value` is not known yet.
+ */
+function NumberCell(props: {
+  readonly value: ReactNode | undefined;
+  readonly tone?: string;
+}) {
+  const { value, tone } = props;
+  const classes = [
+    styles.numeric,
+    value === undefined ? styles.placeholder : tone,
+  ].filter(Boolean);
+  return <td className={classes.join(" ")}>{value ?? countPlaceholder}</td>;
 }

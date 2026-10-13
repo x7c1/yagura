@@ -6,6 +6,7 @@ import {
 } from "@yagura/activity";
 import { useId, type CSSProperties, type KeyboardEvent } from "react";
 import { chartGeometry, chartSize, type Rect } from "./chart-geometry";
+import styles from "./DailyChart.module.css";
 import { dayFormat } from "./format";
 
 /** A day's opened or merged pull requests, as chosen in the chart. */
@@ -15,13 +16,16 @@ export interface DaySelection {
 }
 
 /**
- * The colours of the two kinds, from CSS custom properties so that a theme
- * can set them, with defaults for when none does.
+ * The class of each kind's bars and swatches, which colours them from the
+ * theme's tokens.
  */
-const colors: Record<Measure, string> = {
-  opened: "var(--yagura-chart-opened, #2f6fde)",
-  merged: "var(--yagura-chart-merged, #8250df)",
+const measureClasses: Record<Measure, string | undefined> = {
+  opened: styles.opened,
+  merged: styles.merged,
 };
+
+/** The chart's widest, in CSS pixels: its own size, never scaled up. */
+const chartWidth = { "--chart-width": `${chartSize.width}px` } as CSSProperties;
 
 const measureLabels: Record<Measure, string> = {
   opened: "Opened",
@@ -47,8 +51,10 @@ export function DailyChart(props: {
   const { days, selected, onSelect } = props;
   const hatch = `${useId()}-hatch`;
   const { plot, ticks, groups } = chartGeometry(days);
-  const fills: Record<Measure, string> = {
-    opened: colors.opened,
+  // The merged bars are filled with the hatch, which only an attribute can
+  // refer to by its generated id; the opened bars are filled by their class.
+  const fills: Record<Measure, string | undefined> = {
+    opened: undefined,
     merged: `url(#${hatch})`,
   };
   const bottom = plot.y + plot.height;
@@ -63,18 +69,17 @@ export function DailyChart(props: {
         choose();
       }
     };
-    const style: CSSProperties = {
-      fill: fills[measure],
-      stroke: pressed ? "currentColor" : colors[measure],
-      strokeWidth: pressed ? 2 : 1,
-      cursor: count > 0 ? "pointer" : undefined,
-    };
+    const classes = [styles.bar, measureClasses[measure]];
+    if (pressed) {
+      classes.push(styles.pressed);
+    }
     const label = `${formatDay(day.day)}: ${count} ${measure}`;
     return (
       <rect
         key={measure}
         {...rect}
-        style={style}
+        className={classes.join(" ")}
+        fill={fills[measure]}
         role="button"
         aria-label={label}
         {...(count > 0
@@ -93,11 +98,14 @@ export function DailyChart(props: {
   };
 
   return (
-    <figure style={{ margin: 0 }}>
+    <figure className={styles.figure}>
       <svg
         viewBox={`0 0 ${chartSize.width} ${chartSize.height}`}
         width="100%"
-        style={{ maxWidth: chartSize.width, display: "block" }}
+        className={
+          selected === null ? styles.chart : `${styles.chart} ${styles.chosen}`
+        }
+        style={chartWidth}
         role="group"
         aria-label="Opened and merged pull requests per day"
         fontSize={11}
@@ -110,7 +118,7 @@ export function DailyChart(props: {
             patternUnits="userSpaceOnUse"
             patternTransform="rotate(45)"
           >
-            <rect width={2} height={4} style={{ fill: colors.merged }} />
+            <rect width={2} height={4} className={styles.hatch} />
           </pattern>
         </defs>
         <g aria-hidden="true">
@@ -121,15 +129,14 @@ export function DailyChart(props: {
                 x2={plot.x + plot.width}
                 y1={y}
                 y2={y}
-                stroke="currentColor"
-                strokeOpacity={value === 0 ? 0.6 : 0.15}
+                className={value === 0 ? styles.baseline : styles.gridLine}
               />
               <text
                 x={plot.x - 6}
                 y={y}
                 textAnchor="end"
                 dominantBaseline="middle"
-                fill="currentColor"
+                className={styles.axisLabel}
               >
                 {value}
               </text>
@@ -143,7 +150,7 @@ export function DailyChart(props: {
                   x={center}
                   y={bottom + 16}
                   textAnchor="middle"
-                  fill="currentColor"
+                  className={styles.axisLabel}
                 >
                   {formatDay(day.day)}
                 </text>
@@ -157,24 +164,17 @@ export function DailyChart(props: {
         ))}
       </svg>
       <figcaption>
-        <ul
-          style={{
-            listStyle: "none",
-            padding: 0,
-            margin: 0,
-            display: "flex",
-            gap: "1em",
-          }}
-        >
+        <ul className={styles.legend}>
           {measures.map((measure) => (
-            <li key={measure}>
+            <li key={measure} className={styles.legendItem}>
               <svg width={12} height={12} aria-hidden="true">
                 <rect
                   x={0.5}
                   y={0.5}
                   width={11}
                   height={11}
-                  style={{ fill: fills[measure], stroke: colors[measure] }}
+                  className={measureClasses[measure]}
+                  fill={fills[measure]}
                 />
               </svg>{" "}
               {measureLabels[measure]}

@@ -1,0 +1,23 @@
+/* Variants of the base button style in `global.css`. */
+
+/* The one thing to do on the page, such as signing in. */
+.primary {
+  color: var(--color-on-primary);
+  background: var(--color-primary);
+  border-color: var(--color-primary);
+}
+
+.primary:hover {
+  background: var(--color-primary-hover);
+}
+
+/*
+ * A secondary action beside something else, such as "Retry". Smaller than
+ * the base, but still at least 24px tall, so that it is easy to tap.
+ */
+.quiet {
+  font-weight: var(--font-weight-normal);
+  font-size: var(--font-size-sm);
+  padding: calc(var(--space-1) / 2) var(--space-2);
+  background: transparent;
+}

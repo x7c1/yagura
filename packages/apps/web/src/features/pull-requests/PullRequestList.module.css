@@ -1,0 +1,50 @@
+/* The table scrolls inside here when it is wider than the page. */
+.scroll {
+  overflow-x: auto;
+}
+
+.table {
+  composes: table from "../../shared/table.module.css";
+}
+
+.table th,
+.table td {
+  vertical-align: top;
+  white-space: nowrap;
+}
+
+/* A long title wraps rather than stretching the table. */
+.table .title {
+  white-space: normal;
+  min-width: var(--wrap-column-min-width);
+  overflow-wrap: anywhere;
+}
+
+.muted {
+  color: var(--color-text-muted);
+}
+
+.numeric {
+  font-variant-numeric: tabular-nums;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 var(--space-2);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  border: var(--border-width) solid currentColor;
+  border-radius: var(--radius-pill);
+}
+
+.open {
+  color: var(--color-opened);
+}
+
+.merged {
+  color: var(--color-merged);
+}
+
+.closed {
+  color: var(--color-closed);
+}

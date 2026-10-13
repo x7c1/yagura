@@ -1,0 +1,90 @@
+.figure {
+  margin: 0;
+  /* The axes and their labels. */
+  color: var(--color-text-muted);
+}
+
+.chart {
+  display: block;
+  /* The chart's own width in its viewBox units, set as a custom property. */
+  max-width: var(--chart-width);
+  overflow: visible;
+}
+
+.gridLine {
+  stroke: var(--color-border-subtle);
+}
+
+.baseline {
+  stroke: var(--color-border-strong);
+}
+
+.axisLabel {
+  fill: currentColor;
+}
+
+/* The opened bar is solid; the merged one is hatched (see the pattern). */
+.opened {
+  fill: var(--color-opened);
+  stroke: var(--color-opened);
+}
+
+.merged {
+  stroke: var(--color-merged);
+}
+
+.hatch {
+  fill: var(--color-merged);
+}
+
+.bar {
+  stroke-width: var(--border-width);
+}
+
+.bar[tabindex] {
+  cursor: pointer;
+}
+
+/*
+ * With a bar chosen, the others step back so that it stands out. 0.75 is the
+ * least that keeps every bar colour at 3:1 against the background in both
+ * themes (the light merged one is under 3:1 at 0.7).
+ */
+.chosen .bar:not(.pressed) {
+  opacity: 0.75;
+}
+
+.pressed {
+  stroke: var(--color-text);
+  stroke-width: var(--border-width-strong);
+}
+
+/*
+ * The focus ring, drawn as the bar's stroke too, since not every browser
+ * draws an outline around an SVG shape.
+ */
+.bar:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  stroke: var(--color-focus);
+  stroke-width: var(--focus-ring-width);
+}
+
+.chosen .bar:focus-visible {
+  opacity: 1;
+}
+
+.legend {
+  list-style: none;
+  padding: 0;
+  margin: var(--space-2) 0 0;
+  display: flex;
+  gap: var(--space-4);
+  color: var(--color-text);
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+}
