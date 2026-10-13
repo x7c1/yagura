@@ -129,11 +129,11 @@ hold the session API's refresh answer:
 
 ### Before merge (verified outside the check command)
 
-- [ ] Against the dev session API through the proxy, with the cache within
+- [x] Against the dev session API through the proxy, with the cache within
       its short life: on reload, the summary table and the list are on
       screen before `POST /session/refresh` answers (the time the table
       first appears compared with the refresh's resource timing).
-- [ ] Against the dev session API, after ending the session from the page
+- [x] Against the dev session API, after ending the session from the page
       (`DELETE /session` sent with `fetch`, which clears the cookie): on
       reload, the cached view may show briefly, then the sign-in button
       shows; a further reload shows no cached data before the sign-in
