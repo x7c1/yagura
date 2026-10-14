@@ -39,7 +39,37 @@ describe("MembersActivity", () => {
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
 
-  it("names the period beside the heading of the members' table", async () => {
+  it("heads the chart's card \"Pull requests\" and leaves the list's card without a heading", async () => {
+    const { controller } = testController({ signedIn: true });
+
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    await pullRequestTitles();
+
+    // The page's one card heading, over the chart: the list below it is the
+    // detail of what the chart counts, and needs no heading of its own.
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(headings).toHaveLength(1);
+    const [heading] = headings as [HTMLElement];
+    expect(heading).toHaveTextContent(/^Pull requests$/);
+    const chartCard = heading.closest("section") as HTMLElement;
+    expect(
+      within(chartCard).getByRole("group", {
+        name: "Opened and merged pull requests per day",
+      }),
+    ).toBeInTheDocument();
+    const listCard = screen
+      .getByRole("table", { name: "Pull requests" })
+      .closest("section") as HTMLElement;
+    expect(listCard).not.toBe(chartCard);
+    expect(within(listCard).queryByRole("heading")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Per day" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("names the period at the top of the members' card, which has no heading", async () => {
     const { controller } = testController({ signedIn: true });
 
     render(
@@ -48,12 +78,15 @@ describe("MembersActivity", () => {
     await pullRequestTitles();
     showPage("Members");
 
-    const heading = screen.getByRole("heading", { name: "Per member" });
+    const card = screen
+      .getByRole("table", { name: "Members" })
+      .closest("section") as HTMLElement;
     expect(
-      within(heading.parentElement as HTMLElement).getByText(
+      within(card).getByText(
         /^Last 14 days · [A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/,
       ),
     ).toBeInTheDocument();
+    expect(within(card).queryByRole("heading")).not.toBeInTheDocument();
   });
 
   it("shows a pull request's details and links to it", async () => {

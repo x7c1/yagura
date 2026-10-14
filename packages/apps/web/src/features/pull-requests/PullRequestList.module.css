@@ -11,6 +11,24 @@
 }
 
 /*
+ * Where the platform draws classic scroll bars, the list's bars, both ways,
+ * are thin and show only while the pointer is over the list or focus is
+ * inside it, so that at rest they do not weigh on the card. Only their
+ * colours change, transparent at rest, so the room they take stays the
+ * same and nothing moves when they show. Browsers without
+ * `scrollbar-color` keep their own bars.
+ */
+.scroll {
+  scrollbar-width: thin;
+  scrollbar-color: transparent transparent;
+}
+
+.scroll:hover,
+.scroll:focus-within {
+  scrollbar-color: var(--color-scrollbar-thumb) transparent;
+}
+
+/*
  * `.table` is applied with the shared table class, which it adjusts. Its
  * borders are drawn per cell, rather than collapsed into the table's, so
  * that the column headings carry their own line along when they stick.

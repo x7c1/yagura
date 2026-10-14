@@ -1,5 +1,5 @@
 /*
- * A part of the page, as a card with its heading inside at the top. What
+ * A part of the page, as a card with its heading, if any, inside at the top. What
  * stands in a section's place while it loads, or when it fails, takes the
  * same card, so that the page keeps its shape when the data arrives.
  */
@@ -24,8 +24,8 @@
 }
 
 /*
- * A heading with something beside it at the right, such as the period or
- * the note that an update is running. What is beside it wraps under the
+ * A heading with something beside it at the right, such as the note that
+ * an update is running. What is beside it wraps under the
  * heading when the two do not fit on one line.
  */
 .headingRow {

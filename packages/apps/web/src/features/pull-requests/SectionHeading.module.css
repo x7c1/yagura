@@ -1,7 +1,6 @@
 /*
  * Room for the "Updating…" note, kept while it is absent. The note sits at
- * the right of its room, so that it stays flush with the card's edge, or
- * against what comes after it.
+ * the right of its room, so that it stays flush with the card's edge.
  */
 .updatingNote {
   display: inline-block;

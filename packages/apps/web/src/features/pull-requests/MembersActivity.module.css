@@ -1,14 +1,16 @@
 /*
- * What sits at the right of the "Per member" heading: the period the table
- * covers, muted and flush with the card's right edge, and before it the
- * room for the note that an update is running, so that the period does not
- * move when the note comes and goes.
+ * The top of the members' card, which has no heading: the period the table
+ * covers, muted, at the left, and the room for the note that an update is
+ * running at the right, kept while the note is absent so that its coming
+ * and going moves nothing. Where the two do not fit on one line, the note
+ * wraps under the period.
  */
-.aside {
+.topRow {
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
-  gap: var(--space-1) var(--space-3);
+  gap: var(--space-1) var(--space-4);
+  margin-bottom: var(--space-3);
 }
 
 .period {
@@ -16,16 +18,10 @@
 }
 
 /*
- * On a phone, the period and the note wrap under the heading, at the left,
- * so the period comes first and the note follows it.
+ * The note's room takes the rest of its line, so that its right-aligned
+ * text stays flush with the card's right edge, beside the period or, when
+ * wrapped, on a line of its own, rather than a short way in from the left.
  */
-@media (max-width: 40rem) {
-  .period {
-    order: -1;
-  }
-
-  /* Under the aside, so that it wins over the note's own alignment. */
-  .aside .updatingNote {
-    text-align: left;
-  }
+.topRow > :last-child {
+  flex-grow: 1;
 }

@@ -529,9 +529,23 @@ describe("Drawing from the cache first", () => {
       ...mockMemberLogins.map((login) => [login, ...placeholders]),
       ["Total", ...placeholders],
     ]);
+    // While loading, the cards are headed as when loaded: the members' card
+    // not at all, and on the activity page only the chart's card.
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
     showPage("Activity");
     expect(screen.getByText("Loading pull requests…")).toBeInTheDocument();
     expect(chart()).not.toBeInTheDocument();
+    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Pull requests",
+    ]);
+    expect(
+      within(
+        screen
+          .getByText("Loading pull requests…")
+          .closest("section") as HTMLElement,
+      ).queryByRole("heading"),
+    ).not.toBeInTheDocument();
 
     release();
 

@@ -57,9 +57,8 @@ describe("Pages", () => {
     );
 
     await memberSummaryRows();
-    expect(
-      screen.getByRole("heading", { name: "Per member" }),
-    ).toBeInTheDocument();
+    // The tab names the page, so the members' card has no heading.
+    expect(screen.queryByRole("heading", { level: 2 })).not.toBeInTheDocument();
     expect(chart()).not.toBeInTheDocument();
     expect(
       screen.queryByRole("table", { name: "Pull requests" }),
