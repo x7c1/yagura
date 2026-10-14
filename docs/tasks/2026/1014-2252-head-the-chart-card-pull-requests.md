@@ -118,7 +118,7 @@ list or focus is inside it.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the activity page at
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the activity page at
       1280×800 and at 375px, in light and dark, with and without a day
       selected, show the chart's card headed "Pull requests", the list's
       card without a heading and starting cleanly at its top, and (at
