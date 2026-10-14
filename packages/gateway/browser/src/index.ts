@@ -13,3 +13,5 @@ export { MemoryLocation, WindowLocation } from "./page-location";
 export type { PageLocation, Unsubscribe } from "./page-location";
 export { GlobalTimer, ManualTimer } from "./timer";
 export type { CancelTimer, Timer } from "./timer";
+export { BroadcastTabChannel, MemoryTabChannel } from "./tab-channel";
+export type { TabChannel } from "./tab-channel";

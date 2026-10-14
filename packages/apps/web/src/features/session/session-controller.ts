@@ -2,6 +2,7 @@ import type {
   JsonStore,
   KeyValueStore,
   PageLocation,
+  TabChannel,
   Timer,
 } from "@yagura/browser";
 import { GitHubApiError, type GitHubApiClient } from "@yagura/github-api";
@@ -14,6 +15,23 @@ import { clearViewerCache, ViewerCache } from "../../shared";
 import { completeCallback } from "./callback";
 import { prepareSignIn } from "./sign-in";
 import { TokenHolder } from "./token-holder";
+
+/** What a tab posts to the browser's other tabs when the viewer signs out. */
+const signedOutMessage = "signed-out";
+
+/**
+ * The note on the sign-in screen when `DELETE /session` failed: the refresh
+ * cookie may still be set, so that the next page load would restore the
+ * session. Reloading restores that same session, if it is still there, and
+ * signing out of it sends the request once more; signing in through GitHub
+ * instead would start a new session and leave the old one's tokens
+ * unrevoked.
+ */
+export const signOutUnconfirmedNote =
+  "You are signed out in this browser, but Yagura could not reach the " +
+  "server to end your session, so it may sign you back in the next time " +
+  "you open it. To end it, reload this page and, if you are signed in " +
+  "again, sign out once more.";
 
 export type SessionState =
   | { readonly status: "pending" }
@@ -52,6 +70,12 @@ export interface SessionControllerOptions {
    * browser and kept apart per login; see {@link viewerCache}.
    */
   readonly cache: JsonStore;
+  /**
+   * The channel to the browser's other tabs of the app, over which a
+   * sign-out in one tab signs out every other; see {@link
+   * SessionController.signOut}.
+   */
+  readonly tabs: TabChannel;
   /** The current time. Defaults to the system clock. */
   readonly clock?: () => Date;
   /**
@@ -74,12 +98,21 @@ export class SessionController {
   #restoring: Promise<void> | undefined;
   #callback: Promise<void> | undefined;
   #refreshing: Promise<SessionTokens | undefined> | undefined;
-  #signingOut = false;
-  /** The last sign-out, which settles once the state is signed out. */
+  /**
+   * Whether the refresh in flight was answered with new tokens, and so with
+   * a new refresh cookie, whatever the controller then made of the answer;
+   * see {@link #signedOutElsewhere}.
+   */
+  #refreshRenewed: Promise<boolean> | undefined;
+  /**
+   * The last sign-out's deletion of the viewer's cache entries, which
+   * settles once they are gone.
+   */
   #signOut: Promise<void> | undefined;
   /**
-   * Counts sign-outs, so that a restore or refresh that was in flight when
-   * the viewer signed out does not sign them in again.
+   * Counts sign-outs, in this tab or in another tab of the browser, so that
+   * a restore, refresh or load that was in flight when the viewer signed
+   * out does not sign them in or store anything again.
    */
   #signOuts = 0;
 
@@ -90,6 +123,12 @@ export class SessionController {
       options.timer,
       () => void this.#refreshOnExpiry(),
     );
+    // The controller lives as long as the page, so it never unsubscribes.
+    options.tabs.onMessage((message) => {
+      if (message === signedOutMessage) {
+        void this.#signedOutElsewhere();
+      }
+    });
   }
 
   /** The page's address. */
@@ -111,8 +150,8 @@ export class SessionController {
    * The signed-in viewer's part of the browser cache. It reads from the
    * start, but stores only while the session is confirmed as the viewer,
    * so that a session that has ended never writes into the cache. It
-   * stops storing once the viewer signs out, whose entries
-   * {@link signOut} deletes.
+   * stops storing for good once the viewer signs out, in this tab or
+   * another, whose entries {@link signOut} deletes.
    */
   viewerCache(): ViewerCache {
     const state = this.#state;
@@ -120,11 +159,12 @@ export class SessionController {
       throw new Error("Not signed in");
     }
     const { login } = state;
+    const signOuts = this.#signOuts;
     return new ViewerCache(
       this.#options.cache,
       login,
       () =>
-        !this.#signingOut &&
+        this.#signOuts === signOuts &&
         this.#state.status === "signed-in" &&
         this.#state.confirmed &&
         this.#state.login === login,
@@ -195,39 +235,94 @@ export class SessionController {
   }
 
   /**
-   * Signs out: forgets the access token and the last viewer, deletes the
-   * viewer's entries from the browser cache, and ends the session. A
-   * restore still in flight no longer signs anyone in.
+   * Signs out of this browser at once: forgets the access token and the
+   * last viewer, deletes the viewer's entries from the browser cache, shows
+   * the sign-in screen, and tells the browser's other tabs, which forget
+   * theirs too (see {@link #forget}). A restore, refresh or load still in
+   * flight no longer signs anyone in or stores anything.
    *
-   * `DELETE /session` is sent only once a refresh in flight has answered:
-   * its answer sets a new refresh cookie, which, arriving after the answer
-   * that clears the cookie, would keep the session alive for the next load.
+   * The session itself, the refresh cookie the tabs share, is ended by
+   * `DELETE /session` behind the sign-in screen; the server also revokes
+   * the session's tokens at GitHub then, which may take a while. The
+   * request is sent only once a refresh in flight has answered: its answer
+   * sets a new refresh cookie, which, arriving after the answer that clears
+   * the cookie, would keep the session alive for the next load. When the
+   * request fails, the cookie may still be set, and the sign-in screen
+   * says so with {@link signOutUnconfirmedNote}.
+   *
+   * The returned promise settles, never rejecting, once the request has
+   * answered and the cache entries are deleted.
    */
-  signOut(): Promise<void> {
-    this.#signOut = this.#signOutNow();
-    return this.#signOut;
+  async signOut(): Promise<void> {
+    const refreshing = this.#refreshing;
+    const cleared = this.#forget();
+    const signOuts = this.#signOuts;
+    this.#options.tabs.post(signedOutMessage);
+    // Its outcome no longer matters: the count of sign-outs drops it.
+    await refreshing?.catch(() => undefined);
+    await this.#endSession(signOuts);
+    await cleared;
   }
 
-  async #signOutNow(): Promise<void> {
+  /**
+   * Signs out for a sign-out in another tab of the browser, which ends the
+   * session the tabs share: forgets the session here at once (see
+   * {@link #forget}) and sends no request of its own, but for one case.
+   * When this tab's own refresh was in flight, its answer may set the
+   * refresh cookie again, with the token GitHub rotated to, after the other
+   * tab's `DELETE /session` cleared it, and so keep the session alive for
+   * the next load. This tab then waits for the refresh, and when it was
+   * answered with new tokens, sends `DELETE /session` itself, which revokes
+   * the rotated token and clears the cookie again. A refresh that failed set
+   * no cookie, and nothing is sent.
+   */
+  async #signedOutElsewhere(): Promise<void> {
+    const renewed = this.#refreshRenewed;
+    const cleared = this.#forget();
+    const signOuts = this.#signOuts;
+    if (renewed !== undefined && (await renewed)) {
+      await this.#endSession(signOuts);
+    }
+    await cleared;
+  }
+
+  /**
+   * Sends `DELETE /session` for the sign-out counted as `signOuts`. When it
+   * fails, the sign-in screen says that the session may not have ended,
+   * unless a later sign-out, here or in another tab, has its own outcome.
+   */
+  async #endSession(signOuts: number): Promise<void> {
+    try {
+      await this.#options.sessionApi.deleteSession();
+    } catch (error) {
+      console.warn("Could not end the session on the server:", error);
+      if (signOuts === this.#signOuts && this.#state.status === "signed-out") {
+        this.#signedOut(signOutUnconfirmedNote);
+      }
+    }
+  }
+
+  /**
+   * Forgets the session in this tab, for a sign-out here or in another tab
+   * of the browser: counts the sign-out, forgets the access token (which
+   * also stops its refresh) and the last viewer, starts deleting the
+   * viewer's cache entries, and shows the sign-in screen, which drops the
+   * view and everything it shows. Every tab deletes the entries, so that a
+   * write that was already under way in one tab when another signed out is
+   * deleted too. Resolves once the entries are deleted.
+   */
+  #forget(): Promise<void> {
     const state = this.#state;
-    const refreshing = this.#refreshing;
-    this.#signingOut = true;
     this.#signOuts += 1;
     this.#tokens.clear();
     this.#lastViewer.forget();
-    try {
-      if (state.status === "signed-in") {
-        await clearViewerCache(this.#options.cache, state.login);
-      }
-      // Its outcome no longer matters: the count of sign-outs drops it.
-      await refreshing?.catch(() => undefined);
-      await this.#options.sessionApi.deleteSession();
-      this.#signedOut();
-    } catch (error) {
-      this.#signedOut(`Signed out locally, but ${describe(error)}`);
-    } finally {
-      this.#signingOut = false;
-    }
+    const cleared =
+      state.status === "signed-in"
+        ? clearViewerCache(this.#options.cache, state.login)
+        : Promise.resolve();
+    this.#signOut = cleared;
+    this.#signedOut();
+    return cleared;
   }
 
   /**
@@ -242,8 +337,9 @@ export class SessionController {
     const state = this.#state;
     if (state.status === "signed-in" && !state.confirmed) {
       await this.#restoring;
-      // A sign-out under way fails the call only once it is signed out and
-      // the view is gone, so that the view does not show a failure meanwhile.
+      // A sign-out under way fails the call only once its cache entries are
+      // deleted, by when the view is gone, so that the view does not show a
+      // failure meanwhile.
       await this.#signOut;
       const now = this.#state;
       if (
@@ -343,9 +439,16 @@ export class SessionController {
    * switches to that login.
    */
   #refresh(): Promise<SessionTokens | undefined> {
+    if (this.#refreshing !== undefined) {
+      return this.#refreshing;
+    }
     const signOuts = this.#signOuts;
-    this.#refreshing ??= this.#options.sessionApi
-      .refreshSession()
+    const answer = this.#options.sessionApi.refreshSession();
+    this.#refreshRenewed = answer.then(
+      () => true,
+      () => false,
+    );
+    this.#refreshing = answer
       .then(
         (tokens: SessionTokens) => {
           if (signOuts !== this.#signOuts) {
@@ -377,6 +480,7 @@ export class SessionController {
       )
       .finally(() => {
         this.#refreshing = undefined;
+        this.#refreshRenewed = undefined;
       });
     return this.#refreshing;
   }

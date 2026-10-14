@@ -1,9 +1,17 @@
 import { mockAuthorize, mockLogin } from "@yagura/api-mocks";
+import {
+  MemoryJsonStore,
+  MemoryStore,
+  MemoryTabChannel,
+} from "@yagura/browser";
 import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { http, HttpResponse } from "msw";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { saveHandoff } from "./features/session/handoff";
+import { signOutUnconfirmedNote } from "./features/session/session-controller";
 import {
+  server,
   sessionApi,
   signOut,
   testController,
@@ -87,9 +95,12 @@ describe("App", () => {
       await screen.findByRole("button", { name: "Sign in with GitHub" }),
     ).toBeInTheDocument();
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    // The session is ended behind the sign-in screen.
+    await vi.waitFor(() => {
+      expect(mock.signedIn).toBe(false);
+    });
     const [request] = mock.requestsTo("DELETE", `${sessionApi}/session`);
     expect(request?.credentials).toBe("include");
-    expect(mock.signedIn).toBe(false);
     expect(controller.accessToken).toBeUndefined();
   });
 
@@ -156,5 +167,104 @@ describe("App", () => {
     ).toBeTruthy();
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
     expect(mock.requests).toEqual([]);
+  });
+});
+
+describe("Signing out", () => {
+  const deleteUrl = `${sessionApi}/session`;
+
+  it("shows the sign-in screen before DELETE /session answers", async () => {
+    const { controller, mock } = testController({ signedIn: true });
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    const release = mock.holdRequests(
+      ({ method, url }) => method === "DELETE" && url === deleteUrl,
+    );
+
+    signOut();
+
+    expect(
+      screen.getByRole("button", { name: "Sign in with GitHub" }),
+    ).toBeInTheDocument();
+    expect(controller.accessToken).toBeUndefined();
+    await vi.waitFor(() => {
+      expect(mock.requestsTo("DELETE", deleteUrl)).toHaveLength(1);
+    });
+    expect(mock.signedIn).toBe(true);
+
+    release();
+    await vi.waitFor(() => {
+      expect(mock.signedIn).toBe(false);
+    });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says on the sign-in screen when DELETE /session fails", async () => {
+    const { controller } = testController({ signedIn: true });
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    server.use(
+      http.delete(deleteUrl, () =>
+        HttpResponse.json({ error: "upstream_error" }, { status: 502 }),
+      ),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    signOut();
+
+    expect(
+      screen.getByRole("button", { name: "Sign in with GitHub" }),
+    ).toBeInTheDocument();
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(signOutUnconfirmedNote);
+    expect(controller.accessToken).toBeUndefined();
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("shows the sign-in screen and keeps nothing in a tab that missed another tab's sign-out, once its refresh answers 401", async () => {
+    const cache = new MemoryJsonStore();
+    const lastViewer = new MemoryStore();
+    // The two tabs share the browser's cookie, storage and cache, but the
+    // message never reaches the second tab, as when it was asleep.
+    const first = testController({ signedIn: true, cache, lastViewer });
+    const second = testController({
+      mock: first.mock,
+      cache,
+      lastViewer,
+      tabs: new MemoryTabChannel(),
+    });
+    await first.controller.restore();
+    render(
+      <App
+        session={second.controller}
+        widths={testWidths()}
+        theme={testTheme()}
+      />,
+    );
+    expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    await vi.waitFor(() => {
+      expect(cache.keys).not.toEqual([]);
+    });
+
+    await first.controller.signOut();
+    expect(cache.keys).toEqual([]);
+    expect(second.controller.state).toMatchObject({ status: "signed-in" });
+
+    // The mock's tokens live 28800 s; the refresh runs 60 s before that.
+    second.timer.advance(28_740_000);
+
+    expect(
+      await screen.findByRole("button", { name: "Sign in with GitHub" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("banner")).not.toBeInTheDocument();
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(second.timer.pending).toBe(0);
+    expect(lastViewer.get("yagura.last-viewer")).toBeUndefined();
+    expect(cache.keys).toEqual([]);
   });
 });

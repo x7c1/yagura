@@ -367,7 +367,9 @@ describe("The browser cache", () => {
     signOut();
     await screen.findByRole("button", { name: "Sign in with GitHub" });
 
-    expect(cache.keys).toEqual([other]);
+    await vi.waitFor(() => {
+      expect(cache.keys).toEqual([other]);
+    });
   });
 
   it("keeps the searches that succeeded when another fails, so that a retry repeats only the failed one", async () => {
