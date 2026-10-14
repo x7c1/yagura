@@ -1,6 +1,23 @@
 import { describe, expect, it } from "vitest";
 import { periodEndingAt } from "@yagura/activity";
-import { formatDateTime, formatPeriod } from "./format";
+import { formatDateTime, formatPeriod, pullRequestNumber } from "./format";
+
+describe("pullRequestNumber", () => {
+  it("reads the number from a pull request's address", () => {
+    expect(pullRequestNumber("https://github.com/owner/repo/pull/123")).toBe(
+      "#123",
+    );
+  });
+
+  it("gives nothing for an address of another shape", () => {
+    expect(
+      pullRequestNumber("https://github.com/owner/repo/issues/123"),
+    ).toBeNull();
+    expect(
+      pullRequestNumber("https://github.com/owner/repo/pull/12/files"),
+    ).toBeNull();
+  });
+});
 
 describe("formatDateTime", () => {
   it("shows the local date and 24-hour time", () => {

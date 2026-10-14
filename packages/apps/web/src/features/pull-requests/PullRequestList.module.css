@@ -73,6 +73,11 @@
   text-decoration: none;
 }
 
+.table .title .number {
+  color: var(--color-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+
 .table .title a:hover,
 .table .title a:focus-visible {
   color: var(--color-link);

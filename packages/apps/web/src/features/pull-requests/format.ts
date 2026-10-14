@@ -12,6 +12,16 @@ export function formatDay(day: string): string {
 }
 
 /**
+ * The number of the pull request at `url`, for example "#123" for
+ * "https://github.com/owner/repo/pull/123", read from the address so that
+ * nothing more is fetched or stored; `null` for an address of another shape.
+ */
+export function pullRequestNumber(url: string): string | null {
+  const match = /\/pull\/(\d+)\/?$/.exec(url);
+  return match ? `#${match[1]}` : null;
+}
+
+/**
  * A moment as its date and 24-hour time in the local time zone, every part
  * padded to a fixed width so that a column of them lines up, for example
  * "2026-10-03 14:05".
