@@ -96,12 +96,24 @@
   text-align: center;
 }
 
+/*
+ * The credit's link, in the footer's own colour and without an underline,
+ * so that it draws no more attention than the line around it. Pointed at,
+ * it takes the link colour and the underline; with keyboard focus, the
+ * underline joins the focus ring, so that it reads as a link either way.
+ */
 .footerLink {
   color: inherit;
+  text-decoration: none;
 }
 
 .footerLink:hover {
   color: var(--color-link);
+  text-decoration: underline;
+}
+
+.footerLink:focus-visible {
+  text-decoration: underline;
 }
 
 /*
@@ -113,14 +125,14 @@
  * holds its own scrolling area while everything else stays in view.
  *
  * It applies only where the window leaves the list room for about five rows.
- * At the widths where the chart's days are columns, the header, the "Per
- * day" card, the list's card with its heading and column headings, and the
- * footer take about 37rem together, and five one-line rows about 10rem more,
- * hence a window at least 48rem (768px) tall. The days are columns from a
- * width that depends on the largest count, about 45rem when counts reach
- * two digits; narrower than that, they are rows, a chart taller than most
- * windows, so a window narrower than 50rem falls back as well. Otherwise the
- * page scrolls as a whole, as the members page does.
+ * At the widths where the chart's days are columns, the header, the chart's
+ * card, the list's card with its column headings, and the footer take about
+ * 35rem together, and five one-line rows about 10rem more, so a window at
+ * least 48rem (768px) tall leaves them room with some to spare. The days
+ * are columns from a width that depends on the largest count, about 45rem
+ * when counts reach two digits; narrower than that, they are rows, a chart
+ * taller than most windows, so a window narrower than 50rem falls back as
+ * well. Otherwise the page scrolls as a whole, as the members page does.
  */
 @media (min-height: 48rem) and (min-width: 50rem) {
   .frame[data-fit="window"] {

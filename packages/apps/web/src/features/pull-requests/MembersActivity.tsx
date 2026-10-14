@@ -27,7 +27,7 @@ import { SectionHeading, UpdatingNote } from "./SectionHeading";
  * switching between them fetches nothing again.
  *
  * What the browser cache holds is drawn at once, and the fetch brings it up
- * to date behind it, with a note in the first card's heading row while it
+ * to date behind it, with a note at the top of the first card while it
  * runs, and its failure above the cards. When the cache holds nothing, the
  * table lists the members with placeholders, and the chart and the list say
  * they are loading, until the fetch answers.
@@ -99,12 +99,11 @@ export function MembersActivity(props: {
             <>
               <section className={sectionStyles.section}>
                 <SectionHeading aside={<UpdatingNote updating={false} />}>
-                  Per day
+                  Pull requests
                 </SectionHeading>
                 <p className={sectionStyles.note}>Loading…</p>
               </section>
               <section className={sectionStyles.section}>
-                <SectionHeading>Pull requests</SectionHeading>
                 <p className={sectionStyles.note}>Loading pull requests…</p>
               </section>
             </>
@@ -143,9 +142,10 @@ export function MembersActivity(props: {
 }
 
 /**
- * The members page's body: the summary table under its heading, as the
- * activity page's sections are, with the period the table covers at the
- * heading's right and the note that an update is running before it.
+ * The members page's body: the summary table in a card of its own, without
+ * a heading, as the page's tab already names it and the table is all the
+ * page holds. The card's top row holds the period the table covers at the
+ * left, and at the right the room for the note that an update is running.
  */
 function PerMember(props: {
   readonly members: readonly Member[];
@@ -155,19 +155,10 @@ function PerMember(props: {
 }) {
   return (
     <section className={sectionStyles.section}>
-      <SectionHeading
-        aside={
-          <div className={styles.aside}>
-            <UpdatingNote
-              updating={props.updating}
-              className={styles.updatingNote}
-            />
-            <p className={styles.period}>{formatPeriod(props.period)}</p>
-          </div>
-        }
-      >
-        Per member
-      </SectionHeading>
+      <div className={styles.topRow}>
+        <p className={styles.period}>{formatPeriod(props.period)}</p>
+        <UpdatingNote updating={props.updating} />
+      </div>
       <MemberSummaryTable members={props.members} summary={props.summary} />
     </section>
   );

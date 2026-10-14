@@ -15,15 +15,17 @@ import { SectionHeading, UpdatingNote } from "./SectionHeading";
 
 /**
  * The chart of the opened and merged counts per day, and the list of pull
- * requests below it, with the avatars of the authors among `members`.
+ * requests below it, with the avatars of the authors among `members`. The
+ * chart's card carries the page's heading, "Pull requests", and the list's
+ * card has none of its own: it is the detail of what the chart counts.
  * Choosing a bar in the chart narrows the list to that day's pull requests
  * of that kind, until it is chosen again or the narrowing is cleared. While
  * `updating`, a note at the right of the chart's heading says so.
  *
  * Where the page fits the window, the list's card takes the height the
- * chart leaves, and the list scrolls inside it under its heading. A card
- * with only a note keeps its natural height instead, so that it does not
- * stretch to the bottom as an empty box.
+ * chart leaves, and the list scrolls inside it under the narrowing's line,
+ * if any. A card with only a note keeps its natural height instead, so that
+ * it does not stretch to the bottom as an empty box.
  */
 export function DailyActivity(props: {
   readonly org: string;
@@ -43,7 +45,7 @@ export function DailyActivity(props: {
     <>
       <section className={sectionStyles.section}>
         <SectionHeading aside={<UpdatingNote updating={updating} />}>
-          Per day
+          Pull requests
         </SectionHeading>
         <DailyChart
           days={countByDay(pullRequests, period)}
@@ -58,7 +60,6 @@ export function DailyActivity(props: {
             : `${sectionStyles.section} ${styles.listSection}`
         }
       >
-        <SectionHeading>Pull requests</SectionHeading>
         {selected !== null && (
           <p className={styles.selection}>
             {describeSelection(selected)} ·{" "}

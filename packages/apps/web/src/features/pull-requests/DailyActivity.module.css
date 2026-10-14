@@ -8,10 +8,10 @@
 }
 
 /*
- * The list's card, a column whose list takes the height the heading and
- * the selection leave. It grows only where the page's main part has a
- * height of its own, as where the page fits the window; elsewhere it keeps
- * its natural height, and the page scrolls.
+ * The list's card, a column whose list takes the height the selection
+ * leaves, or all of it when nothing is selected. It grows only where the
+ * page's main part has a height of its own, as where the page fits the
+ * window; elsewhere it keeps its natural height, and the page scrolls.
  */
 .listSection {
   display: flex;

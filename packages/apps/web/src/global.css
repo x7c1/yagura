@@ -70,6 +70,11 @@
   --color-border: light-dark(#d1d9e0, #3d444d);
   --color-border-subtle: light-dark(#e8ebef, #262c36);
   --color-border-strong: light-dark(#818b98, #656c76);
+  /*
+   * A scroll bar's thumb where it shows only on demand, as in the pull
+   * request list: enough to find against the card, no heavier than that.
+   */
+  --color-scrollbar-thumb: light-dark(#c8d0d8, #4a525c);
   --color-link: light-dark(#0969da, #4493f8);
   --color-focus: light-dark(#0969da, #4493f8);
   /* What marks the current place, such as the current tab's underline. */

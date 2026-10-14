@@ -3,19 +3,16 @@ import { sectionStyles } from "../../shared";
 import styles from "./SectionHeading.module.css";
 
 /**
- * A section's heading, with `aside` at its right when one is given, which
- * wraps under the heading when the two do not fit on one line.
+ * A section's heading, with `aside` at its right, which wraps under the
+ * heading when the two do not fit on one line.
  */
 export function SectionHeading(props: {
   readonly children: ReactNode;
-  readonly aside?: ReactNode;
+  readonly aside: ReactNode;
 }) {
-  const heading = <h2 className={sectionStyles.heading}>{props.children}</h2>;
-  return props.aside === undefined ? (
-    heading
-  ) : (
+  return (
     <div className={sectionStyles.headingRow}>
-      {heading}
+      <h2 className={sectionStyles.heading}>{props.children}</h2>
       {props.aside}
     </div>
   );
@@ -25,13 +22,9 @@ export function SectionHeading(props: {
  * The note that an update is running, in room kept while it is absent, so
  * that its coming and going moves nothing beside it.
  */
-export function UpdatingNote(props: {
-  readonly updating: boolean;
-  readonly className?: string;
-}) {
-  const classes = [styles.updatingNote, props.className].filter(Boolean);
+export function UpdatingNote(props: { readonly updating: boolean }) {
   return (
-    <span role="status" className={classes.join(" ")}>
+    <span role="status" className={styles.updatingNote}>
       {props.updating && "Updating…"}
     </span>
   );

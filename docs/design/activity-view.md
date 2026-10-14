@@ -59,15 +59,20 @@ Two pages, one per question the view answers:
   additions, deletions, a link to the pull request on GitHub, and a
   **Date** column. It is the page that opens first, after sign-in too.
 - **Members**, at `/members`, answers who has been quiet. It has a
-  **summary table**, under the heading "Per member", with a row per member:
-  opened, merged, additions, deletions.
+  **summary table** with a row per member: opened, merged, additions,
+  deletions.
+
+The activity page's first card, the chart's, is headed "Pull requests";
+the list's card below it has no heading, as it is the detail of what the
+chart counts. The members page's card has no heading either: its tab
+names the page, and the table is all it holds.
 
 The activity page names no period: the chart's axis shows the days. The
-members page names it ("Last 14 days · Oct 1 – Oct 14") at the right of
-the "Per member" heading, as nothing else there tells what the table
-covers. The "Updating…" note sits at the right of the first card's
-heading ("Per day", or "Per member" after the period), and an update's
-failure shows above the cards (below).
+members page names it ("Last 14 days · Oct 1 – Oct 14"), muted, at the
+left of its card's top row, as nothing else there tells what the table
+covers. The "Updating…" note sits at the right of the first card's top
+row: beside the "Pull requests" heading, or across from the period. An
+update's failure shows above the cards (below).
 
 While signed in, the header shows a tab per page on the left, the current
 one marked, and on the right the organization's avatar and name, the
@@ -79,9 +84,12 @@ stands alone. On a narrow screen the session takes a row of its own above
 the tabs, the names at the left and the button at the right, and a name
 too long for the room is cut short with an ellipsis; the tabs and the
 session on one row would leave the names only a few characters. The
-footer shows only "Powered by Yagura", the app's name out of the way. The
-document title names the page ("Members · Yagura"), so that the browser's
-tabs and history tell the pages apart. The tabs are links to the pages'
+footer shows only "Powered by Yagura", the app's name out of the way:
+"Yagura" links to the project in the footer's muted colour without an
+underline, and takes the link colour and an underline when pointed at, or
+the underline and the focus ring with keyboard focus. The document title
+names the page ("Members · Yagura"), so that the browser's tabs and
+history tell the pages apart. The tabs are links to the pages'
 addresses, so that a page can be opened in a new tab, copied or
 bookmarked; a plain click switches the page without loading it, adding a
 history entry, and the browser's back and forward buttons switch between
@@ -177,22 +185,25 @@ the chart too: narrowed to the pull requests opened on a day, one merged
 on a later day shows that later date, on that day's band.
 
 The activity page fits the window when the window is tall and wide
-enough: the header, the "Per day" card, the "Pull requests" card and the
-footer are always in view, and only the list scrolls, inside its card. The
-page takes exactly the window's height (`100dvh`, after a `100vh`
-fallback, so that a mobile browser's bars do not cut the footer off). The
-"Per day" card keeps its natural height and the "Pull requests" card takes
-the rest, its heading and the narrowing's "Show all" line at its top. The
+enough: the header, the chart's card, the list's card and the footer are
+always in view, and only the list scrolls, inside its card. The page takes
+exactly the window's height (`100dvh`, after a `100vh` fallback, so that a
+mobile browser's bars do not cut the footer off). The chart's card keeps
+its natural height and the list's card takes the rest, with the
+narrowing's "Show all" line, when the list is narrowed, at its top. The
 list's column headings stay at the top of its scrolling area, on the
 card's background, while the rows scroll under them; the same area
-scrolls sideways when the table is wider than the card. A new narrowing,
+scrolls sideways when the table is wider than the card. Where the
+platform draws classic scroll bars, the area's bars are thin and show only
+while the pointer is over the list or focus is inside it, in room kept
+for them at rest so that nothing moves. A new narrowing,
 or clearing it, shows the list from its top. While the list loads, fails
 or has nothing, its card holds only a note and keeps its natural height.
 
 The fitting applies from 48rem (768px) of height and 50rem (800px) of
 width, with a CSS media query. At the widths where the chart's days are
-columns, everything but the list takes about 37rem, and 48rem leaves the
-list room for its headings and five and a half one-line rows. Narrower
+columns, everything but the list takes about 35rem, and 48rem leaves the
+list room for its column headings and about six one-line rows. Narrower
 than about 45rem, with counts of two digits, the chart's days are rows, and
 the chart alone takes most of a window's height; 50rem keeps the fitting
 to widths where the days are columns. In a shorter or narrower
@@ -340,8 +351,8 @@ What is drawn, and when:
   they are: the summary table, the chart and the list, even when some days
   are not fetched yet. The fetch described in "Fetching" then runs as
   usual, and its result replaces what was drawn. While it runs, an
-  "Updating…" note sits in the first card's heading row, in room kept for
-  it so that its coming and going moves nothing. When the cache answers
+  "Updating…" note sits in the first card's top row, in room kept for it
+  so that its coming and going moves nothing. When the cache answers
   everything, nothing is fetched and no note shows.
 - When nothing is stored for the members, the summary table lists them at
   once with placeholders for the numbers, and the chart and the list say
