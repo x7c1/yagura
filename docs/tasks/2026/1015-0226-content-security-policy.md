@@ -84,7 +84,7 @@ a policy, delivered in the page itself, since the host cannot add headers.
 
 ### Before merge (verified outside the check command)
 
-- [ ] A production build served locally (`vite preview`) with
+- [x] A production build served locally (`vite preview`) with
       `VITE_YAGURA_SESSION_API` set to the production API loads the sign-in
       screen with no CSP violation in the browser console, the theme script
       still applies a stored dark theme before paint, and a script injected
