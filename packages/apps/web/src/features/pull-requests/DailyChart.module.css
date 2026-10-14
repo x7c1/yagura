@@ -34,32 +34,17 @@
  * assistive technology reach the bar itself.
  */
 .count {
+  fill: var(--color-chart);
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   user-select: none;
 }
 
-.openedCount {
-  fill: var(--color-opened);
-}
-
-.mergedCount {
-  fill: var(--color-merged);
-}
-
-/* The opened bar is solid; the merged one is hatched (see the pattern). */
-.opened {
-  fill: var(--color-opened);
-  stroke: var(--color-opened);
-}
-
-.merged {
-  stroke: var(--color-merged);
-}
-
-.hatch {
-  fill: var(--color-merged);
+/* A bar, solid in the chart's colour. */
+.mark {
+  fill: var(--color-chart);
+  stroke: var(--color-chart);
 }
 
 .bar {
@@ -71,9 +56,9 @@
 }
 
 /*
- * With a bar chosen, the others step back so that it stands out. 0.75 is the
- * least that keeps every bar colour at 3:1 against the background in both
- * themes (the light merged one is under 3:1 at 0.7).
+ * With a bar chosen, the others step back so that it stands out. 0.75 keeps
+ * the bar colour above 3:1 against the background in both themes with some
+ * margin (the light one is barely 3:1 at 0.7).
  */
 .chosen .bar:not(.pressed) {
   opacity: 0.75;
@@ -99,17 +84,71 @@
   opacity: 1;
 }
 
-.legend {
-  list-style: none;
-  padding: 0;
-  margin: var(--space-2) 0 0;
-  display: flex;
-  gap: var(--space-4);
-  color: var(--color-text);
+/*
+ * The hours' heatmap beside the rows, under the bars, with some space
+ * between the bars' axis labels and its hour labels. Under the columns, the
+ * heatmap's geometry lays out the space under the bars' day labels itself
+ * instead, to centre them between the bars and the heatmap.
+ */
+.rowsHeatmap {
+  margin-top: var(--space-2);
 }
 
-.legendItem {
-  display: inline-flex;
+/*
+ * An empty hour is drawn plainly, apart from the card's background but
+ * quiet; an hour with something takes the chart's colour, stronger for more.
+ */
+.emptyCell {
+  fill: var(--color-border-subtle);
+}
+
+.step1 {
+  fill: var(--color-chart-1);
+}
+
+.step2 {
+  fill: var(--color-chart-2);
+}
+
+.step3 {
+  fill: var(--color-chart-3);
+}
+
+.step4 {
+  fill: var(--color-chart-4);
+}
+
+/*
+ * A cell is marked as chosen as a bar is (see `.pressed`), and takes the
+ * focus ring as its stroke too. A stroke reaches a pixel past the cell,
+ * into the gap around it, so that its neighbours do not cover it.
+ */
+.cell[aria-selected] {
+  cursor: pointer;
+}
+
+.cell:focus-visible {
+  outline: var(--focus-ring-width) solid var(--color-focus);
+  outline-offset: var(--focus-ring-offset);
+  stroke: var(--color-focus);
+  stroke-width: var(--focus-ring-width);
+}
+
+/* Read out by assistive technology, but not drawn. */
+.visuallyHidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* The key to the heatmap's strengths, under the chart. */
+.legend {
+  margin: var(--space-2) 0 0;
+  display: flex;
   align-items: center;
   gap: var(--space-1);
+  color: var(--color-text);
 }

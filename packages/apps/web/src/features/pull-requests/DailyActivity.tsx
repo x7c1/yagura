@@ -1,6 +1,8 @@
 import {
   countByDay,
+  countByHour,
   periodDays,
+  pullRequestsInHour,
   pullRequestsOn,
   type Period,
   type PullRequest,
@@ -9,17 +11,21 @@ import type { Member } from "@yagura/github-api";
 import { useState } from "react";
 import { buttonStyles, sectionStyles } from "../../shared";
 import styles from "./DailyActivity.module.css";
-import { DailyChart, describeSelection, type DaySelection } from "./DailyChart";
+import { DailyChart } from "./DailyChart";
 import { PullRequestList } from "./PullRequestList";
 import { SectionHeading, UpdatingNote } from "./SectionHeading";
+import { describeSelection, type ChartSelection } from "./selection";
 
 /**
- * The chart of the opened and merged counts per day, and the list of pull
- * requests below it, with the avatars of the authors among `members`. The
- * chart's card carries the page's heading, "Pull requests", and the list's
- * card has none of its own: it is the detail of what the chart counts.
- * Choosing a bar in the chart narrows the list to that day's pull requests
- * of that kind, until it is chosen again or the narrowing is cleared. While
+ * The chart of the merged counts per day, with the heatmap of their hours
+ * under it, and the list of pull requests below them, with the avatars of
+ * the authors among `members`. The chart's card carries the page's heading,
+ * "Merged PRs", which says what the chart counts, and the list's card has
+ * none of its own: it is the detail of the period the chart covers, every
+ * pull request opened or merged in it. Choosing a bar in the chart narrows
+ * the list to the pull requests merged on that day, and choosing a cell of
+ * the heatmap to those merged within that hour of the day, until it is
+ * chosen again, another is chosen, or the narrowing is cleared. While
  * `updating`, a note at the right of the chart's heading says so.
  *
  * Where the page fits the window, the list's card takes the height the
@@ -35,20 +41,18 @@ export function DailyActivity(props: {
   readonly updating: boolean;
 }) {
   const { org, members, pullRequests, period, updating } = props;
-  const [selected, setSelected] = useState<DaySelection | null>(null);
-  const listed =
-    selected === null
-      ? pullRequests
-      : pullRequestsOn(pullRequests, period, selected.day, selected.measure);
+  const [selected, setSelected] = useState<ChartSelection | null>(null);
+  const listed = narrowed(pullRequests, period, selected);
 
   return (
     <>
       <section className={sectionStyles.section}>
         <SectionHeading aside={<UpdatingNote updating={updating} />}>
-          Pull requests
+          Merged PRs
         </SectionHeading>
         <DailyChart
           days={countByDay(pullRequests, period)}
+          hours={countByHour(pullRequests, period)}
           selected={selected}
           onSelect={setSelected}
         />
@@ -92,7 +96,24 @@ export function DailyActivity(props: {
   );
 }
 
+/** The pull requests the list shows with `selected` chosen in the chart. */
+function narrowed(
+  pullRequests: readonly PullRequest[],
+  period: Period,
+  selected: ChartSelection | null,
+): readonly PullRequest[] {
+  if (selected === null) {
+    return pullRequests;
+  }
+  const { day, hour } = selected;
+  return hour === null
+    ? pullRequestsOn(pullRequests, period, day, "merged")
+    : pullRequestsInHour(pullRequests, period, day, hour, "merged");
+}
+
 /** What tells one narrowing of the list from another, or from none. */
-function selectionKey(selected: DaySelection | null): string {
-  return selected === null ? "all" : `${selected.day}:${selected.measure}`;
+function selectionKey(selected: ChartSelection | null): string {
+  return selected === null
+    ? "all"
+    : `${selected.day}:${selected.hour ?? "day"}`;
 }

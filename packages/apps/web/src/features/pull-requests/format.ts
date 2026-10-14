@@ -1,10 +1,15 @@
-import { periodDays, type Period } from "@yagura/activity";
+import { periodDays, startOfDay, type Period } from "@yagura/activity";
 
 /** A day as its month and day, for example "Oct 12". */
 export const dayFormat = new Intl.DateTimeFormat("en-US", {
   month: "short",
   day: "numeric",
 });
+
+/** A day key as its month and day, for example "Oct 3". */
+export function formatDay(day: string): string {
+  return dayFormat.format(startOfDay(day));
+}
 
 /**
  * A moment as its date and 24-hour time in the local time zone, every part
@@ -14,6 +19,14 @@ export const dayFormat = new Intl.DateTimeFormat("en-US", {
 export function formatDateTime(time: Date): string {
   const date = `${time.getFullYear()}-${pad(time.getMonth() + 1)}-${pad(time.getDate())}`;
   return `${date} ${pad(time.getHours())}:${pad(time.getMinutes())}`;
+}
+
+/**
+ * The start of a local hour of the day, 0 to 24, in 24-hour form, for
+ * example "09:00"; 24 is the end of the day's last hour.
+ */
+export function formatHour(hour: number): string {
+  return `${pad(hour)}:00`;
 }
 
 /**

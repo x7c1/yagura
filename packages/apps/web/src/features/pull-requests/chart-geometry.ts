@@ -12,10 +12,27 @@ export const digitWidth = 8;
 export const dayLabelWidth = 44;
 
 /** The height a line of text needs. */
-const textHeight = 16;
+export const textHeight = 16;
 
 /** The space between a bar and its count, or an axis and its labels. */
-const textGap = 4;
+export const textGap = 4;
+
+/**
+ * The space above and below the day labels of the column layout. They head
+ * both the bars above them and the hours' heatmap below, so they sit midway
+ * between the two: this much from the axis down to the labels, and as much
+ * from the labels down to the heatmap's first row (see `heatmap-geometry.ts`).
+ * It is measured to the labels' capitals and figures, not to their line of
+ * text, whose empty room above and below them is not seen.
+ */
+export const dayLabelSpace = 7;
+
+/**
+ * The height of capitals and figures at the small type size, and how far
+ * above a text's `y` their middle sits: text is placed by its `middle`
+ * baseline, which browsers take to be the middle of the lower-case letters.
+ */
+export const capitals = { height: 10, rise: 1 } as const;
 
 /**
  * How far a bar's keyboard focus ring reaches past its edge: the ring's
@@ -25,14 +42,23 @@ const textGap = 4;
  */
 const focusRingReach = 2 + 2;
 
-/** The share of a column's group taken by its two bars; the rest is space. */
-const barShare = 0.8;
+/** The share of a column taken by its day's bar; the rest is space. */
+const barShare = 0.6;
 
-/** The height of the plot in the column layout. */
-const columnsPlotHeight = 180;
+/**
+ * The height of the plot in the column layout: short enough to leave the
+ * hours' heatmap under it room on a laptop's screen.
+ */
+const columnsPlotHeight = 120;
 
-/** A row's bars: each bar's thickness, and the space between them. */
-const rowBar = { thickness: 14, gap: 2 } as const;
+/**
+ * The widest label of the hours' heatmap drawn under the columns, "18",
+ * which goes in the room left of the plot as the axis's labels do.
+ */
+const hourLabelWidth = 2 * digitWidth;
+
+/** The thickness of a row's bar. */
+const rowBarThickness = 14;
 
 /** The space between two rows. */
 const rowGap = 8;
@@ -41,8 +67,8 @@ const rowGap = 8;
 const maxTicks = 5;
 
 /**
- * How the days are laid out: a column per day with the bars growing up, or
- * a row per day with the bars growing to the right.
+ * How the days are laid out: a column per day with the bar growing up, or a
+ * row per day with the bar growing to the right.
  */
 export type ChartLayout = "columns" | "rows";
 
@@ -79,9 +105,8 @@ export interface Tick {
   readonly label: TextSpot;
 }
 
-/** The counts a day's group is drawn from. */
+/** The count a day's bar is drawn from: the pull requests merged on it. */
 export interface Counts {
-  readonly opened: number;
   readonly merged: number;
 }
 
@@ -92,13 +117,12 @@ export interface Bar {
 }
 
 /**
- * One day's group: the day it was drawn from, its two bars, and where its
- * label goes, if it has one.
+ * One day's group: the day it was drawn from, its bar, and where its label
+ * goes, if it has one.
  */
 export interface DayGroup<T extends Counts = Counts> {
   readonly day: T;
-  readonly opened: Bar;
-  readonly merged: Bar;
+  readonly bar: Bar;
   readonly label: TextSpot | null;
 }
 
@@ -141,12 +165,15 @@ function textWidth(value: number): number {
 
 /** The largest count of `days`, or 0 for none. */
 function maxCount(days: readonly Counts[]): number {
-  return Math.max(0, ...days.flatMap((d) => [d.opened, d.merged]));
+  return Math.max(0, ...days.map((d) => d.merged));
 }
 
-/** The room left of the column layout's plot, for the axis's labels. */
+/**
+ * The room left of the column layout's plot, for the axis's labels and the
+ * labels of the hours' heatmap under it, which shares the plot's columns.
+ */
 function columnsAxisWidth(axisMax: number): number {
-  return textWidth(axisMax) + textGap;
+  return Math.max(textWidth(axisMax), hourLabelWidth) + textGap;
 }
 
 /**
@@ -158,16 +185,19 @@ function columnBarWidthNeeded(days: readonly Counts[]): number {
 }
 
 /**
- * The narrowest width at which every column has room for its two bars and
- * their counts side by side, with at least a digit's width of space between
- * one day's group and the next, so that neighbouring days' counts do not
- * run together. Narrower than this, the days are laid out in rows.
+ * The narrowest width at which every column has room for its bar and its
+ * count, with at least a digit's width of space between one day's bar and
+ * the next, so that neighbouring days' counts do not run together, and
+ * room for a label under at least every other day, so that the days can be
+ * told apart without counting columns. Narrower than this, as on a phone,
+ * the days are laid out in rows, each labelled.
  */
 export function minColumnsWidth(days: readonly Counts[]): number {
   const axis = yAxis(maxCount(days));
   const groupWidth = Math.max(
-    (columnBarWidthNeeded(days) * 2) / barShare,
+    columnBarWidthNeeded(days) / barShare,
     digitWidth / (1 - barShare),
+    (dayLabelWidth + textGap) / 2,
   );
   return columnsAxisWidth(axis.max) + groupWidth * days.length;
 }
@@ -181,10 +211,10 @@ export function chartLayout(
 }
 
 /**
- * Where everything in the chart goes for the opened and merged counts of
- * each day, oldest first, at `width`. Both layouts put the days in order,
- * the newest last, the opened bar before the merged one, on an axis shared
- * by all the bars and starting at zero, with each bar's count past its end.
+ * Where everything in the chart goes for the merged count of each day,
+ * oldest first, at `width`. Both layouts put the days in order, the newest
+ * last, on an axis shared by all the bars and starting at zero, with each
+ * bar's count past its end.
  */
 export function chartGeometry<T extends Counts>(
   days: readonly T[],
@@ -204,7 +234,7 @@ function tickValues(axis: { max: number; step: number }): number[] {
 }
 
 /**
- * A column per day, the two bars side by side growing up from the axis.
+ * A column per day, its bar growing up from the axis, centred in it.
  * Every day is labelled below if the labels fit side by side, else every
  * other day (or fewer, as needed), counting back from the last one so that
  * today always has a label.
@@ -226,7 +256,7 @@ function columnsGeometry<T extends Counts>(
   const yOf = (value: number) => bottom - (value / axis.max) * plot.height;
 
   const groupWidth = plot.width / days.length;
-  const barWidth = (groupWidth * barShare) / 2;
+  const barWidth = groupWidth * barShare;
   const labelEvery = Math.ceil((dayLabelWidth + textGap) / groupWidth);
   const bar = (left: number, value: number): Bar => ({
     rect: {
@@ -245,7 +275,9 @@ function columnsGeometry<T extends Counts>(
   return {
     layout: "columns",
     width,
-    height: bottom + textGap + textHeight,
+    // The chart ends at the foot of the day labels' capitals: the space
+    // under them is the heatmap's, drawn right under the chart.
+    height: bottom + dayLabelSpace + capitals.height,
     plot,
     ticks: tickValues(axis).map((value) => ({
       value,
@@ -261,13 +293,12 @@ function columnsGeometry<T extends Counts>(
       const center = plot.x + groupWidth * (index + 0.5);
       return {
         day,
-        opened: bar(center - barWidth, day.opened),
-        merged: bar(center, day.merged),
+        bar: bar(center - barWidth / 2, day.merged),
         label:
           (days.length - 1 - index) % labelEvery === 0
             ? {
                 x: center,
-                y: bottom + textGap + textHeight / 2,
+                y: bottom + dayLabelSpace + capitals.height / 2 + capitals.rise,
                 anchor: "middle",
               }
             : null,
@@ -277,9 +308,8 @@ function columnsGeometry<T extends Counts>(
 }
 
 /**
- * A row per day, the day's label left of its two bars, the opened bar above
- * the merged one, both growing to the right from the axis. Every day is
- * labelled.
+ * A row per day, the day's label left of its bar, which grows to the right
+ * from the axis. Every day is labelled.
  */
 function rowsGeometry<T extends Counts>(
   days: readonly T[],
@@ -288,7 +318,7 @@ function rowsGeometry<T extends Counts>(
   const max = maxCount(days);
   const axis = yAxis(max);
   const left = dayLabelWidth + textGap * 2;
-  const rowHeight = rowBar.thickness * 2 + rowBar.gap + rowGap;
+  const rowHeight = rowBarThickness + rowGap;
   // A count starts clear of its bar's focus ring, and there is room right
   // of the plot for the count of a bar that reaches its end.
   const countOffset = focusRingReach + textGap;
@@ -305,11 +335,11 @@ function rowsGeometry<T extends Counts>(
       x: plot.x,
       y: top,
       width: xOf(value) - plot.x,
-      height: rowBar.thickness,
+      height: rowBarThickness,
     },
     count: {
       x: xOf(value) + countOffset,
-      y: top + rowBar.thickness / 2,
+      y: top + rowBarThickness / 2,
       anchor: "start",
     },
   });
@@ -332,11 +362,10 @@ function rowsGeometry<T extends Counts>(
       const top = plot.y + rowHeight * index + rowGap / 2;
       return {
         day,
-        opened: bar(top, day.opened),
-        merged: bar(top + rowBar.thickness + rowBar.gap, day.merged),
+        bar: bar(top, day.merged),
         label: {
           x: plot.x - textGap * 2,
-          y: top + rowBar.thickness + rowBar.gap / 2,
+          y: top + rowBarThickness / 2,
           anchor: "end",
         },
       };

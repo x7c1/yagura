@@ -126,15 +126,16 @@
  *
  * It applies only where the window leaves the list room for about five rows.
  * At the widths where the chart's days are columns, the header, the chart's
- * card, the list's card with its column headings, and the footer take about
- * 35rem together, and five one-line rows about 10rem more, so a window at
- * least 48rem (768px) tall leaves them room with some to spare. The days
- * are columns from a width that depends on the largest count, about 45rem
+ * card with the hours' heatmap under the bars, the list's card with its
+ * column headings, and the footer take about 40rem together, and five
+ * one-line rows about 10rem more. Measured, a window 51rem (816px) tall
+ * shows five whole rows, where 50rem would show only four. The days
+ * are columns from a width that depends on the largest count, about 31rem
  * when counts reach two digits; narrower than that, they are rows, a chart
  * taller than most windows, so a window narrower than 50rem falls back as
  * well. Otherwise the page scrolls as a whole, as the members page does.
  */
-@media (min-height: 48rem) and (min-width: 50rem) {
+@media (min-height: 51rem) and (min-width: 50rem) {
   .frame[data-fit="window"] {
     display: flex;
     flex-direction: column;

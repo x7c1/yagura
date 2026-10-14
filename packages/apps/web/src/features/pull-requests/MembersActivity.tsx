@@ -99,7 +99,7 @@ export function MembersActivity(props: {
             <>
               <section className={sectionStyles.section}>
                 <SectionHeading aside={<UpdatingNote updating={false} />}>
-                  Pull requests
+                  Merged PRs
                 </SectionHeading>
                 <p className={sectionStyles.note}>Loading…</p>
               </section>

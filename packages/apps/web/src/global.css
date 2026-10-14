@@ -90,8 +90,26 @@
   --color-on-primary: #ffffff;
   --color-control-bg: light-dark(#f6f8fa, #212830);
   --color-control-hover: light-dark(#eef1f4, #262c36);
-  --color-opened: light-dark(#0969da, #4493f8);
+  /*
+   * The list's state badges, as GitHub draws them: an open pull request
+   * green, a merged one purple. Each has at least 4.5:1 contrast against
+   * both the card and the band of every other day, in both themes.
+   */
+  --color-opened: light-dark(#1a7f37, #3fb950);
   --color-merged: light-dark(#8250df, #ab7df8);
+  /*
+   * The activity chart's bars and counts, in a blue of their own apart
+   * from the list's badges, and the strengths of its hours' heatmap in
+   * that blue, weakest first: the weakest has 3:1 contrast
+   * against the card, as the chart's other marks do, and each stronger one
+   * about 1.4 times the contrast of the one before. Light
+   * strengthens toward dark, and dark toward light.
+   */
+  --color-chart: light-dark(#0969da, #4493f8);
+  --color-chart-1: light-dark(#4f94e5, #3064a6);
+  --color-chart-2: light-dark(#2479de, #3a7cd1);
+  --color-chart-3: light-dark(#0862cb, #4896f8);
+  --color-chart-4: light-dark(#074ea3, #80b6fa);
   --color-closed: light-dark(#cf222e, #f85149);
   --color-additions: light-dark(#1a7f37, #3fb950);
   --color-deletions: light-dark(#cf222e, #f85149);
