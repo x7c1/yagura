@@ -1,0 +1,8 @@
+# The workflows pin actions to commit SHAs, so that a moved tag cannot change
+# what runs. Dependabot proposes the updates that a tag would have brought.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
