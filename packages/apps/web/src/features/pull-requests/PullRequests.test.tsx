@@ -39,7 +39,7 @@ describe("MembersActivity", () => {
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
 
-  it("heads the chart's card \"Pull requests\" and leaves the list's card without a heading", async () => {
+  it("heads the chart's card \"Merged PRs\" and leaves the list's card without a heading", async () => {
     const { controller } = testController({ signedIn: true });
 
     render(
@@ -48,15 +48,15 @@ describe("MembersActivity", () => {
     await pullRequestTitles();
 
     // The page's one card heading, over the chart: the list below it is the
-    // detail of what the chart counts, and needs no heading of its own.
+    // detail of the period the chart covers, and needs no heading of its own.
     const headings = screen.getAllByRole("heading", { level: 2 });
     expect(headings).toHaveLength(1);
     const [heading] = headings as [HTMLElement];
-    expect(heading).toHaveTextContent(/^Pull requests$/);
+    expect(heading).toHaveTextContent(/^Merged PRs$/);
     const chartCard = heading.closest("section") as HTMLElement;
     expect(
       within(chartCard).getByRole("group", {
-        name: "Opened and merged pull requests per day",
+        name: "Merged pull requests per day",
       }),
     ).toBeInTheDocument();
     const listCard = screen
@@ -160,8 +160,8 @@ describe("MembersActivity", () => {
   });
 
   it("bands a pull request by the date it shows, its merge if later", () => {
-    // As in a list narrowed to the pull requests opened on Oct 8: one of
-    // them was merged on Oct 10, so it shows that day and starts its band.
+    // Two pull requests opened on Oct 8: one of them was merged on Oct 10,
+    // so it shows that day and starts its band.
     const opened = (id: string, mergedAt: Date | null): PullRequest => ({
       id,
       state: mergedAt === null ? "open" : "merged",

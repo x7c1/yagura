@@ -17,6 +17,8 @@ export type {
 } from "./cache";
 export { countByDay, pullRequestsOn } from "./daily";
 export type { DayCounts } from "./daily";
+export { countByHour, hoursPerDay, pullRequestsInHour } from "./hourly";
+export type { DayHourCounts } from "./hourly";
 export { dayKeyOf, startOfDay } from "./days";
 export {
   latestEventIn,

@@ -53,25 +53,28 @@ zone, so "today" and each day in the chart are the user's local days.
 
 Two pages, one per question the view answers:
 
-- **Activity**, at `/`, answers what happened on which day. It has a
-  **chart** of the opened and merged counts per day, and below it a **list
-  of pull requests**, newest first: title, repository, author, state,
+- **Activity**, at `/`, answers what happened on which day, and when in
+  the day. It has a **chart** of the merged counts per day, a **heatmap**
+  of their hours under it in the same card, and below them a
+  **list of pull requests**, newest first: title, repository, author, state,
   additions, deletions, a link to the pull request on GitHub, and a
-  **Date** column. It is the page that opens first, after sign-in too.
+  **Date** column. The state is a badge coloured as GitHub draws it: open
+  green, merged purple, closed red. It is the page that opens first, after
+  sign-in too.
 - **Members**, at `/members`, answers who has been quiet. It has a
   **summary table** with a row per member: opened, merged, additions,
   deletions.
 
-The activity page's first card, the chart's, is headed "Pull requests";
-the list's card below it has no heading, as it is the detail of what the
-chart counts. The members page's card has no heading either: its tab
-names the page, and the table is all it holds.
+The activity page's first card, the chart's, is headed "Merged PRs", which
+says what the chart counts; the list's card below it has no heading, as it
+is the detail of the period the chart covers. The members page's card has
+no heading either: its tab names the page, and the table is all it holds.
 
 The activity page names no period: the chart's axis shows the days. The
 members page names it ("Last 14 days · Oct 1 – Oct 14"), muted, at the
 left of its card's top row, as nothing else there tells what the table
 covers. The "Updating…" note sits at the right of the first card's top
-row: beside the "Pull requests" heading, or across from the period. An
+row: beside the "Merged PRs" heading, or across from the period. An
 update's failure shows above the cards (below).
 
 While signed in, the header shows a tab per page on the left, the current
@@ -140,40 +143,82 @@ system does not flash light while the app loads.
 
 Both pages are drawn from one load of the members' pull requests, so that
 switching between them fetches nothing again and shows the same data at
-once. The bar chosen in the chart (below) is not kept when leaving
+once. The bar or hour chosen in the chart (below) is not kept when leaving
 Activity.
 
-The chart has a group for every day of the period, a day with nothing
-included, so that a quiet day shows as a gap rather than going missing. A
-pull request counts on the day it was opened for "opened" and on the day it
-was merged for "merged", which may be two different days.
+The chart counts merged pull requests only: what the view shows is how
+often changes landed, and a merge is that. Opened pull requests are not
+drawn in it, though the list below still shows every pull request opened
+or merged in the period, and the members page still counts both. The chart
+has a bar for every day of the period, a day with nothing included, so
+that a quiet day shows as a gap rather than going missing. A pull request
+counts on the local day it was merged.
 
-Each day has an opened bar (solid) and a merged bar (hatched), and each bar
-has its count written past its end, so that a count is read rather than
-estimated from the axis. A zero is not written, its empty bar shows it. A
-bar's accessible name carries its count too, a zero included ("Oct 13,
-opened: 7", "Oct 12, merged: 0").
+Each bar is solid, in a blue of the chart's own, apart from the colours of
+the list's state badges, and has its count written past its end, so that a
+count is read rather than estimated from the axis. A zero is not written, its
+empty bar shows it. A bar's accessible name carries its count too, a zero
+included ("Oct 13, merged: 7", "Oct 12, merged: 0"), and the bars as a
+whole are named "Merged pull requests per day".
 
 The chart fills the width of the page and is drawn at that width, its text
 at the small type size whatever the width, never scaled down. Where each day
-has room for its two bars side by side with their counts above, and a
-digit's width of space from the next day so that their counts do not run
-together, the days are columns, oldest left, with the counts on a vertical
-axis and the dates below, every other date when they do not all fit.
-Narrower than that, which depends on the largest count's digits, not on the
-device, the days are rows, oldest at the top, with the date left of the two
-bars, opened above merged, growing right on an axis below. Either way, all
-the bars share one axis that starts at zero, so that their lengths compare
-across days.
+has room for its bar with its count above, a digit's width of space from the
+next day so that their counts do not run together, and room for a date
+under at least every other day, the days are columns, oldest left, with the
+counts on a vertical axis and the dates below, every other date when they do
+not all fit. Narrower than that, which depends on the largest count's
+digits, not on the device (about 22rem for counts of one digit, 31rem for
+two), the days are rows, oldest at the top, with the date left of the bar,
+growing right on an axis below. Either way, all the bars share one axis
+that starts at zero, so that their lengths compare across days.
 
-Choosing a day's "opened" or "merged" in the chart narrows the list to that
-day's pull requests of that kind; a day and kind with none cannot be chosen.
-A click on a bar's count chooses the bar too, since a bar for a small count
-can be too short to hit.
-The narrowing applies to the list only: the summary table on Members keeps
-covering the whole period. Above the narrowed list, the view says what it is
-narrowed to ("Merged on Oct 3") with a way to show all again; choosing the
-same bar again clears it too.
+Under the bars, in the same card, the heatmap shows when in the day the
+merges happened: whether the work went on from morning to evening, or
+bunched into a few hours. It counts the pull requests already loaded, each
+in the local hour of the same time that places it on its day, so that a
+day's hours add up to its bar. Where the days are columns, each day has a
+column of 24 cells under its bar and as wide as it, one per hour from 0 at
+the top to 23; the hours 0, 6, 12 and 18 are labelled at the left, where
+the bars' axis is. The dates under the columns head both the bars above
+and the heatmap below, so they sit midway between the two: 7px from the
+bars' axis down to the dates' capitals and figures, and 7px from them down
+to the heatmap's first row. Where the days are rows, the heatmap turns too: a thin
+row per day, labelled with its date, and 24 hour columns across, labelled
+0, 6, 12 and 18 above. The bars' plot is 120px tall, short enough to leave
+the heatmap room on a laptop's screen.
+
+An empty hour is drawn plainly, in the subtle border colour, apart from the
+card's background but quiet. An hour with something takes the chart's blue
+in four strengths, scaled to the busiest hour of the period, which takes
+the strongest: each step covers a quarter of the busiest count, so that up
+to a quarter of it takes the weakest step and over three quarters the
+strongest. The weakest step has 3:1 contrast against the card in both
+themes, as the chart's other marks do, and the light theme strengthens
+toward dark, the dark theme toward light. Under both the bars and the
+heatmap, a small key gives the strengths ("Per hour: 1", the steps, and the
+busiest count). No legend names what is counted, as the card's heading says
+it; the accessible names of the bars and the heatmap spell it out.
+
+The heatmap is one tab stop, a grid that the arrow keys move through as it
+is drawn (Home and End to the ends of a line), with Enter or Space choosing
+the cell with focus; focus enters on the cell last moved to, else the chosen
+one, else the first hour with something. Each cell is named with its day,
+hour and count ("Oct 13, 14:00 to 15:00: 2 merged"), and the heatmap as a
+whole "Merged pull requests per hour of each day".
+
+Choosing a day's bar narrows the list to the pull requests merged on that
+day; a day with none cannot be chosen. A click on a bar's count chooses the
+bar too, since a bar for a small count can be too short to hit. Choosing a
+cell of the heatmap narrows the list the same way, to the pull requests
+merged on that day within that hour, and an empty cell cannot be chosen
+either. Choosing a bar or a cell replaces any earlier choice, and the
+chosen one is outlined in the text colour, not marked by colour alone. The
+narrowing applies to the list only: the summary table on Members keeps
+covering the whole period. Above the narrowed list, the view says what it
+is narrowed to ("Merged on Oct 3", or "Merged on Oct 13, 14:00–15:00" for
+an hour) with a way to show all again; choosing the same bar or cell again
+clears it too.
 
 The list's Date is when the pull request's latest event in the period
 happened: when it was merged if it was merged in the period, otherwise
@@ -184,11 +229,11 @@ a background, alternating from one day to the next, the newest day's on
 the page background, so that where one day ends and the next begins shows
 without comparing dates. The days are counted in the viewer's time zone,
 as in the chart. The bands follow the dates shown, in a list narrowed by
-the chart too: narrowed to the pull requests opened on a day, one merged
-on a later day shows that later date, on that day's band.
+the chart too.
 
 The activity page fits the window when the window is tall and wide
-enough: the header, the chart's card, the list's card and the footer are
+enough: the header, the chart's card with the heatmap, the list's card and
+the footer are
 always in view, and only the list scrolls, inside its card. The page takes
 exactly the window's height (`100dvh`, after a `100vh` fallback, so that a
 mobile browser's bars do not cut the footer off). The chart's card keeps
@@ -203,13 +248,16 @@ for them at rest so that nothing moves. A new narrowing,
 or clearing it, shows the list from its top. While the list loads, fails
 or has nothing, its card holds only a note and keeps its natural height.
 
-The fitting applies from 48rem (768px) of height and 50rem (800px) of
+The fitting applies from 51rem (816px) of height and 50rem (800px) of
 width, with a CSS media query. At the widths where the chart's days are
-columns, everything but the list takes about 35rem, and 48rem leaves the
-list room for its column headings and about six one-line rows. Narrower
-than about 45rem, with counts of two digits, the chart's days are rows, and
-the chart alone takes most of a window's height; 50rem keeps the fitting
-to widths where the days are columns. In a shorter or narrower
+columns, everything but the list's rows takes about 40rem, the bars and the
+heatmap together making the chart's card about 25rem tall. Measured on the
+page, 51rem leaves the list room for its column headings and five whole
+one-line rows, where 50rem would leave only four. Narrower
+than the chart's columns need (about 31rem with counts of two digits), the
+chart's days are rows, and the chart alone takes most of a window's height;
+50rem keeps the fitting to widths where the days are columns with room to
+spare. In a shorter or narrower
 window, a phone's included, the page scrolls as a whole, as it does on
 Members, which never fits the window.
 

@@ -142,7 +142,7 @@ const newPullRequest: MockPullRequestNode = {
   __typename: "PullRequest",
   id: "PR_mock_new",
   title: "Open a pull request after the first load",
-  url: "https://github.com/mock-org/web/pull/11",
+  url: "https://github.com/mock-org/web/pull/28",
   repository: { nameWithOwner: "mock-org/web" },
   author: { login: "mock-alice" },
   state: "OPEN",
@@ -434,7 +434,7 @@ describe("Drawing from the cache first", () => {
   const updating = () => screen.queryByText("Updating…");
   const chart = () =>
     screen.queryByRole("group", {
-      name: "Opened and merged pull requests per day",
+      name: "Merged pull requests per day",
     });
   const failSearches = (failing: () => boolean) =>
     http.post(graphqlUrl, async ({ request }) => {
@@ -537,7 +537,7 @@ describe("Drawing from the cache first", () => {
     expect(chart()).not.toBeInTheDocument();
     const headings = screen.getAllByRole("heading", { level: 2 });
     expect(headings.map((heading) => heading.textContent)).toEqual([
-      "Pull requests",
+      "Merged PRs",
     ]);
     expect(
       within(

@@ -69,8 +69,21 @@ function dayOf(
   period: Period,
   measure: Measure,
 ): string | null {
+  const time = countedTime(pr, period, measure);
+  return time === null ? null : dayKeyOf(time);
+}
+
+/**
+ * The time at which the pull request counts for `measure` in the period,
+ * which gives both the day it counts on and its hour within that day, or
+ * `null` when it does not count for `measure` there.
+ */
+export function countedTime(
+  pr: PullRequest,
+  period: Period,
+  measure: Measure,
+): Date | null {
   const counts =
     measure === "opened" ? wasOpened(pr, period) : wasMerged(pr, period);
-  const time = measureTime(pr, measure);
-  return counts && time !== null ? dayKeyOf(time) : null;
+  return counts ? measureTime(pr, measure) : null;
 }

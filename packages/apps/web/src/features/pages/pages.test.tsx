@@ -16,7 +16,7 @@ import { pageAt } from "./pages";
 
 const chart = () =>
   screen.queryByRole("group", {
-    name: "Opened and merged pull requests per day",
+    name: "Merged pull requests per day",
   });
 const summaryTable = () => screen.queryByRole("table", { name: "Members" });
 const tab = (name: "Activity" | "Members") =>
