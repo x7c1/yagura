@@ -85,6 +85,16 @@
 }
 
 /*
+ * A bar or a cell chosen with the pointer keeps the focus, and the browser
+ * would draw its own ring around it, which then lingers after the choice is
+ * cleared. Only keyboard focus shows a ring, the one above.
+ */
+.bar:focus:not(:focus-visible),
+.cell:focus:not(:focus-visible) {
+  outline: none;
+}
+
+/*
  * The hours' heatmap beside the rows, under the bars, with some space
  * between the bars' axis labels and its hour labels. Under the columns, the
  * heatmap's geometry lays out the space under the bars' day labels itself
