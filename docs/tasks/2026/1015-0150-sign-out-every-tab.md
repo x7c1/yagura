@@ -112,7 +112,7 @@ once, and keeps answers that arrive later from storing anything.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, in a real browser with two tabs of the
+- [x] With `VITE_API_MOCK=1 make dev`, in a real browser with two tabs of the
       app signed in: signing out in one tab shows the sign-in screen at once,
       and the other tab shows it within a moment without a reload; the
       browser cache holds no entries of the viewer afterwards.
