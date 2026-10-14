@@ -107,6 +107,20 @@ describe("SessionApiClient", () => {
     });
   });
 
+  it.each([
+    [403, "forbidden_origin"],
+    [415, "unsupported_media_type"],
+  ] as const)("maps a %i %s body to a typed error", async (status, code) => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      jsonResponse(status, { error: code }),
+    );
+    const client = new SessionApiClient({ baseUrl, fetch });
+
+    await expect(
+      client.createSession({ code: "c", codeVerifier: "v", redirectUri: "r" }),
+    ).rejects.toMatchObject({ status, code });
+  });
+
   it("maps an unreadable error body to unexpected_response", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(
       async () => new Response("Bad Gateway", { status: 502 }),

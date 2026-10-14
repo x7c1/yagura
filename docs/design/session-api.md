@@ -8,12 +8,13 @@ encrypted cookie the browser holds, and the access token lives only in the
 page's memory.
 
 Keeping the access token in memory, rather than in the browser's storage,
-keeps a script that runs in the page (through cross-site scripting or a
-compromised dependency) from reading it out of storage and using it
-elsewhere for the rest of its 8-hour life. The refresh token is no easier to
-take: it is in an `HttpOnly` cookie, which scripts cannot read. This does not
-stop such a script from calling the API with the token while the page is
-open. The cost is that every page load sends one `POST /session/refresh`
+keeps it from being left behind in storage after the page is closed, where a
+later script or another user of the browser could find it. It does not keep
+it from a script that runs in the page (through cross-site scripting or a
+compromised dependency): such a script runs in the same origin, can read the
+`access_token` of a refresh response, and can send it elsewhere for the rest
+of its 8-hour life. The refresh token itself is in an `HttpOnly` cookie,
+which scripts cannot read. The cost is that every page load sends one `POST /session/refresh`
 before its first API call, to get an access token again.
 
 The app does not wait for that refresh to draw. It remembers in the browser
@@ -126,17 +127,36 @@ Every error response is JSON:
 { "error": "invalid_grant", "error_description": "..." }
 ```
 
-| Status | `error`           | When                                                                                               |
-| ------ | ----------------- | -------------------------------------------------------------------------------------------------- |
-| 400    | `invalid_request` | The body is not the documented shape                                                               |
-| 400    | `invalid_grant`   | GitHub rejected the code or the verifier (expired, reused, mismatched `redirect_uri`)              |
-| 401    | `invalid_session` | `POST /session/refresh` without a usable cookie                                                    |
-| 502    | `upstream_error`  | GitHub did not answer, or answered with something other than a token, a user or a documented error |
+| Status | `error`                  | When                                                                                               |
+| ------ | ------------------------ | -------------------------------------------------------------------------------------------------- |
+| 400    | `invalid_request`        | The body is not the documented shape                                                               |
+| 400    | `invalid_grant`          | GitHub rejected the code or the verifier (expired, reused, mismatched `redirect_uri`)              |
+| 401    | `invalid_session`        | `POST /session/refresh` without a usable cookie                                                    |
+| 403    | `forbidden_origin`       | Any of the three requests without an allowed `Origin` (see [Origins](#origins))                    |
+| 415    | `unsupported_media_type` | `POST /session` whose `Content-Type` is not `application/json`                                     |
+| 502    | `upstream_error`         | GitHub did not answer, or answered with something other than a token, a user or a documented error |
 
-## CORS
+## Origins
+
+The server accepts `POST /session`, `POST /session/refresh` and
+`DELETE /session` only with an `Origin` header that exactly matches an
+allowed origin. A request without `Origin`, with `Origin: null`, or from any
+other origin is refused with `403 forbidden_origin` before anything else
+happens: GitHub is not called and no cookie is set or cleared. Browsers send
+`Origin` on these requests, and the API serves only the page, so a request
+without one has no legitimate source.
+
+CORS alone would not be enough. It keeps another site's script from reading
+a response, but a plain form on another site can still send a `POST` with a
+`text/plain` body that parses as JSON, and the server would act on it, for
+example by setting a cookie for an attacker's code in the victim's browser.
+For the same reason `POST /session` takes only `Content-Type:
+application/json` (parameters such as `charset` are allowed) and refuses
+anything else with `415 unsupported_media_type`; a form cannot send that type
+without a preflight.
 
 The page and the server are different origins, and the requests carry a
-cookie, so the server answers CORS preflights and sets, for an allowed
+cookie, so the server also answers CORS preflights and sets, for an allowed
 origin only:
 
 - `Access-Control-Allow-Origin: <that origin>` (never `*`)
@@ -146,4 +166,5 @@ origin only:
 
 The allowed origins are configured on the server: `https://yagura.module.codes`
 in production and `http://localhost:5173` in development. A request from any
-other origin gets no CORS headers and is therefore rejected by the browser.
+other origin gets no CORS headers, so the browser does not let the page read
+the response, and the server refuses the request itself as above.
