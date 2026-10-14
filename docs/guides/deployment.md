@@ -85,3 +85,83 @@ for rendering.
 The job also removes `mockServiceWorker.js` from the build output. That
 script is only used when developing with `VITE_API_MOCK=1` (see
 [Development](development.md)).
+
+## Content Security Policy
+
+GitHub Pages sends no security headers and lets a site set none, so the
+page carries its Content Security Policy itself, in a
+`<meta http-equiv="Content-Security-Policy">` placed in `index.html` right
+after the charset declaration, ahead of every script. It limits what a
+script that got into the page, through a dependency or a flaw yet unknown,
+could load or where it could send the access token. For a build with
+`VITE_YAGURA_SESSION_API=https://api.yagura.module.codes` it reads:
+
+```text
+default-src 'none'; script-src 'self' 'sha256-…'; style-src 'self';
+img-src 'self' https://avatars.githubusercontent.com;
+connect-src https://api.github.com https://api.yagura.module.codes;
+font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'
+```
+
+- `script-src` allows the app's own scripts and, by its SHA-256 hash, the
+  inline script in `index.html` that applies the stored theme before the
+  first paint. No other inline script runs.
+- `style-src` allows the app's own stylesheet. The app styles itself with
+  CSS Modules and sets no inline styles.
+- `img-src` allows the avatars GitHub serves.
+- `connect-src` allows the GitHub API and the origin of
+  `VITE_YAGURA_SESSION_API`, so each build allows the session API it is
+  built for. A build without that variable allows no session API; the app
+  refuses to start in that case anyway.
+
+### How it is built
+
+`packages/apps/web/content-security-policy.ts` is a Vite plugin that adds
+the policy when `index.html` is built. It hashes each inline script from its
+exact text at build time, so editing the theme script updates the hash
+rather than leaving the policy to refuse the script. A test
+(`content-security-policy.test.ts`) checks the production policy directive
+by directive and that it allows no `'unsafe-inline'`, no `'unsafe-eval'` and
+no wildcard.
+
+The plugin applies to builds only. The dev server (`make dev`) carries no
+policy, since it injects scripts and styles of its own and reloads over a
+WebSocket; leaving it without a policy keeps those relaxations out of any
+build. A build with `VITE_API_MOCK=1`, which is for development only, also
+allows `worker-src 'self'` for Mock Service Worker and `data:` images for
+the mocks' avatars.
+
+Since the dev server carries no policy, a change that makes the page load
+or connect to something new (another host, an inline style, a `data:`
+image) works in `make dev` and is refused only once built. To see such a
+change under the policy, build the app and serve the build locally, then
+watch the browser console for violations:
+
+```sh
+pnpm --filter @yagura/web build
+pnpm --filter @yagura/web exec vite preview
+```
+
+The build reads `VITE_YAGURA_SESSION_API` and `VITE_GITHUB_CLIENT_ID` as
+the deployed one does; set them in the environment or in
+`packages/apps/web/.env.local`. A new source the page truly needs belongs
+in `content-security-policy.ts`, with its test.
+
+The preview is served from `http://localhost:4173`, an origin a deployed
+session API does not allow (see
+[Origins](../design/session-api.md#origins)), so the session restore the
+page attempts on load fails there with a CORS error. That error is not a
+policy violation: a violation is reported as a refusal that names the
+Content Security Policy directive it breaks.
+
+### Limits
+
+- `frame-ancestors` has no effect in a meta element, and GitHub Pages cannot
+  send it as a header, so another site can embed the page in a frame. This
+  is acceptable because the page holds no action a framing site could trick
+  a click into beyond signing out or choosing a theme; signing in leaves for
+  GitHub's own page, which refuses to be framed.
+- The policy takes effect only from the meta element onward, which is why it
+  comes before every script.
+- `report-uri` and `report-to` have no effect in a meta element either, so
+  violations show only in the browser console.

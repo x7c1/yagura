@@ -1,6 +1,7 @@
 import react from "@vitejs/plugin-react";
 import { loadEnv } from "vite";
 import { defineConfig } from "vitest/config";
+import { contentSecurityPolicyPlugin } from "./content-security-policy.ts";
 
 export default defineConfig(({ mode }) => {
   // The empty prefix loads variables without the VITE_ prefix too. Those are
@@ -9,7 +10,15 @@ export default defineConfig(({ mode }) => {
   const sessionApiProxy = env.YAGURA_SESSION_API_PROXY;
 
   return {
-    plugins: [react()],
+    plugins: [
+      react(),
+      // Each build allows the session API it is built for. See
+      // docs/guides/deployment.md.
+      contentSecurityPolicyPlugin({
+        sessionApi: env.VITE_YAGURA_SESSION_API ?? "",
+        apiMock: env.VITE_API_MOCK === "1",
+      }),
+    ],
     server: {
       // The GitHub App's callback URL is fixed to this port, so never fall
       // back to another one.
