@@ -233,6 +233,33 @@ describe("DailyChart", () => {
     },
   );
 
+  it("draws the list afresh when the narrowing changes, so that it is read from its top", async () => {
+    await renderChart();
+    // jsdom keeps no scroll position, so what is seen is that the list's
+    // scrolling area, around the table, is a new one each time: a new one
+    // starts at its top.
+    const scrollingArea = () =>
+      screen.getByRole("table", { name: "Pull requests" }).parentElement;
+    const opened = dayWith("opened");
+    const merged = dayWith("merged");
+    const all = scrollingArea();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: barName(opened, "opened") }),
+    );
+    const narrowed = scrollingArea();
+    expect(narrowed).not.toBe(all);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: barName(merged, "merged") }),
+    );
+    expect(scrollingArea()).not.toBe(narrowed);
+
+    const before = scrollingArea();
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(scrollingArea()).not.toBe(before);
+  });
+
   it("does not narrow to a bar with nothing", async () => {
     await renderChart();
     const day = expectedDays.find((d) => d.merged === 0);

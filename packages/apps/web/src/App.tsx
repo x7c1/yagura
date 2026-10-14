@@ -104,6 +104,15 @@ export function App(props: {
 }
 
 /**
+ * Whether a page fits its frame to the window, holding its own scrolling
+ * area, rather than scrolling as a whole.
+ */
+const fitsWindow: Readonly<Record<Page, boolean>> = {
+  activity: true,
+  members: false,
+};
+
+/**
  * While signed in, `page` in the page frame; otherwise the sign-in screen,
  * which has no frame of its own.
  */
@@ -123,7 +132,10 @@ function Screen(props: {
  * The page frame: the header with the tabs and the session, the
  * organization's members on `page`, and the footer with the app's name.
  * The page's name is in the document title, so that the browser's tab and
- * history tell the pages apart.
+ * history tell the pages apart. The activity page fits the frame to the
+ * window, when the window is tall enough, so that its list scrolls inside
+ * its card while the rest stays in view; the members page scrolls as a
+ * whole.
  */
 function SignedInPage(props: {
   readonly page: Page;
@@ -145,7 +157,10 @@ function SignedInPage(props: {
   }, [props.page]);
 
   return (
-    <>
+    <div
+      className={styles.frame}
+      data-fit={fitsWindow[props.page] ? "window" : undefined}
+    >
       <header className={styles.header}>
         <div className={styles.bar}>
           {/*
@@ -186,6 +201,6 @@ function SignedInPage(props: {
           </a>
         </p>
       </footer>
-    </>
+    </div>
   );
 }

@@ -68,6 +68,26 @@ describe("Pages", () => {
     expect(tab("Activity")).not.toHaveAttribute("aria-current");
   });
 
+  it("fits the activity page's frame to the window, and not the members page's", async () => {
+    const { controller } = testController({ signedIn: true });
+    // The frame around the header, the page and the footer, and whether it
+    // fits the window; the style sheet does the fitting, which jsdom does
+    // not lay out.
+    const fit = () =>
+      screen.getByRole("main").parentElement?.getAttribute("data-fit");
+
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    await pullRequestTitles();
+
+    expect(fit()).toBe("window");
+
+    showPage("Members");
+
+    expect(fit()).toBeNull();
+  });
+
   it("links the tabs to the pages' addresses", async () => {
     const { controller } = testController({ signedIn: true });
 

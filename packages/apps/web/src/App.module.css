@@ -103,3 +103,41 @@
 .footerLink:hover {
   color: var(--color-link);
 }
+
+/*
+ * A page that fits the window (the activity page) takes exactly the
+ * window's height, `dvh` so that a mobile browser's bars do not cut the
+ * footer off, after the `vh` fallback for browsers without it. The header
+ * and the footer keep their height and the main part takes the rest, so
+ * that what the page lets grow there, such as the pull request list's card,
+ * holds its own scrolling area while everything else stays in view.
+ *
+ * It applies only where the window leaves the list room for about five rows.
+ * At the widths where the chart's days are columns, the header, the "Per
+ * day" card, the list's card with its heading and column headings, and the
+ * footer take about 37rem together, and five one-line rows about 10rem more,
+ * hence a window at least 48rem (768px) tall. The days are columns from a
+ * width that depends on the largest count, about 45rem when counts reach
+ * two digits; narrower than that, they are rows, a chart taller than most
+ * windows, so a window narrower than 50rem falls back as well. Otherwise the
+ * page scrolls as a whole, as the members page does.
+ */
+@media (min-height: 48rem) and (min-width: 50rem) {
+  .frame[data-fit="window"] {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+  }
+
+  /* Centred by their auto margins, they would shrink to their content. */
+  .frame[data-fit="window"] > .main,
+  .frame[data-fit="window"] > .footer {
+    width: 100%;
+  }
+
+  .frame[data-fit="window"] > .main {
+    flex: 1 1 auto;
+    min-height: 0;
+  }
+}
