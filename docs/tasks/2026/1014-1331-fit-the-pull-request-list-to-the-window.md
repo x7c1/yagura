@@ -85,15 +85,15 @@ card.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots at 1280×800 in light
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots at 1280×800 in light
       and dark show the header, "Per day", "Pull requests" with its column
       headings and the footer all in view, and, after scrolling the list,
       the headings still at its top with rows scrolled under them and the
       footer still in view.
-- [ ] A screenshot at 375×667 shows the fallback layout with no horizontal
+- [x] A screenshot at 375×667 shows the fallback layout with no horizontal
       page scroll, and one at a short desktop window (for example
       1280×500) shows the fallback too.
-- [ ] The Members page at 1280×800 scrolls as before.
+- [x] The Members page at 1280×800 scrolls as before.
 
 ## Out of scope
 
