@@ -39,6 +39,22 @@ describe("MembersActivity", () => {
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
 
+  it("writes each pull request's number before its title, outside the link", async () => {
+    const { controller } = testController({ signedIn: true });
+
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+
+    for (const row of await pullRequestRows()) {
+      const link = within(row).getByRole("link");
+      const number = /\/pull\/(\d+)$/.exec(link.getAttribute("href") ?? "");
+      expect(number).not.toBeNull();
+      const cell = link.closest("td");
+      expect(cell?.textContent).toBe(`#${number?.[1]} ${link.textContent}`);
+    }
+  });
+
   it("heads the chart's card \"Merged PRs\" and leaves the list's card without a heading", async () => {
     const { controller } = testController({ signedIn: true });
 
@@ -99,7 +115,7 @@ describe("MembersActivity", () => {
     const [, row] = await pullRequestRows();
     const cells = within(row as HTMLElement).getAllByRole("cell");
     expect(cells.map((cell) => cell.textContent)).toEqual([
-      "Fix the sign-out redirect",
+      "#2 Fix the sign-out redirect",
       "mock-org/web",
       "mock-alice",
       "merged",

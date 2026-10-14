@@ -2,7 +2,7 @@ import { latestEventIn, type Period, type PullRequest } from "@yagura/activity";
 import type { Member } from "@yagura/github-api";
 import { tableStyles } from "../../shared";
 import { dayBands } from "./day-bands";
-import { formatDateTime } from "./format";
+import { formatDateTime, pullRequestNumber } from "./format";
 import { MemberLogin } from "./MemberLogin";
 import styles from "./PullRequestList.module.css";
 
@@ -50,6 +50,7 @@ export function PullRequestList(props: {
               className={bands[index] === 1 ? styles.tinted : undefined}
             >
               <td className={styles.title}>
+                <PullRequestNumber url={pr.url} />
                 <a href={pr.url} target="_blank" rel="noreferrer">
                   {pr.title}
                 </a>
@@ -80,5 +81,19 @@ export function PullRequestList(props: {
         </tbody>
       </table>
     </div>
+  );
+}
+
+/**
+ * The pull request's number before its title, quietly, as GitHub writes it
+ * ("#123"). It stays outside the title's link, so that the link names the
+ * pull request by its title alone.
+ */
+function PullRequestNumber(props: { readonly url: string }) {
+  const number = pullRequestNumber(props.url);
+  return number === null ? null : (
+    <>
+      <span className={styles.number}>{number}</span>{" "}
+    </>
   );
 }

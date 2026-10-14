@@ -56,7 +56,8 @@ Two pages, one per question the view answers:
 - **Activity**, at `/`, answers what happened on which day, and when in
   the day. It has a **chart** of the merged counts per day, a **heatmap**
   of their hours under it in the same card, and below them a
-  **list of pull requests**, newest first: title, repository, author, state,
+  **list of pull requests**, newest first: title (after the pull request's number,
+  "#123", read from its address), repository, author, state,
   additions, deletions, a link to the pull request on GitHub, and a
   **Date** column. The state is a badge coloured as GitHub draws it: open
   green, merged purple, closed red. It is the page that opens first, after
