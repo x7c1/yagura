@@ -19,6 +19,11 @@ import { SectionHeading, UpdatingNote } from "./SectionHeading";
  * Choosing a bar in the chart narrows the list to that day's pull requests
  * of that kind, until it is chosen again or the narrowing is cleared. While
  * `updating`, a note at the right of the chart's heading says so.
+ *
+ * Where the page fits the window, the list's card takes the height the
+ * chart leaves, and the list scrolls inside it under its heading. A card
+ * with only a note keeps its natural height instead, so that it does not
+ * stretch to the bottom as an empty box.
  */
 export function DailyActivity(props: {
   readonly org: string;
@@ -46,7 +51,13 @@ export function DailyActivity(props: {
           onSelect={setSelected}
         />
       </section>
-      <section className={sectionStyles.section}>
+      <section
+        className={
+          listed.length === 0
+            ? sectionStyles.section
+            : `${sectionStyles.section} ${styles.listSection}`
+        }
+      >
         <SectionHeading>Pull requests</SectionHeading>
         {selected !== null && (
           <p className={styles.selection}>
@@ -66,6 +77,10 @@ export function DailyActivity(props: {
           >{`No pull requests by ${org}'s members in the last ${periodDays} days.`}</p>
         ) : (
           <PullRequestList
+            // A new narrowing draws the list afresh, so that it is read
+            // from its top rather than at where the previous one was
+            // scrolled to.
+            key={selectionKey(selected)}
             pullRequests={listed}
             period={period}
             members={members}
@@ -74,4 +89,9 @@ export function DailyActivity(props: {
       </section>
     </>
   );
+}
+
+/** What tells one narrowing of the list from another, or from none. */
+function selectionKey(selected: DaySelection | null): string {
+  return selected === null ? "all" : `${selected.day}:${selected.measure}`;
 }

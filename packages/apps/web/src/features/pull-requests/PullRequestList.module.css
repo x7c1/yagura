@@ -1,9 +1,38 @@
-/* The table scrolls inside here when it is wider than the page. */
+/*
+ * The table scrolls inside here when it is wider than the page, and, where
+ * its card has less height than the table needs (as where the page fits the
+ * window), when it is taller too. One container scrolls both ways, so that
+ * a wheel or a trackpad scrolls the list as it would a page.
+ */
 .scroll {
-  overflow-x: auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
 }
 
-/* `.table` is applied with the shared table class, which it adjusts. */
+/*
+ * `.table` is applied with the shared table class, which it adjusts. Its
+ * borders are drawn per cell, rather than collapsed into the table's, so
+ * that the column headings carry their own line along when they stick.
+ * The scroll container's class makes it win over the shared class.
+ */
+.scroll .table {
+  border-collapse: separate;
+  border-spacing: 0;
+}
+
+/*
+ * The column headings stay at the top of the scrolling area while the rows
+ * scroll under them, on the card's background so that the rows do not
+ * show through.
+ */
+.table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: var(--color-bg);
+}
+
 .table th,
 .table td {
   vertical-align: top;

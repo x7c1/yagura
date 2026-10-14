@@ -176,6 +176,29 @@ as in the chart. The bands follow the dates shown, in a list narrowed by
 the chart too: narrowed to the pull requests opened on a day, one merged
 on a later day shows that later date, on that day's band.
 
+The activity page fits the window when the window is tall and wide
+enough: the header, the "Per day" card, the "Pull requests" card and the
+footer are always in view, and only the list scrolls, inside its card. The
+page takes exactly the window's height (`100dvh`, after a `100vh`
+fallback, so that a mobile browser's bars do not cut the footer off). The
+"Per day" card keeps its natural height and the "Pull requests" card takes
+the rest, its heading and the narrowing's "Show all" line at its top. The
+list's column headings stay at the top of its scrolling area, on the
+card's background, while the rows scroll under them; the same area
+scrolls sideways when the table is wider than the card. A new narrowing,
+or clearing it, shows the list from its top. While the list loads, fails
+or has nothing, its card holds only a note and keeps its natural height.
+
+The fitting applies from 48rem (768px) of height and 50rem (800px) of
+width, with a CSS media query. At the widths where the chart's days are
+columns, everything but the list takes about 37rem, and 48rem leaves the
+list room for its headings and five and a half one-line rows. Narrower
+than about 45rem, with counts of two digits, the chart's days are rows, and
+the chart alone takes most of a window's height; 50rem keeps the fitting
+to widths where the days are columns. In a shorter or narrower
+window, a phone's included, the page scrolls as a whole, as it does on
+Members, which never fits the window.
+
 The summary table and the list cover the same period, and the table adds
 up to the list when it is not narrowed. A pull request opened and merged
 in the period counts toward both the member's opened and merged, but its
