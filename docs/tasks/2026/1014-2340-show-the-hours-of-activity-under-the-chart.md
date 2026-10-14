@@ -150,7 +150,7 @@ on the badge's token.
       light and dark, show the bars and the heatmap lined up by day, the
       list in view and scrolling inside its card when the page fits, and
       a chosen cell with the narrowed list.
-- [ ] The repository owner looks at it on the local mock dev server and
+- [x] The repository owner looks at it on the local mock dev server and
       approves the look before merge.
 
 ## Out of scope
