@@ -1,10 +1,11 @@
 import { mockAuthorize, mockLogin } from "@yagura/api-mocks";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "./App";
 import { saveHandoff } from "./features/session/handoff";
 import {
   sessionApi,
+  signOut,
   testController,
   testTheme,
   testWidths,
@@ -80,7 +81,7 @@ describe("App", () => {
     expect(screen.getByRole("banner")).toBeInTheDocument();
     expect(screen.getByRole("navigation")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Yagura" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    signOut();
 
     expect(
       await screen.findByRole("button", { name: "Sign in with GitHub" }),

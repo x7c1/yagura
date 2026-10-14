@@ -18,11 +18,7 @@ import {
   useSession,
   type SessionController,
 } from "./features/session";
-import {
-  ThemeControl,
-  ThemeProvider,
-  type ThemeController,
-} from "./features/theme";
+import { ThemeProvider, type ThemeController } from "./features/theme";
 
 export const callbackPath = "/callback";
 
@@ -65,8 +61,9 @@ export function App(props: {
     }
   }, [session, onCallback]);
 
-  // Bring the theme control in line with the stored choice, which the early
-  // script in `index.html` has already applied to the page.
+  // Bring the theme controller, and so the menu's check, in line with the
+  // stored choice, which the early script in `index.html` has already
+  // applied to the page.
   const { theme } = props;
   useLayoutEffect(() => {
     theme.restore();
@@ -124,9 +121,9 @@ function Screen(props: {
 
 /**
  * The page frame: the header with the tabs and the session, the
- * organization's members on `page`, and the footer with the app's name and
- * the theme control. The page's name is in the document title, so that the
- * browser's tab and history tell the pages apart.
+ * organization's members on `page`, and the footer with the app's name.
+ * The page's name is in the document title, so that the browser's tab and
+ * history tell the pages apart.
  */
 function SignedInPage(props: {
   readonly page: Page;
@@ -188,7 +185,6 @@ function SignedInPage(props: {
             Yagura
           </a>
         </p>
-        <ThemeControl />
       </footer>
     </>
   );

@@ -1,6 +1,6 @@
 /*
  * The signed-in session, at the right of the bar: the organization and the
- * login, then the sign-out button, on one line. When they do not fit, the
+ * login, then the menu button, on one line. When they do not fit, the
  * names shorten with an ellipsis, and the button keeps its place.
  */
 .status {
@@ -19,12 +19,6 @@
   .status {
     justify-content: space-between;
   }
-}
-
-/* The sign-out button keeps its width, on one line, as the names give way. */
-.signOut {
-  flex: none;
-  white-space: nowrap;
 }
 
 .identity {

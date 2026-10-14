@@ -12,6 +12,7 @@ import { App } from "./App";
 import { viewerCachePrefix } from "./shared";
 import {
   findOrganization,
+  menuButton,
   memberSummaryRows,
   pullRequestTitles,
   server,
@@ -20,6 +21,7 @@ import {
   shownPullRequestTitles,
   showPage,
   showsOrganization,
+  signOut,
   testController,
   testTheme,
   testWidths,
@@ -125,7 +127,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     showPage("Members");
     expect(shownMemberSummaryRows()).toEqual(cachedRows);
     showPage("Activity");
-    expect(screen.getByRole("button", { name: "Sign out" })).toBeVisible();
+    expect(menuButton()).toBeVisible();
     expect(view.mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
     // Nothing is sent to GitHub before the token arrives.
     expect(
@@ -249,7 +251,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
       ({ method, url }) =>
         method === "DELETE" && url === `${sessionApi}/session`,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    signOut();
 
     await vi.waitFor(() => {
       expect(view.cache.keys).toEqual([]);
