@@ -1,5 +1,9 @@
-import { mockMemberLogins, mockOrganization } from "@yagura/api-mocks";
-import { fireEvent, render, screen } from "@testing-library/react";
+import {
+  mockLogin,
+  mockMemberLogins,
+  mockOrganization,
+} from "@yagura/api-mocks";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
@@ -44,6 +48,37 @@ describe("OrganizationMembers", () => {
         "https://api.github.com/user/installations?per_page=100",
       ),
     ).toHaveLength(1);
+  });
+
+  it("links the organization, the login and the footer's credit to GitHub, in a new tab", async () => {
+    const { controller } = testController({ signedIn: true });
+
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    await findOrganization(mockOrganization);
+
+    const banner = screen.getByRole("banner");
+    const footer = screen.getByRole("contentinfo");
+    const links = [
+      [
+        within(banner).getByRole("link", { name: mockOrganization }),
+        `https://github.com/${mockOrganization}`,
+      ],
+      [
+        within(banner).getByRole("link", { name: mockLogin }),
+        `https://github.com/${mockLogin}`,
+      ],
+      [
+        within(footer).getByRole("link", { name: "Yagura" }),
+        "https://github.com/x7c1/yagura",
+      ],
+    ] as const;
+    for (const [link, href] of links) {
+      expect(link).toHaveAttribute("href", href);
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noreferrer");
+    }
   });
 
   it("hides the members after sign-out", async () => {

@@ -195,6 +195,8 @@ function SignedInPage(props: {
           Powered by{" "}
           <a
             href="https://github.com/x7c1/yagura"
+            target="_blank"
+            rel="noreferrer"
             className={styles.footerLink}
           >
             Yagura

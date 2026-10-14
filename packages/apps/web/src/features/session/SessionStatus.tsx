@@ -18,7 +18,14 @@ export function SessionStatus(props: { readonly organization?: ReactNode }) {
     <div className={styles.status}>
       <span className={styles.identity}>
         {props.organization}
-        <span className={styles.login}>{state.login}</span>
+        <a
+          href={`https://github.com/${state.login}`}
+          target="_blank"
+          rel="noreferrer"
+          className={styles.login}
+        >
+          {state.login}
+        </a>
       </span>
       <SessionMenu />
     </div>

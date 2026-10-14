@@ -186,7 +186,14 @@ function OrganizationView(props: {
           ))}
         </select>
       ) : (
-        <span className={styles.name}>{selected}</span>
+        <a
+          href={`https://github.com/${selected}`}
+          target="_blank"
+          rel="noreferrer"
+          className={styles.name}
+        >
+          {selected}
+        </a>
       )}
       <span className={styles.separator}>/</span>
     </span>

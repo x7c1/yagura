@@ -31,12 +31,23 @@
   line-height: 1;
 }
 
+/*
+ * The name links to the organization on GitHub, quietly: it keeps the
+ * text's colour and shows the underline only on hover and keyboard focus.
+ */
 .name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: inherit;
   font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.name:hover,
+.name:focus-visible {
+  text-decoration: underline;
 }
 
 /* The selector reads as the name it holds, at the name's weight. */

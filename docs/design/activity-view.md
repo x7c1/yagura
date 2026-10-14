@@ -78,14 +78,17 @@ While signed in, the header shows a tab per page on the left, the current
 one marked, and on the right the organization's avatar and name, the
 login after a slash ("my-org / octocat"), and a quiet "more" button (a
 vertical ellipsis, named "Menu") at the right end. With several
-organizations, the organization's name is its selector. While the
+organizations, the organization's name is its selector. The
+organization's name and the login link to their pages on GitHub, in the
+text's colour, underlined only when pointed at or focused, and open in a
+new tab so that the activity stays where it was. While the
 organizations load, or when the app is installed on none, the login
 stands alone. On a narrow screen the session takes a row of its own above
 the tabs, the names at the left and the button at the right, and a name
 too long for the room is cut short with an ellipsis; the tabs and the
 session on one row would leave the names only a few characters. The
 footer shows only "Powered by Yagura", the app's name out of the way:
-"Yagura" links to the project in the footer's muted colour without an
+"Yagura" links to the project, in a new tab, in the footer's muted colour without an
 underline, and takes the link colour and an underline when pointed at, or
 the underline and the focus ring with keyboard focus. The document title
 names the page ("Members · Yagura"), so that the browser's tabs and

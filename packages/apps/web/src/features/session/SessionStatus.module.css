@@ -28,10 +28,21 @@
   min-width: 0;
 }
 
+/*
+ * The login links to the user's profile on GitHub, as quietly as the
+ * organization's name before it.
+ */
 .login {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  color: inherit;
   font-weight: var(--font-weight-semibold);
+  text-decoration: none;
+}
+
+.login:hover,
+.login:focus-visible {
+  text-decoration: underline;
 }
