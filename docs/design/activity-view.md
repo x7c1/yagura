@@ -111,7 +111,10 @@ Space or a click opens it and moves focus to its first item, the arrow
 keys move between the items, Escape closes it and returns focus to the
 button, and Tab or a click outside closes it. Choosing a theme applies it
 and keeps the menu open, so that the viewer sees the result; choosing
-"Sign out" closes it and signs out.
+"Sign out" closes it and signs out. The sign-in screen replaces the page at
+once, in this tab and, within a moment, in every other tab of the browser,
+without waiting for the server to end the session; sessions on other
+devices are left as they are (see the session API's design).
 
 Signed out, there is no page frame: no header, tabs or footer. The screen
 is for signing in alone, one panel in the middle of the viewport with the
@@ -119,14 +122,16 @@ app's name as the page's heading, the README's first line saying what the
 app is, the "Sign in with GitHub" button, and under it a short note on
 what signing in gives the app (it only reads what the visitor can already
 see on GitHub, in their browser, and the server stores nothing). A failed
-sign-in's message, or a sign-out's the server did not confirm, shows in
-the panel above the button, marked as a failure in words as well as
-colour. Every address, `/members` too, shows this same screen. While the
-session is being restored without a remembered last viewer, and while the
-sign-in callback completes, the same panel shows "Loading…" or "Signing
-in…" in the button's place, above the same note, so that the screen does
-not jump between these states and the button never flashes before a
-restored session replaces it.
+sign-in's message, or a note that signing out could not reach the server
+to end the session (so the next visit may sign the viewer in again, and
+reloading and signing out again retries), shows in the panel above the
+button, marked as a failure in words as well as colour. Every address,
+`/members` too, shows this same screen. While the session is being
+restored without a remembered last viewer, and while the sign-in callback
+completes, the same panel shows "Loading…" or "Signing in…" in the
+button's place, above the same note, so that the screen does not jump
+between these states and the button never flashes before a restored
+session replaces it.
 
 The page follows the operating system's light or dark colour scheme
 unless the viewer chooses otherwise. The choice is made in the header's
@@ -367,7 +372,10 @@ Entries that fall out of the 14-day period are removed without waiting for
 their expiry, when the view loads.
 
 The cache is kept per signed-in login, so that two users of the same browser
-never see each other's results, and it is cleared on sign-out. The
+never see each other's results, and the viewer's entries are deleted on
+sign-out. A sign-out in any tab of the browser also stops every tab from
+storing anything more for the viewer, so that a load still in flight in
+another tab cannot write the entries again once they are deleted. The
 organization the viewer last selected is kept in the cache too, under its own
 key, and is selected again on the next load while the installations (stored
 or fetched) still list it; otherwise the first one is.

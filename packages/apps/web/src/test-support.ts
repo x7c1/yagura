@@ -5,6 +5,7 @@ import {
   MemoryJsonStore,
   MemoryLocation,
   MemoryStore,
+  MemoryTabChannel,
   type JsonStore,
   type KeyValueStore,
 } from "@yagura/browser";
@@ -39,6 +40,11 @@ export interface TestControllerOptions {
   /** The browser cache; defaults to an empty memory store. */
   readonly cache?: JsonStore;
   /**
+   * This tab's channel to the browser's other tabs; defaults to a channel
+   * of its own browser, with no other tab.
+   */
+  readonly tabs?: MemoryTabChannel;
+  /**
    * The current time, for the controller and the fixtures of a new mock.
    * Defaults to the system clock.
    */
@@ -70,6 +76,7 @@ export function testController(options: TestControllerOptions = {}) {
   const cache = options.cache ?? new MemoryJsonStore();
   const location = new MemoryLocation(options.url ?? "http://localhost:5173/");
   const timer = new ManualTimer();
+  const tabs = options.tabs ?? new MemoryTabChannel();
   const controller = new SessionController({
     sessionApi: new SessionApiClient({ baseUrl: sessionApi }),
     githubApi: new GitHubApiClient(),
@@ -80,9 +87,19 @@ export function testController(options: TestControllerOptions = {}) {
     location,
     timer,
     cache,
+    tabs,
     clock: options.clock,
   });
-  return { controller, mock, storage, lastViewer, location, timer, cache };
+  return {
+    controller,
+    mock,
+    storage,
+    lastViewer,
+    location,
+    timer,
+    cache,
+    tabs,
+  };
 }
 
 /**

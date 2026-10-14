@@ -102,8 +102,47 @@ page load starts sign-in from scratch.
 
 ### `DELETE /session`
 
-Signs out: clears the cookie. Response `204`. The access token in memory is
-the app's to discard.
+Signs out: clears the cookie and revokes the session's tokens at GitHub.
+To do so, the server refreshes once with the cookie's refresh token and
+revokes the access token that refresh issues, the newest of the session.
+Response `204`, also when the revocation at GitHub fails, which the server
+records; the page is not told. The access token in memory is the app's to
+discard.
+
+A sign-out in the app ends the session in the whole browser, not on other
+devices:
+
+- **This tab** forgets the access token, the last viewer and the viewer's
+  entries in the browser cache, and shows the sign-in screen at once,
+  without waiting for this request, which may take a few seconds while
+  the server revokes the tokens at GitHub. The request is sent once a
+  refresh in flight has answered, so that the refresh's new cookie cannot
+  outlive the one this request clears. When it fails (the server cannot be
+  reached, or does not answer `2xx`), the cookie may still be set and the
+  next page load would sign the viewer in again, so the sign-in screen
+  says so.
+- **Every other tab of the browser** hears of it through a
+  `BroadcastChannel`, forgets its access token, stops its refresh, drops
+  what it shows and shows the sign-in screen. It sends no request of its
+  own: the cookie is shared, and the signing-out tab clears it. The one
+  exception is a tab whose own refresh was in flight: that refresh's
+  answer may set the cookie again, with the token GitHub rotated to, after
+  the signing-out tab's request cleared it. Such a tab waits for its
+  refresh to settle and, when it was answered with new tokens, sends
+  `DELETE /session` itself, so that the rotated token is revoked and the
+  cookie cleared again; a refresh that failed set no cookie, and nothing is
+  sent. A tab that misses the message (asleep, or in a browser without
+  `BroadcastChannel`) signs out on its next refresh, which answers
+  `401 invalid_session` once the cookie is gone.
+- **In every tab**, a load or refresh that was in flight when the sign-out
+  arrived stores nothing when it answers: no cache entries, no last
+  viewer, no tokens.
+- **The session's tokens at GitHub** are revoked by the server.
+- **Sessions on other devices** are left as they are; each has its own
+  cookie and tokens.
+
+Signing in again in one tab works as usual; other tabs stay on the sign-in
+screen until they are reloaded.
 
 ## The refresh cookie
 

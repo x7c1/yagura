@@ -1,5 +1,9 @@
 import { mockLogin } from "@yagura/api-mocks";
-import { MemoryStore } from "@yagura/browser";
+import {
+  MemoryJsonStore,
+  MemoryStore,
+  MemoryTabChannel,
+} from "@yagura/browser";
 import { GitHubApiError } from "@yagura/github-api";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
@@ -402,6 +406,8 @@ describe("SessionController.restore with a remembered last viewer", () => {
     });
 
     const signedOut = controller.signOut();
+    // The sign-in screen does not wait for DELETE /session.
+    expect(controller.state).toEqual({ status: "signed-out" });
     // The refresh's cookie must not land after the one DELETE clears.
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(mock.requestsTo("DELETE", `${sessionApi}/session`)).toEqual([]);
@@ -426,5 +432,140 @@ describe("SessionController.restore with a remembered last viewer", () => {
     expect(controller.state).toMatchObject({ status: "signed-in" });
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("SessionController.signOut in another tab", () => {
+  const refreshUrl = `${sessionApi}/session/refresh`;
+  const deleteUrl = `${sessionApi}/session`;
+
+  /** Two tabs of one browser, both signed in as the mock's viewer. */
+  async function twoTabs() {
+    const tabs = new MemoryTabChannel();
+    const cache = new MemoryJsonStore();
+    const lastViewer = new MemoryStore();
+    const first = testController({ signedIn: true, cache, lastViewer, tabs });
+    const second = testController({
+      mock: first.mock,
+      cache,
+      lastViewer,
+      tabs: tabs.openTab(),
+    });
+    await first.controller.restore();
+    await second.controller.restore();
+    return { first, second, cache, lastViewer };
+  }
+
+  it("signs out the other tab at once, which sends no DELETE /session", async () => {
+    const { first, second, lastViewer } = await twoTabs();
+    expect(second.controller.state).toMatchObject({ status: "signed-in" });
+    expect(second.timer.pending).toBe(1);
+
+    const signedOut = first.controller.signOut();
+
+    expect(second.controller.state).toEqual({ status: "signed-out" });
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(second.timer.pending).toBe(0);
+    await signedOut;
+    expect(first.mock.requestsTo("DELETE", deleteUrl)).toHaveLength(1);
+    expect(second.tabs.posted).toEqual([]);
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+  });
+
+  it("keeps a load or refresh in the other tab that answers afterwards from storing anything, and ends the session again after that refresh", async () => {
+    const { first, second, cache, lastViewer } = await twoTabs();
+    const viewerCache = second.controller.viewerCache();
+    await viewerCache.set("before", 1);
+    expect(await cache.get(`${mockLogin}/before`)).toBe(1);
+    // The refresh on expiry answers only after the sign-out, and with new
+    // tokens, as one the server answered just before the cookie was
+    // cleared would.
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    let served = false;
+    server.use(
+      http.post(refreshUrl, async () => {
+        await answered;
+        served = true;
+        return HttpResponse.json({
+          access_token: "ghu_late",
+          token_type: "bearer",
+          expires_in: 28800,
+          login: mockLogin,
+        });
+      }),
+    );
+    second.timer.advance(28_740_000);
+    let loaded!: () => void;
+    const load = second.controller.withAccessToken(async (token) => {
+      await new Promise<void>((resolve) => {
+        loaded = resolve;
+      });
+      await viewerCache.set("late", token);
+    });
+    await vi.waitFor(() => {
+      expect(loaded).toBeDefined();
+    });
+
+    await first.controller.signOut();
+    // The other tab drops its token and timers at once, but waits for its
+    // refresh before deciding whether to end the session again.
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(second.timer.pending).toBe(0);
+    expect(first.mock.requestsTo("DELETE", deleteUrl)).toHaveLength(1);
+    answer();
+    loaded();
+    await load;
+    await vi.waitFor(() => {
+      expect(served).toBe(true);
+    });
+    // The refresh's answer set the cookie again, with the rotated token,
+    // after the first DELETE cleared it, so the other tab clears it again.
+    await vi.waitFor(() => {
+      expect(first.mock.requestsTo("DELETE", deleteUrl)).toHaveLength(2);
+    });
+    expect(second.tabs.posted).toEqual([]);
+
+    expect(second.controller.state).toEqual({ status: "signed-out" });
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(second.timer.pending).toBe(0);
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+    expect(cache.keys).toEqual([]);
+  });
+
+  it("sends no DELETE /session from the other tab when its refresh in flight fails", async () => {
+    const { first, second, cache, lastViewer } = await twoTabs();
+    // The refresh on expiry answers after the sign-out, which has cleared
+    // the cookie, so it fails and sets no cookie.
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    let served = false;
+    server.use(
+      http.post(refreshUrl, async () => {
+        await answered;
+        served = true;
+        return HttpResponse.json({ error: "invalid_session" }, { status: 401 });
+      }),
+    );
+    second.timer.advance(28_740_000);
+
+    await first.controller.signOut();
+    answer();
+    await vi.waitFor(() => {
+      expect(served).toBe(true);
+    });
+    // Let the controller take the answer in.
+    await new Promise((resolve) => setTimeout(resolve, 10));
+
+    expect(first.mock.requestsTo("DELETE", deleteUrl)).toHaveLength(1);
+    expect(second.controller.state).toEqual({ status: "signed-out" });
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(second.timer.pending).toBe(0);
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+    expect(cache.keys).toEqual([]);
   });
 });

@@ -1,4 +1,5 @@
 import {
+  BroadcastTabChannel,
   DomElementAttribute,
   GlobalTimer,
   IndexedDbStore,
@@ -60,6 +61,9 @@ async function main(container: HTMLElement): Promise<void> {
     location,
     timer: new GlobalTimer(),
     cache: new IndexedDbStore(() => window.indexedDB),
+    tabs: new BroadcastTabChannel(
+      () => new window.BroadcastChannel("yagura.session"),
+    ),
     navigate: authorize && ((url) => location.assign(authorize(url))),
   });
 

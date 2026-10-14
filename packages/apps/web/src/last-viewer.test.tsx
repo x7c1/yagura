@@ -267,7 +267,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
         view.mock.requestsTo("DELETE", `${sessionApi}/session`),
       ).toHaveLength(1);
     });
-    // While DELETE /session is answered, the view's waiting fetches show
+    // While DELETE /session is answered, the sign-in screen that replaced the view shows
     // no failure: the viewer is signing out, not facing an error.
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     releaseDelete();

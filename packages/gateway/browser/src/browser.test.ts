@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
+  BroadcastTabChannel,
   DomElementAttribute,
   ManualTimer,
   MemoryElementAttribute,
   MemoryElementWidths,
   MemoryLocation,
   MemoryStore,
+  MemoryTabChannel,
   ResizeObserverWidths,
   WebStorageStore,
 } from ".";
@@ -213,5 +215,69 @@ describe("MemoryElementAttribute", () => {
     expect(attribute.get()).toBe("light");
     attribute.set(undefined);
     expect(attribute.get()).toBeUndefined();
+  });
+});
+
+describe("MemoryTabChannel", () => {
+  it("delivers a message to every other tab of the browser, not to its own", () => {
+    const first = new MemoryTabChannel();
+    const second = first.openTab();
+    const third = second.openTab();
+    const elsewhere = new MemoryTabChannel();
+    const received: string[] = [];
+    first.onMessage((message) => received.push(`first ${message}`));
+    const unsubscribe = second.onMessage((message) =>
+      received.push(`second ${message}`),
+    );
+    third.onMessage((message) => received.push(`third ${message}`));
+    elsewhere.onMessage((message) => received.push(`elsewhere ${message}`));
+
+    first.post("a");
+    unsubscribe();
+    third.post("b");
+
+    expect(received).toEqual(["second a", "third a", "first b"]);
+    expect(first.posted).toEqual(["a"]);
+    expect(third.posted).toEqual(["b"]);
+  });
+});
+
+describe("BroadcastTabChannel", () => {
+  it("delivers a string message to the other channels of the same name", async () => {
+    const opened: BroadcastChannel[] = [];
+    const open = () => {
+      const channel = new BroadcastChannel("yagura.test");
+      opened.push(channel);
+      return channel;
+    };
+    const first = new BroadcastTabChannel(open);
+    const second = new BroadcastTabChannel(open);
+    const own: string[] = [];
+    const received: string[] = [];
+    first.onMessage((message) => own.push(message));
+    second.onMessage((message) => received.push(message));
+
+    first.post("signed-out");
+
+    await vi.waitFor(() => {
+      expect(received).toEqual(["signed-out"]);
+    });
+    expect(own).toEqual([]);
+    for (const channel of opened) {
+      channel.close();
+    }
+  });
+
+  it("does nothing when the browser cannot open a channel", () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const channel = new BroadcastTabChannel(() => {
+      throw new ReferenceError("BroadcastChannel is not defined");
+    });
+
+    channel.post("signed-out");
+    channel.onMessage(() => {})();
+
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
   });
 });
