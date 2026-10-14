@@ -145,7 +145,7 @@ on the badge's token.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the activity page at
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the activity page at
       1440×900, at the smallest height that still fits, and at 375px, in
       light and dark, show the bars and the heatmap lined up by day, the
       list in view and scrolling inside its card when the page fits, and
