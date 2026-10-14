@@ -7,6 +7,8 @@ export type SessionApiErrorCode =
   | "invalid_grant"
   | "invalid_session"
   | "upstream_error"
+  | "forbidden_origin"
+  | "unsupported_media_type"
   | "unexpected_response";
 
 const documentedCodes: ReadonlySet<string> = new Set([
@@ -14,6 +16,8 @@ const documentedCodes: ReadonlySet<string> = new Set([
   "invalid_grant",
   "invalid_session",
   "upstream_error",
+  "forbidden_origin",
+  "unsupported_media_type",
 ]);
 
 /** A non-2xx (or unreadable) response from the session API. */
