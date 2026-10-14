@@ -1,4 +1,3 @@
-export { ThemeControl } from "./ThemeControl";
 export { ThemeProvider, useTheme } from "./theme-context";
 export {
   ThemeController,

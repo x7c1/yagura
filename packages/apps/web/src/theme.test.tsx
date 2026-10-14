@@ -9,7 +9,13 @@ import {
   themeAttributeName,
   themeStorageKey,
 } from "./features/theme";
-import { testController, testWidths } from "./test-support";
+import {
+  menuButton,
+  openMenu,
+  signOut,
+  testController,
+  testWidths,
+} from "./test-support";
 
 const root = document.documentElement;
 
@@ -29,23 +35,44 @@ function theme(stored?: string) {
   return { controller, store };
 }
 
-/** The theme control in `container`, or in the whole page. */
-function themeControl(container: HTMLElement = document.body): HTMLElement {
-  return within(container).getByRole("radiogroup", { name: "Theme" });
+/** The theme options in the open header menu. */
+function themeOptions(): HTMLElement[] {
+  const group = within(screen.getByRole("menu")).getByRole("group", {
+    name: "Theme",
+  });
+  return within(group).getAllByRole("menuitemradio");
 }
 
-/** The name of the option checked in the theme control. */
-function checkedTheme(container?: HTMLElement): string | undefined {
-  return (
-    within(themeControl(container))
-      .getAllByRole<HTMLInputElement>("radio")
-      .find((radio) => radio.checked)
-      ?.closest("label")?.textContent ?? undefined
+/**
+ * The names of the theme options checked in the open header menu, joined
+ * with commas, so that more than one checked shows.
+ */
+function checkedTheme(): string {
+  return themeOptions()
+    .filter((option) => option.getAttribute("aria-checked") === "true")
+    .map((option) => option.textContent?.replace("✓", ""))
+    .join(", ");
+}
+
+/** The items of `menu`, the theme options and "Sign out", in order. */
+function menuItems(menu: HTMLElement): HTMLElement[] {
+  return [...menu.querySelectorAll<HTMLElement>('[role^="menuitem"]')];
+}
+
+/** Chooses `name` in the open header menu. */
+function choose(name: "System" | "Light" | "Dark"): void {
+  fireEvent.click(
+    within(screen.getByRole("menu")).getByRole("menuitemradio", { name }),
   );
 }
 
-function choose(name: "System" | "Light" | "Dark"): void {
-  fireEvent.click(within(themeControl()).getByRole("radio", { name }));
+/** Renders the app signed in, and waits for the header to show the login. */
+async function renderSignedIn(themeController: ThemeController) {
+  const { controller } = testController({ signedIn: true });
+  render(
+    <App session={controller} widths={testWidths()} theme={themeController} />,
+  );
+  expect(await screen.findByText(mockLogin)).toBeInTheDocument();
 }
 
 afterEach(() => {
@@ -54,69 +81,75 @@ afterEach(() => {
   vi.restoreAllMocks();
 });
 
-describe("The theme control", () => {
-  it("offers System, Light and Dark under the sign-in panel, System chosen", async () => {
+describe("The sign-in screen", () => {
+  it("offers no theme choice, but the stored one applies", async () => {
     const { controller } = testController();
 
     render(
       <App
         session={controller}
         widths={testWidths()}
-        theme={theme().controller}
+        theme={theme("dark").controller}
       />,
     );
     await screen.findByRole("button", { name: "Sign in with GitHub" });
 
-    const radios = within(themeControl()).getAllByRole("radio");
-    expect(radios.map((radio) => radio.closest("label")?.textContent)).toEqual([
-      "System",
-      "Light",
-      "Dark",
-    ]);
-    expect(checkedTheme()).toBe("System");
-    expect(root).not.toHaveAttribute(themeAttributeName);
+    expect(root).toHaveAttribute(themeAttributeName, "dark");
+    expect(screen.queryByText("Theme")).not.toBeInTheDocument();
+    expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Menu" })).toBeNull();
+    expect(screen.queryByText("Dark")).not.toBeInTheDocument();
   });
+});
 
-  it("offers the same choice in the footer while signed in", async () => {
-    const { controller } = testController({ signedIn: true });
+describe("The header menu", () => {
+  it("is closed behind a button, with no Sign out in view, and the footer holds no theme choice", async () => {
+    await renderSignedIn(theme().controller);
 
-    render(
-      <App
-        session={controller}
-        widths={testWidths()}
-        theme={theme().controller}
-      />,
-    );
-    expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    const button = menuButton();
+    expect(button).toHaveAttribute("aria-haspopup", "menu");
+    expect(button).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.queryByText("Sign out")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Sign out" }),
+    ).not.toBeInTheDocument();
 
     const footer = screen.getByRole("contentinfo");
-    expect(within(footer).getByText(/Powered by/)).toBeInTheDocument();
-    expect(checkedTheme(footer)).toBe("System");
-    expect(
-      within(themeControl(footer))
-        .getAllByRole("radio")
-        .map((radio) => {
-          return radio.closest("label")?.textContent;
-        }),
-    ).toEqual(["System", "Light", "Dark"]);
+    expect(footer).toHaveTextContent(/^Powered by Yagura$/);
+    expect(within(footer).queryByText("Theme")).not.toBeInTheDocument();
+    expect(within(footer).queryByRole("radiogroup")).not.toBeInTheDocument();
+  });
+
+  it("offers System, Light and Dark, System checked, then Sign out", async () => {
+    await renderSignedIn(theme().controller);
+
+    const menu = openMenu();
+    expect(menuButton()).toHaveAttribute("aria-expanded", "true");
+    expect(checkedTheme()).toBe("System");
+    expect(root).not.toHaveAttribute(themeAttributeName);
+
+    const items = menuItems(menu);
+    expect(items.map((item) => item.textContent)).toEqual([
+      "✓System",
+      "Light",
+      "Dark",
+      "Sign out",
+    ]);
+    expect(within(menu).getByRole("separator")).toBeInTheDocument();
+    // Opening the menu moves focus to its first item.
+    expect(items[0]).toHaveFocus();
   });
 
   it("sets the chosen theme on the root element and stores it, and System forgets it", async () => {
-    const { controller } = testController();
     const { controller: themeController, store } = theme();
-
-    render(
-      <App
-        session={controller}
-        widths={testWidths()}
-        theme={themeController}
-      />,
-    );
-    await screen.findByRole("button", { name: "Sign in with GitHub" });
+    await renderSignedIn(themeController);
+    openMenu();
 
     choose("Dark");
     expect(root).toHaveAttribute(themeAttributeName, "dark");
     expect(store.get(themeStorageKey)).toBe("dark");
+    // The menu stays open, so that the viewer sees the result.
     expect(checkedTheme()).toBe("Dark");
 
     choose("Light");
@@ -130,25 +163,16 @@ describe("The theme control", () => {
     expect(checkedTheme()).toBe("System");
   });
 
-  it("applies the stored choice on start", async () => {
-    const { controller } = testController();
-
-    render(
-      <App
-        session={controller}
-        widths={testWidths()}
-        theme={theme("dark").controller}
-      />,
-    );
+  it("checks the stored choice", async () => {
+    await renderSignedIn(theme("dark").controller);
 
     expect(root).toHaveAttribute(themeAttributeName, "dark");
+    openMenu();
     expect(checkedTheme()).toBe("Dark");
-    await screen.findByRole("button", { name: "Sign in with GitHub" });
   });
 
   it("follows the system when the stored choice is unknown or unreadable", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-    const { controller } = testController();
     const store = new MemoryStore();
     vi.spyOn(store, "get").mockImplementation(() => {
       throw new Error("storage is blocked");
@@ -158,18 +182,12 @@ describe("The theme control", () => {
       root: new DomElementAttribute(root, themeAttributeName),
     });
 
-    render(
-      <App
-        session={controller}
-        widths={testWidths()}
-        theme={themeController}
-      />,
-    );
+    await renderSignedIn(themeController);
 
     expect(root).not.toHaveAttribute(themeAttributeName);
-    expect(checkedTheme()).toBe("System");
     expect(warn).toHaveBeenCalled();
-    await screen.findByRole("button", { name: "Sign in with GitHub" });
+    openMenu();
+    expect(checkedTheme()).toBe("System");
 
     const unknown = new ThemeController({
       store: theme("sepia").store,
@@ -180,7 +198,58 @@ describe("The theme control", () => {
     expect(root).not.toHaveAttribute(themeAttributeName);
   });
 
-  it("keeps the choice when the viewer signs out", async () => {
+  it("moves between the items with the arrow keys, Home and End", async () => {
+    await renderSignedIn(theme().controller);
+
+    // The up arrow on the button opens the menu at its last item.
+    fireEvent.keyDown(menuButton(), { key: "ArrowUp" });
+    const menu = screen.getByRole("menu");
+    const items = menuItems(menu);
+    expect(items[3]).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
+    expect(items[0]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowDown" });
+    expect(items[1]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
+    expect(items[0]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement as Element, { key: "ArrowUp" });
+    expect(items[3]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Home" });
+    expect(items[0]).toHaveFocus();
+    fireEvent.keyDown(document.activeElement as Element, { key: "End" });
+    expect(items[3]).toHaveFocus();
+  });
+
+  it("closes on Escape and returns focus to the button", async () => {
+    await renderSignedIn(theme().controller);
+
+    fireEvent.keyDown(menuButton(), { key: "ArrowDown" });
+    expect(menuItems(screen.getByRole("menu"))[0]).toHaveFocus();
+
+    fireEvent.keyDown(document.activeElement as Element, { key: "Escape" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(menuButton()).toHaveAttribute("aria-expanded", "false");
+    expect(menuButton()).toHaveFocus();
+  });
+
+  it("closes on Tab, on a click outside, and on a second click on the button", async () => {
+    await renderSignedIn(theme().controller);
+
+    openMenu();
+    fireEvent.keyDown(document.activeElement as Element, { key: "Tab" });
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    openMenu();
+    fireEvent.pointerDown(screen.getByRole("main"));
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+
+    openMenu();
+    fireEvent.click(menuButton());
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("signs out, and the choice is kept", async () => {
     // The session remembers the last viewer in the same store as the theme,
     // as the app keeps both in `localStorage`, so that signing out is seen
     // to clear the viewer's key and leave the theme's.
@@ -199,15 +268,15 @@ describe("The theme control", () => {
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(store.get("yagura.last-viewer")).toBe(mockLogin);
+    openMenu();
     choose("Dark");
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    signOut();
     await screen.findByRole("button", { name: "Sign in with GitHub" });
 
     expect(store.get("yagura.last-viewer")).toBeUndefined();
     expect(store.get(themeStorageKey)).toBe("dark");
     expect(root).toHaveAttribute(themeAttributeName, "dark");
-    expect(checkedTheme()).toBe("Dark");
   });
 });
 

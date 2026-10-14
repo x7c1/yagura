@@ -71,20 +71,32 @@ failure shows above the cards (below).
 
 While signed in, the header shows a tab per page on the left, the current
 one marked, and on the right the organization's avatar and name, the
-login after a slash ("my-org / octocat"), and a "Sign out" button. With
-several organizations, the organization's name is its selector. While the
+login after a slash ("my-org / octocat"), and a quiet "more" button (a
+vertical ellipsis, named "Menu") at the right end. With several
+organizations, the organization's name is its selector. While the
 organizations load, or when the app is installed on none, the login
 stands alone. On a narrow screen the session takes a row of its own above
 the tabs, the names at the left and the button at the right, and a name
-too long for the room is cut short with an ellipsis. The app's name
-is in the footer, out of the way. The document title names the page
-("Members · Yagura"), so that the browser's tabs and history tell the
-pages apart. The tabs are links to the pages' addresses,
-so that a page can be opened in a new tab, copied or bookmarked; a plain
-click switches the page without loading it, adding a history entry, and
-the browser's back and forward buttons switch between the pages too. Any
-other address (but the sign-in callback's) shows Activity, and the address
-is replaced with `/` without adding a history entry.
+too long for the room is cut short with an ellipsis; the tabs and the
+session on one row would leave the names only a few characters. The
+footer shows only "Powered by Yagura", the app's name out of the way. The
+document title names the page ("Members · Yagura"), so that the browser's
+tabs and history tell the pages apart. The tabs are links to the pages'
+addresses, so that a page can be opened in a new tab, copied or
+bookmarked; a plain click switches the page without loading it, adding a
+history entry, and the browser's back and forward buttons switch between
+the pages too. Any other address (but the sign-in callback's) shows
+Activity, and the address is replaced with `/` without adding a history
+entry.
+
+The button opens a menu under it, aligned to its right edge, that holds
+what is not used on every visit: the theme choice (below), then, after a
+separator, "Sign out". It follows the WAI-ARIA menu button pattern: Enter,
+Space or a click opens it and moves focus to its first item, the arrow
+keys move between the items, Escape closes it and returns focus to the
+button, and Tab or a click outside closes it. Choosing a theme applies it
+and keeps the menu open, so that the viewer sees the result; choosing
+"Sign out" closes it and signs out.
 
 Signed out, there is no page frame: no header, tabs or footer. The screen
 is for signing in alone, one panel in the middle of the viewport with the
@@ -102,11 +114,11 @@ not jump between these states and the button never flashes before a
 restored session replaces it.
 
 The page follows the operating system's light or dark colour scheme
-unless the viewer chooses otherwise. The choice, "Theme: System · Light ·
-Dark", is a small muted group of radio buttons in the footer, after
-"Powered by Yagura", and under the panel on the sign-in screen, which has
-no footer; it is kept out of the header, which holds only what is used on
-every visit. System is the default. Light or Dark is set on the root
+unless the viewer chooses otherwise. The choice is made in the header's
+menu, under a small "Theme" label: System, Light and Dark, the current one
+marked with a check. The sign-in screen offers no choice, as a visitor has
+no reason to make one before signing in, but a stored choice applies
+there too. System is the default. Light or Dark is set on the root
 element as `data-theme`, which the style sheet's colours and
 `color-scheme` follow, so that native controls and scrollbars match, and
 is kept in `localStorage` under its own key, `yagura.theme`; choosing

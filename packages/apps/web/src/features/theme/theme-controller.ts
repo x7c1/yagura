@@ -6,7 +6,7 @@ import type { ElementAttribute, KeyValueStore } from "@yagura/browser";
  */
 export type ThemeChoice = "system" | "light" | "dark";
 
-/** The choices in the order the control offers them. */
+/** The choices in the order the header's menu offers them. */
 export const themeChoices: readonly ThemeChoice[] = ["system", "light", "dark"];
 
 /**
@@ -61,7 +61,7 @@ export class ThemeController {
 
   /**
    * Applies the stored choice, as the early script in `index.html` already
-   * has, so that the root element and the control agree with it. A missing,
+   * has, so that the root element and the menu agree with it. A missing,
    * unknown or unreadable value is System.
    */
   restore(): void {

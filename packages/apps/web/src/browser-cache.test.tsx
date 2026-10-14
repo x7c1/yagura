@@ -41,6 +41,7 @@ import {
   shownPullRequestTitles,
   showPage,
   showsOrganization,
+  signOut,
   testController,
   testTheme,
   testWidths,
@@ -363,7 +364,7 @@ describe("The browser cache", () => {
       `${viewerCachePrefix(mockLogin)}installations`,
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    signOut();
     await screen.findByRole("button", { name: "Sign in with GitHub" });
 
     expect(cache.keys).toEqual([other]);
@@ -420,7 +421,7 @@ describe("The browser cache", () => {
 
     expect(await view.load()).toEqual(mockPullRequestTitles);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    signOut();
     await screen.findByRole("button", { name: "Sign in with GitHub" });
 
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();

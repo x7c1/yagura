@@ -103,6 +103,32 @@ export function testTheme(
   return new ThemeController({ store, root: new MemoryElementAttribute() });
 }
 
+/** The header's menu button, which holds the theme choice and "Sign out". */
+export function menuButton(): HTMLElement {
+  return within(screen.getByRole("banner")).getByRole("button", {
+    name: "Menu",
+  });
+}
+
+/**
+ * Opens the header's menu, as a click on its button does, unless it is open
+ * already, and returns it.
+ */
+export function openMenu(): HTMLElement {
+  const button = menuButton();
+  if (button.getAttribute("aria-expanded") !== "true") {
+    fireEvent.click(button);
+  }
+  return screen.getByRole("menu");
+}
+
+/** Signs out from the header's menu, as a viewer does. */
+export function signOut(): void {
+  fireEvent.click(
+    within(openMenu()).getByRole("menuitem", { name: "Sign out" }),
+  );
+}
+
 /** Switches to the page of the tab named `name`, as a plain click does. */
 export function showPage(name: "Activity" | "Members"): void {
   fireEvent.click(screen.getByRole("link", { name }));

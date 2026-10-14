@@ -9,6 +9,7 @@ import {
   memberSummaryRows,
   server,
   showsOrganization,
+  signOut,
   testController,
   testTheme,
   testWidths,
@@ -55,7 +56,7 @@ describe("OrganizationMembers", () => {
       <App session={controller} widths={testWidths()} theme={testTheme()} />,
     );
     await screen.findByRole("table", { name: "Members" });
-    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    signOut();
 
     await screen.findByRole("button", { name: "Sign in with GitHub" });
     expect(showsOrganization(mockOrganization)).toBe(false);
