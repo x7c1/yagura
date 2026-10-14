@@ -96,11 +96,11 @@ choose a theme.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity page
+- [x] With `VITE_API_MOCK=1 make dev`, screenshots of the Activity page
       with the menu closed and open, at desktop width and at 375px, in
       light and dark, show the button at the header's right, the menu
       inside the viewport, and no horizontal scroll at 375px.
-- [ ] Keyboard: Tab reaches the menu button with a visible focus ring;
+- [x] Keyboard: Tab reaches the menu button with a visible focus ring;
       Enter opens the menu, the arrow keys move through the items, Enter
       chooses one, and Escape returns focus to the button.
 
