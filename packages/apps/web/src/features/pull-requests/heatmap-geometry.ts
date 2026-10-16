@@ -185,10 +185,9 @@ function rowsHeatmap<T extends Counts>(
       hour,
       spot: { x: centreOf(hour), y: labelsY, anchor: "middle" },
     })),
-    hourLines: labelledHours.map((hour) => ({
-      hour,
-      line: { x1: centreOf(hour), x2: centreOf(hour), y1: top, y2: bottom },
-    })),
+    // No lines: the cells sit 1px apart, so a line would show only in the
+    // gaps between the days, and the narrow grid reads well without one.
+    hourLines: [],
     groups: chart.groups.map(({ day }, index) => {
       const y = top + index * dayHeight;
       return {
