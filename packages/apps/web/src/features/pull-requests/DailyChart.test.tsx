@@ -358,6 +358,26 @@ describe("The hours' heatmap", () => {
   });
 
   it.each([1000, 340])(
+    "rules the labelled hours behind the cells, hidden from assistive technology, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const heatmap = screen.getByRole("grid", { name: heatmapName });
+      const lines = heatmap.querySelectorAll("line");
+
+      expect(lines).toHaveLength(4);
+      const [first] = lines as unknown as [SVGLineElement];
+      for (const line of lines) {
+        expect(line.parentElement).toBe(first.parentElement);
+      }
+      expect(first.parentElement).toHaveAttribute("aria-hidden", "true");
+      const [cell] = within(heatmap).getAllByRole("gridcell") as [HTMLElement];
+      expect(
+        first.compareDocumentPosition(cell) & Node.DOCUMENT_POSITION_FOLLOWING,
+      ).toBeTruthy();
+    },
+  );
+
+  it.each([1000, 340])(
     "puts each day's cells under or beside its bar, at %ipx",
     async (width) => {
       await renderChart(testWidths(width));

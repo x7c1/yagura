@@ -50,12 +50,14 @@ export function PullRequestList(props: {
               className={bands[index] === 1 ? styles.tinted : undefined}
             >
               <td className={styles.title}>
-                <PullRequestNumber url={pr.url} />
                 <a href={pr.url} target="_blank" rel="noreferrer">
                   {pr.title}
                 </a>
               </td>
-              <td className={styles.muted}>{pr.repository}</td>
+              <td className={styles.muted}>
+                {pr.repository}
+                <PullRequestNumber url={pr.url} />
+              </td>
               <td>
                 <MemberLogin
                   login={pr.author}
@@ -85,15 +87,13 @@ export function PullRequestList(props: {
 }
 
 /**
- * The pull request's number before its title, quietly, as GitHub writes it
- * ("#123"). It stays outside the title's link, so that the link names the
- * pull request by its title alone.
+ * The pull request's number, as GitHub writes it ("#123"), on a line of its
+ * own under the repository's name, so that the two read as the pull
+ * request's address.
  */
 function PullRequestNumber(props: { readonly url: string }) {
   const number = pullRequestNumber(props.url);
   return number === null ? null : (
-    <>
-      <span className={styles.number}>{number}</span>{" "}
-    </>
+    <span className={styles.number}>{number}</span>
   );
 }

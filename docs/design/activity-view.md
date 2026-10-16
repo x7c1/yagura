@@ -56,8 +56,9 @@ Two pages, one per question the view answers:
 - **Activity**, at `/`, answers what happened on which day, and when in
   the day. It has a **chart** of the merged counts per day, a **heatmap**
   of their hours under it in the same card, and below them a
-  **list of pull requests**, newest first: title (after the pull request's number,
-  "#123", read from its address), repository, author, state,
+  **list of pull requests**, newest first: title, repository (with the pull
+  request's number, "#123", read from its address, on a second line under
+  the repository's name), author, state,
   additions, deletions, a link to the pull request on GitHub, and a
   **Date** column. The state is a badge coloured as GitHub draws it: open
   green, merged purple, closed red. It is the page that opens first, after
@@ -191,8 +192,13 @@ and the heatmap below, so they sit midway between the two: 7px from the
 bars' axis down to the dates' capitals and figures, and 7px from them down
 to the heatmap's first row. Where the days are rows, the heatmap turns too: a thin
 row per day, labelled with its date, and 24 hour columns across, labelled
-0, 6, 12 and 18 above. The bars' plot is 120px tall, short enough to leave
-the heatmap room on a laptop's screen.
+0, 6, 12 and 18 above. Behind the cells, each labelled hour is ruled with
+a line in the style of the bars' grid lines, through the middle of its
+cells: across the bars' plot where the days are columns, so that the bars
+and the heatmap read as one ruled figure, and down from the first day's row
+to the last where the days are rows. The lines are decoration only, hidden
+from assistive technology, and a click passes through them. The bars' plot
+is 120px tall, short enough to leave the heatmap room on a laptop's screen.
 
 An empty hour is drawn plainly, in the subtle border colour, apart from the
 card's background but quiet. An hour with something takes the chart's blue
@@ -202,8 +208,8 @@ to a quarter of it takes the weakest step and over three quarters the
 strongest. The weakest step has 3:1 contrast against the card in both
 themes, as the chart's other marks do, and the light theme strengthens
 toward dark, the dark theme toward light. Under both the bars and the
-heatmap, a small key gives the strengths ("Per hour: 1", the steps, and the
-busiest count). No legend names what is counted, as the card's heading says
+heatmap, a small key at the card's right edge gives the strengths ("Per
+hour: 1", the steps, and the busiest count). No legend names what is counted, as the card's heading says
 it; the accessible names of the bars and the heatmap spell it out.
 
 The heatmap is one tab stop, a grid that the arrow keys move through as it

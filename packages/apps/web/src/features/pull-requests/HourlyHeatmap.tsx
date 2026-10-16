@@ -221,6 +221,15 @@ export function HourlyHeatmap(props: {
       aria-label="Merged pull requests per hour of each day"
       onKeyDown={onKeyDown}
     >
+      {/*
+        The lines of the labelled hours, behind the cells, in the bar chart's
+        grid-line style; they are decoration and take no clicks.
+      */}
+      <g aria-hidden="true" className={styles.hourLines}>
+        {geometry.hourLines.map(({ hour, line }) => (
+          <line key={hour} {...line} className={styles.gridLine} />
+        ))}
+      </g>
       <g aria-hidden="true">
         {geometry.hourLabels.map(({ hour, spot }) => (
           <text

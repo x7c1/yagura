@@ -73,15 +73,16 @@
   text-decoration: none;
 }
 
-.table .title .number {
-  color: var(--color-text-muted);
-  font-variant-numeric: tabular-nums;
-}
-
 .table .title a:hover,
 .table .title a:focus-visible {
   color: var(--color-link);
   text-decoration: underline;
+}
+
+/* A pull request's number, on its own line under its repository's name. */
+.table .number {
+  display: block;
+  font-variant-numeric: tabular-nums;
 }
 
 .muted {

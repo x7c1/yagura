@@ -6,6 +6,7 @@ import {
   type ChartGeometry,
   type ChartLayout,
   type Counts,
+  type Line,
   type Rect,
   type TextSpot,
 } from "./chart-geometry";
@@ -39,6 +40,15 @@ export interface HourLabel {
 }
 
 /**
+ * The line ruled behind the cells of a labelled hour, through their centre,
+ * so that the hour's cells read against its label.
+ */
+export interface HourLine {
+  readonly hour: number;
+  readonly line: Line;
+}
+
+/**
  * One day's cells, hour by hour from 0 to 23, and where the day's label
  * goes, if the heatmap has one of its own.
  */
@@ -54,6 +64,7 @@ export interface HeatmapGeometry<T extends Counts = Counts> {
   readonly width: number;
   readonly height: number;
   readonly hourLabels: readonly HourLabel[];
+  readonly hourLines: readonly HourLine[];
   readonly groups: readonly HeatGroup<T>[];
 }
 
@@ -101,6 +112,8 @@ function columnsHeatmap<T extends Counts>(
   const labelRoom = (textHeight - columnsHourHeight) / 2;
   const top = Math.max(dayLabelSpace, labelRoom);
   const yOf = (hour: number) => top + hour * columnsHourHeight;
+  const centreOf = (hour: number) =>
+    yOf(hour) + (columnsHourHeight - cellGap) / 2;
   const column = ({ x, width }: Rect): Rect[] =>
     hours.map((hour) => ({
       x,
@@ -116,8 +129,19 @@ function columnsHeatmap<T extends Counts>(
       hour,
       spot: {
         x: chart.plot.x - textGap,
-        y: yOf(hour) + (columnsHourHeight - cellGap) / 2,
+        y: centreOf(hour),
         anchor: "end",
+      },
+    })),
+    // Across the plot, as the chart's grid lines are, so that the two read
+    // as one ruled figure.
+    hourLines: labelledHours.map((hour) => ({
+      hour,
+      line: {
+        x1: chart.plot.x,
+        x2: chart.plot.x + chart.plot.width,
+        y1: centreOf(hour),
+        y2: centreOf(hour),
       },
     })),
     groups: chart.groups.map(({ day, bar }) => ({
@@ -143,6 +167,9 @@ function rowsHeatmap<T extends Counts>(
   const labelsY = textHeight * 1.5;
   const top = labelsY + textHeight / 2 + textGap;
   const dayHeight = rowsTrack.thickness + rowsTrack.dayGap;
+  const bottom = top + chart.groups.length * dayHeight - rowsTrack.dayGap;
+  const centreOf = (hour: number) =>
+    left + hour * hourWidth + (hourWidth - cellGap) / 2;
   const row = (y: number): Rect[] =>
     hours.map((hour) => ({
       x: left + hour * hourWidth,
@@ -153,14 +180,14 @@ function rowsHeatmap<T extends Counts>(
   return {
     layout: "rows",
     width: chart.width,
-    height: top + chart.groups.length * dayHeight - rowsTrack.dayGap,
+    height: bottom,
     hourLabels: labelledHours.map((hour) => ({
       hour,
-      spot: {
-        x: left + hour * hourWidth + (hourWidth - cellGap) / 2,
-        y: labelsY,
-        anchor: "middle",
-      },
+      spot: { x: centreOf(hour), y: labelsY, anchor: "middle" },
+    })),
+    hourLines: labelledHours.map((hour) => ({
+      hour,
+      line: { x1: centreOf(hour), x2: centreOf(hour), y1: top, y2: bottom },
     })),
     groups: chart.groups.map(({ day }, index) => {
       const y = top + index * dayHeight;
