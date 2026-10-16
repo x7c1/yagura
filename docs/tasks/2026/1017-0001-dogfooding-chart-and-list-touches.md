@@ -90,9 +90,11 @@ does.
 
 ### Before merge (verified outside the check command)
 
-- [ ] In the app with `VITE_API_MOCK=1`, at a desktop width (columns
+- [x] In the app with `VITE_API_MOCK=1`, at a desktop width (columns
       layout) and at 375px (rows layout): the lines show behind the heatmap
       at 0/6/12/18 and line up with their labels; the key sits at the card's
       right edge; the Repository cell shows the name and the number on two
       lines; clicking a heatmap cell and a bar still narrows the list.
-      Screenshots of both widths in the PR, in light and dark themes
+      Seen in light and dark themes. Exception: in the rows layout the lines
+      are drawn where their labels are, but show only in the 4px gaps between
+      the days' rows, so they are hard to make out
