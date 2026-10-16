@@ -148,15 +148,26 @@ screen until they are reloaded.
 
 | Attribute  | Value                                                                                                                                      |
 | ---------- | ------------------------------------------------------------------------------------------------------------------------------------------ |
-| Name       | `yagura_refresh`                                                                                                                           |
+| Name       | `__Host-yagura_refresh`                                                                                                                    |
 | Value      | The GitHub refresh token, its expiry and the user's login, encrypted by the server with a key only the server holds. Opaque to the browser |
 | `HttpOnly` | yes                                                                                                                                        |
 | `Secure`   | yes (browsers treat `localhost` as a secure context, so this also works in development)                                                    |
 | `SameSite` | `Lax`                                                                                                                                      |
-| `Path`     | `/session` — the cookie is sent only to the endpoints above                                                                                |
+| `Domain`   | none — the cookie goes back only to the host that set it                                                                                   |
+| `Path`     | `/` — the `__Host-` prefix requires it; the session API's host serves only the endpoints above                                             |
 | `Max-Age`  | the refresh token's remaining lifetime (6 months when freshly issued)                                                                      |
 
+Browsers accept a `__Host-` cookie only with `Secure`, `Path=/` and no
+`Domain`. So no other host can set a cookie of this name for the session
+API, not even another host on the same site, and the server reads no cookie
+but this one.
+
 Clearing the cookie means setting it with an empty value and `Max-Age=0`.
+
+Earlier versions named the cookie `yagura_refresh`, with `Path=/session`.
+The server no longer reads it: a browser that holds only that cookie gets
+`401 invalid_session` on its next refresh and signs in again. Whenever a
+request carries the old cookie, the response clears it as well.
 
 ## Errors
 
