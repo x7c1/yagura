@@ -131,17 +131,7 @@ describe("heatmapGeometry beside the rows", () => {
     }
   });
 
-  it("rules 0, 6, 12 and 18 down the days, through the centre of their columns", () => {
-    expect(heatmap.hourLines.map(({ hour }) => hour)).toEqual(labelledHours);
-    const first = heatmap.groups[0]?.cells ?? [];
-    const last = heatmap.groups.at(-1)?.cells ?? [];
-    for (const { hour, line } of heatmap.hourLines) {
-      const cell = first[hour] as Rect;
-      const centre = cell.x + cell.width / 2;
-      expect(line.x1).toBeCloseTo(centre);
-      expect(line.x2).toBeCloseTo(centre);
-      expect(line.y1).toBe(cell.y);
-      expect(line.y2).toBe(bottom(last[hour] as Rect));
-    }
+  it("rules no hours beside the rows", () => {
+    expect(heatmap.hourLines).toEqual([]);
   });
 });

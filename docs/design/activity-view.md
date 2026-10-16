@@ -192,11 +192,11 @@ and the heatmap below, so they sit midway between the two: 7px from the
 bars' axis down to the dates' capitals and figures, and 7px from them down
 to the heatmap's first row. Where the days are rows, the heatmap turns too: a thin
 row per day, labelled with its date, and 24 hour columns across, labelled
-0, 6, 12 and 18 above. Behind the cells, each labelled hour is ruled with
-a line in the style of the bars' grid lines, through the middle of its
-cells: across the bars' plot where the days are columns, so that the bars
-and the heatmap read as one ruled figure, and down from the first day's row
-to the last where the days are rows. The lines are decoration only, hidden
+0, 6, 12 and 18 above. Where the days are columns, each labelled hour is ruled behind the cells
+with a line in the style of the bars' grid lines, through the middle of its
+cells and across the bars' plot, so that the bars and the heatmap read as one
+ruled figure. Where the days are rows, the hours are not ruled: the cells sit
+1px apart, and the narrow grid reads well without lines. The lines are decoration only, hidden
 from assistive technology, and a click passes through them. The bars' plot
 is 120px tall, short enough to leave the heatmap room on a laptop's screen.
 
