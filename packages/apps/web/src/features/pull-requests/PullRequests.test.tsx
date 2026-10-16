@@ -39,7 +39,7 @@ describe("MembersActivity", () => {
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
 
-  it("writes each pull request's number before its title, outside the link", async () => {
+  it("writes each pull request's number under its repository, and the title alone in its cell", async () => {
     const { controller } = testController({ signedIn: true });
 
     render(
@@ -50,9 +50,43 @@ describe("MembersActivity", () => {
       const link = within(row).getByRole("link");
       const number = /\/pull\/(\d+)$/.exec(link.getAttribute("href") ?? "");
       expect(number).not.toBeNull();
-      const cell = link.closest("td");
-      expect(cell?.textContent).toBe(`#${number?.[1]} ${link.textContent}`);
+      const [title, repository] = row.querySelectorAll("td");
+      expect(title?.textContent).toBe(link.textContent);
+      const name = repository?.firstChild?.textContent ?? "";
+      expect(name).toMatch(/^[^#]+\/[^#]+$/);
+      expect(repository?.textContent).toBe(`${name}#${number?.[1]}`);
+      expect(repository?.lastElementChild?.textContent).toBe(`#${number?.[1]}`);
     }
+  });
+
+  it("writes the repository's name alone for an address with no number", () => {
+    const pr: PullRequest = {
+      id: "1",
+      state: "open",
+      createdAt: new Date(2026, 9, 8, 11, 0),
+      mergedAt: null,
+      title: "No number",
+      url: `https://github.com/${mockOrganization}/web`,
+      repository: `${mockOrganization}/web`,
+      author: "mock-alice",
+      additions: 1,
+      deletions: 1,
+    };
+
+    render(
+      <PullRequestList
+        pullRequests={[pr]}
+        period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
+        members={[]}
+      />,
+    );
+
+    const table = screen.getByRole("table", { name: "Pull requests" });
+    const [row] = within(table).getAllByRole("row").slice(1);
+    const [title, repository] = row?.querySelectorAll("td") ?? [];
+    expect(title?.textContent).toBe("No number");
+    expect(repository?.textContent).toBe(`${mockOrganization}/web`);
+    expect(repository?.children).toHaveLength(0);
   });
 
   it("heads the chart's card \"Merged PRs\" and leaves the list's card without a heading", async () => {
@@ -115,8 +149,8 @@ describe("MembersActivity", () => {
     const [, row] = await pullRequestRows();
     const cells = within(row as HTMLElement).getAllByRole("cell");
     expect(cells.map((cell) => cell.textContent)).toEqual([
-      "#2 Fix the sign-out redirect",
-      "mock-org/web",
+      "Fix the sign-out redirect",
+      "mock-org/web#2",
       "mock-alice",
       "merged",
       "+18 −4",

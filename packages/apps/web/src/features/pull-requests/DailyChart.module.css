@@ -154,11 +154,17 @@
   white-space: nowrap;
 }
 
-/* The key to the heatmap's strengths, under the chart. */
+/* The lines of the heatmap's labelled hours, which a click passes through. */
+.hourLines {
+  pointer-events: none;
+}
+
+/* The key to the heatmap's strengths, under the chart, at its right edge. */
 .legend {
   margin: var(--space-2) 0 0;
   display: flex;
   align-items: center;
+  justify-content: flex-end;
   gap: var(--space-1);
   color: var(--color-text);
 }
