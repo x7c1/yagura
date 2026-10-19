@@ -1,30 +1,14 @@
 # Deployment
 
-The web app is a static site published to GitHub Pages under a custom
-domain. Its session API runs on a sibling host of that domain (see
-[Session API](../design/session-api.md)); this guide covers only the web
-app.
+The web app is a static site. This repository builds and checks it but does
+not publish it: the deployment that serves the app builds a chosen commit
+and uploads the output to its host. Its session API runs on a sibling host
+of the app's domain (see [Session API](../design/session-api.md)); this
+guide covers only the web app.
 
-## The deploy job
+## Build configuration
 
-The `deploy` job in `.github/workflows/ci.yml` runs after `check` passes:
-
-- on every push to `main`, and
-- by hand, from the Actions tab ("Run workflow") or with
-  `gh workflow run ci.yml --ref <branch>`, on any branch the `github-pages`
-  environment allows (see [GitHub Pages settings](#github-pages-settings)).
-  Use this to verify a branch before merging it; the next push to `main`
-  publishes `main` again.
-
-It builds `packages/apps/web` for production,
-[prepares the build output](#preparing-the-build-output), and publishes it
-with `actions/deploy-pages`. Only one deployment runs at a time; a newer one
-waits for the running one instead of cancelling it.
-
-## Repository variables
-
-The build reads its configuration from two repository variables (Settings →
-Secrets and variables → Actions → Variables):
+The build reads two variables:
 
 | Variable                  | Value                                                 |
 | ------------------------- | ----------------------------------------------------- |
@@ -33,38 +17,35 @@ Secrets and variables → Actions → Variables):
 
 Both end up in the JavaScript the site serves, so they are public values,
 not secrets. The app refuses to start, and says which variable is missing,
-when either is empty. A fork sets its own values to deploy elsewhere without
-editing the workflow.
-
-## GitHub Pages settings
-
-In Settings → Pages:
-
-1. Under "Build and deployment", set Source to "GitHub Actions".
-2. Under "Custom domain", enter the domain the app is served from.
-3. Once the DNS records below resolve and GitHub has issued the
-   certificate, check "Enforce HTTPS".
-
-Choosing "GitHub Actions" creates the `github-pages` environment, which by
-default accepts deployments from the default branch only; a run by hand on
-another branch fails with "not allowed to deploy to github-pages due to
-environment protection rules". To publish a branch for verification, add it
-under Settings → Environments → `github-pages` → "Deployment branches and
-tags", and remove it once the branch is merged.
-
-## DNS
-
-The custom domain is the apex of its own DNS zone, so it cannot be a
-`CNAME`. Point it at GitHub Pages with `A` and `AAAA` records to the
-addresses listed in GitHub's documentation,
-[Managing a custom domain for your GitHub Pages site](https://docs.github.com/en/pages/configuring-a-custom-domain-for-your-github-pages-site/managing-a-custom-domain-for-your-github-pages-site#configuring-an-apex-domain).
-
-Check the records with:
+when either is empty.
 
 ```sh
-dig +short <domain> A
-dig +short <domain> AAAA
+make deps
+VITE_GITHUB_CLIENT_ID=... VITE_YAGURA_SESSION_API=https://api.example.com \
+  pnpm --filter @yagura/web build
 ```
+
+The output is `packages/apps/web/dist`. Remove `mockServiceWorker.js` from
+it before uploading; that script is only used when developing with
+`VITE_API_MOCK=1` (see [Development](development.md)).
+
+## What the host has to do
+
+- **Serve the app for every app path.** The app is a single page: every
+  path, including `/callback`, is served by `index.html`, which then reads
+  the path itself. The host answers a path that names no file in the build
+  with `index.html` and status 200. Every file in the build has an
+  extension, so a host can treat a path whose last segment has no `.` as an
+  app path and still answer a missing file (`/assets/old.js`) with 404.
+- **Send the headers a page cannot set itself.** The page carries its own
+  Content Security Policy (below), but a meta element cannot say
+  `frame-ancestors`. To keep other sites from framing the page, the host
+  sends `Content-Security-Policy: frame-ancestors 'none'`, and
+  `X-Frame-Options: DENY` for older browsers. It also sends
+  `Strict-Transport-Security`.
+- **Keep `index.html` fresh.** The files under `assets/` have content
+  hashes in their names and can be cached for good; `index.html` names
+  them, so it is served without long caching.
 
 ## GitHub App callback URL
 
@@ -73,23 +54,9 @@ redirect anywhere the GitHub App does not list, so add that URL to the
 App's callback URLs, next to `http://localhost:5173/callback` used in
 development.
 
-## Preparing the build output
-
-The app is a single page: every path, including `/callback`, is served by
-`index.html`. GitHub Pages has no rewrite rules, but it serves `404.html`
-for any path it has no file for. The deploy job copies `index.html` to
-`404.html`, so a request for `/callback` loads the app, which then reads the
-path itself. The response status is still 404, which the browser ignores
-for rendering.
-
-The job also removes `mockServiceWorker.js` from the build output. That
-script is only used when developing with `VITE_API_MOCK=1` (see
-[Development](development.md)).
-
 ## Content Security Policy
 
-GitHub Pages sends no security headers and lets a site set none, so the
-page carries its Content Security Policy itself, in a
+The page carries its Content Security Policy itself, in a
 `<meta http-equiv="Content-Security-Policy">` placed in `index.html` right
 after the charset declaration, ahead of every script. It limits what a
 script that got into the page, through a dependency or a flaw yet unknown,
@@ -156,11 +123,8 @@ Content Security Policy directive it breaks.
 
 ### Limits
 
-- `frame-ancestors` has no effect in a meta element, and GitHub Pages cannot
-  send it as a header, so another site can embed the page in a frame. This
-  is acceptable because the page holds no action a framing site could trick
-  a click into beyond signing out or choosing a theme; signing in leaves for
-  GitHub's own page, which refuses to be framed.
+- `frame-ancestors` has no effect in a meta element, so the host sends it
+  as a header (see [What the host has to do](#what-the-host-has-to-do)).
 - The policy takes effect only from the meta element onward, which is why it
   comes before every script.
 - `report-uri` and `report-to` have no effect in a meta element either, so
