@@ -22,8 +22,8 @@ interfaces is stable.
 
 - [Development](docs/guides/development.md) — prerequisites, running the
   app, and checking changes.
-- [Deployment](docs/guides/deployment.md) — publishing the app to GitHub
-  Pages, and the settings it needs outside the code.
+- [Deployment](docs/guides/deployment.md) — building the app for a host,
+  and what the host has to do.
 - [Activity view](docs/design/activity-view.md) — what the main view
   shows, where its numbers come from, and what the browser keeps.
 
