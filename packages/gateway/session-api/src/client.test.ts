@@ -133,6 +133,20 @@ describe("SessionApiClient", () => {
     });
   });
 
+  it("maps a request that got no response to network_error", async () => {
+    const failure = new TypeError("Failed to fetch");
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+      throw failure;
+    });
+    const client = new SessionApiClient({ baseUrl, fetch });
+
+    const error = await client.refreshSession().catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(SessionApiError);
+    expect(error).toMatchObject({ status: 0, code: "network_error" });
+    expect((error as SessionApiError).cause).toBe(failure);
+  });
+
   it("refreshes with credentials and no body", async () => {
     const fetch = vi.fn<typeof globalThis.fetch>(async () =>
       jsonResponse(401, { error: "invalid_session" }),

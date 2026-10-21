@@ -231,7 +231,9 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     expect(set).not.toHaveBeenCalled();
     answer();
 
-    expect(await screen.findByRole("alert")).toBeInTheDocument();
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "GitHub or Yagura is not working right now, so your session could not be kept.",
+    );
     await screen.findByRole("button", { name: "Sign in with GitHub" });
     expect(set).not.toHaveBeenCalled();
     expect(await entries(view.cache)).toEqual(before);

@@ -80,7 +80,9 @@ export function OrganizationMembers(props: {
           <p className={sectionStyles.note}>Loading organizations…</p>
         ) : (
           <Failure
-            message={`Could not load your organizations: ${error}`}
+            subject="your organizations"
+            failure={error}
+            stale={false}
             retry={retry}
           />
         )}
@@ -88,10 +90,7 @@ export function OrganizationMembers(props: {
     );
   }
   const failure = error !== undefined && (
-    <Failure
-      message={`Could not update your organizations: ${error}`}
-      retry={retry}
-    />
+    <Failure subject="your organizations" failure={error} stale retry={retry} />
   );
   const { organizations, selected } = value;
   const first = organizations[0];
@@ -241,7 +240,9 @@ function Members(props: { readonly org: string; readonly page: Page }) {
           <p className={sectionStyles.note}>Loading members…</p>
         ) : (
           <Failure
-            message={`Could not load the members of ${org}: ${error}`}
+            subject={`the members of ${org}`}
+            failure={error}
+            stale={false}
             retry={retry}
           />
         )}
@@ -252,7 +253,9 @@ function Members(props: { readonly org: string; readonly page: Page }) {
     <>
       {error !== undefined && (
         <Failure
-          message={`Could not update the members of ${org}: ${error}`}
+          subject={`the members of ${org}`}
+          failure={error}
+          stale
           retry={retry}
         />
       )}

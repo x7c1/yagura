@@ -76,7 +76,9 @@ export function MembersActivity(props: {
   // and the members word it.
   const failure = error !== undefined && (
     <Failure
-      message={`Could not ${value === undefined ? "load" : "update"} the pull requests of ${org}'s members: ${error}`}
+      subject={`the pull requests of ${org}'s members`}
+      failure={error}
+      stale={value !== undefined}
       retry={retry}
     />
   );

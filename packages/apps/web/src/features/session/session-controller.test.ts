@@ -14,7 +14,6 @@ import {
   testController,
 } from "../../test-support";
 import { loadHandoff, saveHandoff } from "./handoff";
-import { signOutUnconfirmedNote } from "./session-controller";
 
 const lastViewerKey = "yagura.last-viewer";
 
@@ -35,19 +34,82 @@ function failingStore(failing: "get" | "set"): MemoryStore {
 }
 
 describe("SessionController.handleCallback", () => {
-  it("rejects a state mismatch without posting the code", async () => {
+  it("rejects a state mismatch as stale without posting the code", async () => {
     const { controller, mock, storage } = testController();
     saveHandoff(storage, { state: "expected", codeVerifier: "verifier" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     await controller.handleCallback("?code=abc&state=forged");
 
     expect(mock.requests).toEqual([]);
     expect(controller.accessToken).toBeUndefined();
-    expect(controller.state).toMatchObject({
+    expect(controller.state).toEqual({
       status: "signed-out",
-      error: expect.stringContaining("state"),
+      error: { kind: "sign-in-failed", reason: "stale" },
     });
     expect(loadHandoff(storage)).toBeUndefined();
+    // The detail stays in the console.
+    expect(warn).toHaveBeenCalledWith(
+      "Could not sign in:",
+      expect.objectContaining({
+        message: "The callback state does not match this sign-in",
+      }),
+    );
+    warn.mockRestore();
+  });
+
+  it("tells a sign-in cancelled on GitHub from other declines", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    for (const [error, reason] of [
+      ["access_denied", "cancelled"],
+      ["application_suspended", "unavailable"],
+    ] as const) {
+      const { controller, mock, storage } = testController();
+      saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
+
+      await controller.handleCallback(`?error=${error}&state=s1`);
+
+      expect(mock.requests).toEqual([]);
+      expect(controller.state).toEqual({
+        status: "signed-out",
+        error: { kind: "sign-in-failed", reason },
+      });
+    }
+    warn.mockRestore();
+  });
+
+  it("ends signed out as offline when the session API cannot be reached", async () => {
+    const { controller, storage } = testController();
+    server.use(http.post(`${sessionApi}/session`, () => HttpResponse.error()));
+    saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await controller.handleCallback("?code=abc&state=s1");
+
+    expect(controller.state).toEqual({
+      status: "signed-out",
+      error: { kind: "sign-in-failed", reason: "offline" },
+    });
+    warn.mockRestore();
+  });
+
+  it("ends signed out as unavailable when GitHub fails behind the session API", async () => {
+    const { controller, storage } = testController();
+    server.use(
+      http.post(`${sessionApi}/session`, () =>
+        HttpResponse.json({ error: "upstream_error" }, { status: 502 }),
+      ),
+    );
+    saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    await controller.handleCallback("?code=abc&state=s1");
+
+    expect(controller.state).toEqual({
+      status: "signed-out",
+      error: { kind: "sign-in-failed", reason: "unavailable" },
+    });
+    warn.mockRestore();
   });
 
   it("exchanges the code, keeps the token in memory, clears the handoff, and remembers the viewer without asking GitHub", async () => {
@@ -74,7 +136,7 @@ describe("SessionController.handleCallback", () => {
     expect(requestLines(mock.requests)).toEqual([`POST ${sessionApi}/session`]);
   });
 
-  it("surfaces invalid_grant from the session API", async () => {
+  it("takes invalid_grant from the session API as a stale sign-in", async () => {
     const { controller, storage } = testController();
     server.use(
       http.post(`${sessionApi}/session`, () =>
@@ -86,9 +148,9 @@ describe("SessionController.handleCallback", () => {
     await controller.handleCallback("?code=abc&state=s1");
 
     expect(controller.accessToken).toBeUndefined();
-    expect(controller.state).toMatchObject({
+    expect(controller.state).toEqual({
       status: "signed-out",
-      error: expect.stringContaining("invalid_grant"),
+      error: { kind: "sign-in-failed", reason: "stale" },
     });
   });
 
@@ -101,9 +163,9 @@ describe("SessionController.handleCallback", () => {
 
     expect(mock.requests).toEqual([]);
     expect(controller.accessToken).toBeUndefined();
-    expect(controller.state).toMatchObject({
+    expect(controller.state).toEqual({
       status: "signed-out",
-      error: expect.stringContaining("browser storage"),
+      error: { kind: "sign-in-failed", reason: "storage" },
     });
   });
 });
@@ -153,9 +215,9 @@ describe("SessionController.signIn", () => {
 
     expect(location.assigned).toEqual([]);
     expect(location.href).toBe("http://localhost:5173/");
-    expect(controller.state).toMatchObject({
+    expect(controller.state).toEqual({
       status: "signed-out",
-      error: expect.stringContaining("browser storage"),
+      error: { kind: "sign-in-failed", reason: "storage" },
     });
   });
 });
@@ -371,7 +433,10 @@ describe("SessionController.restore with a remembered last viewer", () => {
     release();
     await controller.restore();
 
-    expect(controller.state).toMatchObject({ status: "signed-out" });
+    expect(controller.state).toEqual({
+      status: "signed-out",
+      error: { kind: "session-lost", reason: "unavailable" },
+    });
     expect(lastViewer.get(lastViewerKey)).toBe(mockLogin);
   });
 
@@ -656,11 +721,11 @@ describe("SessionController.signOut in another tab", () => {
 
     expect(first.controller.state).toEqual({
       status: "signed-out",
-      error: signOutUnconfirmedNote,
+      error: { kind: "sign-out-unconfirmed" },
     });
     expect(second.controller.state).toEqual({
       status: "signed-out",
-      error: signOutUnconfirmedNote,
+      error: { kind: "sign-out-unconfirmed" },
     });
     expect(second.tabs.posted).toEqual([]);
     warn.mockRestore();
@@ -680,7 +745,7 @@ describe("SessionController.signOut in another tab", () => {
 
     expect(second.controller.state).toEqual({
       status: "signed-out",
-      error: signOutUnconfirmedNote,
+      error: { kind: "sign-out-unconfirmed" },
     });
     expect(second.controller.accessToken).toBeUndefined();
     expect(lastViewer.get(lastViewerKey)).toBeUndefined();
@@ -696,7 +761,7 @@ describe("SessionController.signOut in another tab", () => {
     fail();
     await signedOut;
     expect(second.controller.state).toMatchObject({
-      error: signOutUnconfirmedNote,
+      error: { kind: "sign-out-unconfirmed" },
     });
 
     // The viewer signs in again in a third tab, and out once more there.
@@ -736,7 +801,7 @@ describe("SessionController.signOut in another tab", () => {
     fail();
     await signedOut;
     expect(first.controller.state).toMatchObject({
-      error: signOutUnconfirmedNote,
+      error: { kind: "sign-out-unconfirmed" },
     });
     tabs.thaw();
 

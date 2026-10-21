@@ -9,7 +9,7 @@ import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import { saveHandoff } from "./features/session/handoff";
-import { signOutUnconfirmedNote } from "./features/session/session-controller";
+import { signOutUnconfirmedNote } from "./features/session/SignInScreen";
 import {
   server,
   sessionApi,
@@ -18,6 +18,13 @@ import {
   testTheme,
   testWidths,
 } from "./test-support";
+
+/** That `alert` says `title`, then `text`, and nothing else. */
+function expectFailure(alert: HTMLElement, title: string, text: string) {
+  expect(Array.from(alert.querySelectorAll("p"), (p) => p.textContent)).toEqual(
+    [title, text],
+  );
+}
 
 const description =
   "See your organization's development activity on GitHub at a glance.";
@@ -155,8 +162,15 @@ describe("App", () => {
       <App session={controller} widths={testWidths()} theme={testTheme()} />,
     );
 
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent("state");
+    expectFailure(
+      alert,
+      "Could not sign you in.",
+      "This sign-in link is out of date, was already used, or was opened in another tab. Please sign in again.",
+    );
+    expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
     expect(location.pathname).toBe("/");
     // The failure is shown on the sign-in screen, above the button.
     const button = screen.getByRole("button", { name: "Sign in with GitHub" });
@@ -168,6 +182,68 @@ describe("App", () => {
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
     expect(mock.requests).toEqual([]);
   });
+
+  it("says the sign-in was cancelled when the viewer cancels on GitHub", async () => {
+    const { controller, storage, mock } = testController({
+      url: "http://localhost:5173/callback?error=access_denied&state=s1",
+    });
+    saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+
+    expectFailure(
+      await screen.findByRole("alert"),
+      "Sign-in cancelled.",
+      "You cancelled the sign-in on GitHub. Sign in again whenever you are ready.",
+    );
+    expect(
+      screen.getByRole("button", { name: "Sign in with GitHub" }),
+    ).toBeInTheDocument();
+    expect(mock.requests).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it.each([
+    [
+      "the network is down",
+      () => HttpResponse.error(),
+      "Yagura could not reach the network. Check your connection, then try signing in again.",
+    ],
+    [
+      "GitHub fails behind the session API",
+      () => HttpResponse.json({ error: "upstream_error" }, { status: 502 }),
+      "GitHub or Yagura is not working right now. Try signing in again in a moment.",
+    ],
+  ])(
+    "says what happened, without the technical detail, when %s",
+    async (_, answer, message) => {
+      const { controller, storage } = testController({
+        url: "http://localhost:5173/callback?code=abc&state=s1",
+      });
+      saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
+      server.use(http.post(`${sessionApi}/session`, answer));
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+      render(
+        <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      );
+
+      expectFailure(
+        await screen.findByRole("alert"),
+        "Could not sign you in.",
+        message,
+      );
+      // The detail stays in the console.
+      expect(warn).toHaveBeenCalledWith(
+        "Could not sign in:",
+        expect.any(Error),
+      );
+      warn.mockRestore();
+    },
+  );
 });
 
 describe("Signing out", () => {
@@ -220,9 +296,52 @@ describe("Signing out", () => {
       screen.getByRole("button", { name: "Sign in with GitHub" }),
     ).toBeInTheDocument();
     const alert = await screen.findByRole("alert");
-    expect(alert).toHaveTextContent(signOutUnconfirmedNote);
+    expectFailure(
+      alert,
+      "Your sign-out may not be complete.",
+      signOutUnconfirmedNote,
+    );
     expect(controller.accessToken).toBeUndefined();
     expect(warn).toHaveBeenCalled();
+    warn.mockRestore();
+  });
+
+  it("words a failed sign-out apart from a failed sign-in", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const failing = () =>
+      HttpResponse.json({ error: "upstream_error" }, { status: 502 });
+
+    const signingIn = testController({
+      url: "http://localhost:5173/callback?code=abc&state=s1",
+    });
+    server.use(http.post(`${sessionApi}/session`, failing));
+    saveHandoff(signingIn.storage, { state: "s1", codeVerifier: "verifier" });
+    const failedSignIn = render(
+      <App
+        session={signingIn.controller}
+        widths={testWidths()}
+        theme={testTheme()}
+      />,
+    );
+    const signInFailure = (await screen.findByRole("alert")).textContent;
+    failedSignIn.unmount();
+
+    const signingOut = testController({ signedIn: true });
+    server.use(http.delete(deleteUrl, failing));
+    render(
+      <App
+        session={signingOut.controller}
+        widths={testWidths()}
+        theme={testTheme()}
+      />,
+    );
+    expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    signOut();
+    const signOutFailure = (await screen.findByRole("alert")).textContent;
+
+    expect(signInFailure).toMatch(/^Could not sign you in\./);
+    expect(signOutFailure).toMatch(/^Your sign-out may not be complete\./);
+    expect(signOutFailure).not.toBe(signInFailure);
     warn.mockRestore();
   });
 

@@ -122,11 +122,20 @@ is for signing in alone, one panel in the middle of the viewport with the
 app's name as the page's heading, the README's first line saying what the
 app is, the "Sign in with GitHub" button, and under it a short note on
 what signing in gives the app (it only reads what the visitor can already
-see on GitHub, in their browser, and the server stores nothing). A failed
-sign-in's message, or a note that signing out could not reach the server
-to end the session (so the next visit may sign the viewer in again, and
-reloading and signing out again retries), shows in the panel above the
-button, marked as a failure in words as well as colour. Every address,
+see on GitHub, in their browser, and the server stores nothing). A
+failure shows in the panel above the button, marked as a failure in words
+as well as colour: a title that says which action failed ("Could not sign
+you in.", "Sign-in cancelled.", "You were signed out.", "Your sign-out may
+not be complete."), then a sentence or two on what happened to the viewer
+and what they can do with what the screen offers, signing in again or
+reloading. A sign-in fails when the viewer cancelled on GitHub, when the
+callback is stale, already used or another tab's, when the browser blocks
+its storage, when the network is down, or when GitHub or the session API
+fails; a restored or refreshed session is lost for the last two. A
+sign-out that could not reach the server to end the session says that the
+next visit may sign the viewer in again, and that reloading and signing
+out again retries. The screen names no endpoint, status code or error
+code; the failure itself goes to the browser's console. Every address,
 `/members` too, shows this same screen. While the session is being
 restored without a remembered last viewer, and while the sign-in callback
 completes, the same panel shows "Loading…" or "Signing in…" in the
@@ -439,7 +448,12 @@ When a fetch fails behind what is drawn, what is drawn stays, and the
 failure with a way to retry shows above the cards, as it does for the
 installations and the members. Retrying fetches again without clearing the
 screen. When nothing is drawn yet, the failure shows in place of the list,
-or, for the pull requests, below the table's placeholders.
+or, for the pull requests, below the table's placeholders. The failure
+says what could not be loaded or updated, and, for an update, that what
+is shown may be out of date; why, in the viewer's terms (they appear to be
+offline, GitHub is limiting requests, GitHub no longer lets them see it,
+or GitHub or Yagura is not working); and what to do: retry, wait, or
+reload. Like the sign-in screen, it names no endpoint or status code.
 
 What is shown once the fetches have answered is the same as without the
 cache; the cache changes when things are drawn, not what is drawn.

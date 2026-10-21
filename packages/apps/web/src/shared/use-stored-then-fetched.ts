@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import { classifyLoadFailure, type LoadFailure } from "./load-failure";
 
 /** A value read from the browser cache, without any request. */
 export interface Stored<T> {
@@ -26,8 +27,11 @@ export interface StoredThenFetched<T> {
   readonly value: T | undefined;
   /** Whether a fetch that may change `value` is running behind it. */
   readonly updating: boolean;
-  /** The last fetch's failure, until a retry starts. */
-  readonly error: string | undefined;
+  /**
+   * Why the last fetch failed, until a retry starts. The failure itself
+   * goes to the console.
+   */
+  readonly error: LoadFailure | undefined;
   /** Runs the fetch again, keeping what is drawn. */
   readonly retry: () => void;
 }
@@ -37,7 +41,7 @@ interface State<T> {
   readonly value: T | undefined;
   readonly fresh: boolean;
   readonly running: boolean;
-  readonly error: string | undefined;
+  readonly error: LoadFailure | undefined;
 }
 
 /**
@@ -96,10 +100,11 @@ export function useStoredThenFetched<T>(
         }
       } catch (error) {
         if (current) {
+          console.warn("Could not fetch:", error);
           setState((prev) => ({
             ...prev,
             running: false,
-            error: error instanceof Error ? error.message : String(error),
+            error: classifyLoadFailure(error),
           }));
         }
       }

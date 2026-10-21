@@ -502,7 +502,7 @@ describe("Drawing from the cache first", () => {
     view.open(failSearches(() => failing));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      `Could not update the pull requests of ${mockOrganization}'s members`,
+      `Could not update the pull requests of ${mockOrganization}'s members because GitHub or Yagura is not working right now, so what is shown may be out of date. Retry in a moment, or reload the page if it keeps failing.`,
     );
     expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
     expect(updating()).not.toBeInTheDocument();

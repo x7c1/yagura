@@ -134,6 +134,45 @@ describe("GitHubApiClient.listOrganizationMembers", () => {
     expect((error as GitHubApiError).message).toContain(
       "GET /orgs/acme/members",
     );
+    expect((error as GitHubApiError).isNetworkFailure).toBe(false);
+  });
+
+  it("keeps GitHub's message, which names a rate limit's 403", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(
+      async () =>
+        new Response(
+          JSON.stringify({ message: "API rate limit exceeded for user ID 1." }),
+          { status: 403 },
+        ),
+    );
+    const client = new GitHubApiClient({ fetch });
+
+    const error = await client
+      .listOrganizationMembers("ghu_abc", "acme")
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(GitHubApiError);
+    expect((error as GitHubApiError).status).toBe(403);
+    expect((error as GitHubApiError).message).toBe(
+      "GitHub API responded 403 to GET /orgs/acme/members: " +
+        "API rate limit exceeded for user ID 1.",
+    );
+  });
+
+  it("turns a request that got no response into a network failure", async () => {
+    const failure = new TypeError("Failed to fetch");
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => {
+      throw failure;
+    });
+    const client = new GitHubApiClient({ fetch });
+
+    const error = await client
+      .listOrganizationMembers("ghu_abc", "acme")
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(GitHubApiError);
+    expect((error as GitHubApiError).isNetworkFailure).toBe(true);
+    expect((error as GitHubApiError).cause).toBe(failure);
   });
 });
 
