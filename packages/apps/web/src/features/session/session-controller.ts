@@ -16,8 +16,50 @@ import { completeCallback } from "./callback";
 import { prepareSignIn } from "./sign-in";
 import { TokenHolder } from "./token-holder";
 
-/** What a tab posts to the browser's other tabs when the viewer signs out. */
-const signedOutMessage = "signed-out";
+/**
+ * A sign-out, as the browser's tabs name it to one another: `id` tells it
+ * apart from any other, in any tab, and `at` is when it began, in
+ * milliseconds since the epoch.
+ */
+interface SignOut {
+  readonly id: string;
+  readonly at: number;
+}
+
+/**
+ * What a tab posts to the browser's other tabs about a sign-out: that the
+ * viewer signed out (`signed-out`), or that its `DELETE /session` failed,
+ * so that the session may not have ended (`sign-out-unconfirmed`).
+ */
+interface TabMessage extends SignOut {
+  readonly type: "signed-out" | "sign-out-unconfirmed";
+}
+
+function encodeTabMessage(message: TabMessage): string {
+  return JSON.stringify(message);
+}
+
+/** The message `data` encodes, or `undefined` when it encodes none. */
+function decodeTabMessage(data: string): TabMessage | undefined {
+  let value: unknown;
+  try {
+    value = JSON.parse(data);
+  } catch {
+    return undefined;
+  }
+  if (typeof value !== "object" || value === null) {
+    return undefined;
+  }
+  const { type, id, at } = value as Record<string, unknown>;
+  if (
+    (type === "signed-out" || type === "sign-out-unconfirmed") &&
+    typeof id === "string" &&
+    typeof at === "number"
+  ) {
+    return { type, id, at };
+  }
+  return undefined;
+}
 
 /**
  * The note on the sign-in screen when `DELETE /session` failed: the refresh
@@ -76,7 +118,12 @@ export interface SessionControllerOptions {
    * SessionController.signOut}.
    */
   readonly tabs: TabChannel;
-  /** The current time. Defaults to the system clock. */
+  /**
+   * The current time. Defaults to the system clock. The browser's tabs
+   * compare the times they post about a sign-out with their own (see
+   * {@link SessionController.signOut}), so every tab's clock must be the
+   * same one and move forward.
+   */
   readonly clock?: () => Date;
   /**
    * Sends the browser to the GitHub authorize page. Defaults to assigning
@@ -99,11 +146,13 @@ export class SessionController {
   #callback: Promise<void> | undefined;
   #refreshing: Promise<SessionTokens | undefined> | undefined;
   /**
-   * Whether the refresh in flight was answered with new tokens, and so with
-   * a new refresh cookie, whatever the controller then made of the answer;
+   * The latest refresh's answer: when it was answered with new tokens, and
+   * so with a new refresh cookie, whatever the controller then made of the
+   * answer, or `undefined` when it failed. Kept once the refresh settles,
+   * for a sign-out in another tab that this tab learns of only afterwards;
    * see {@link #signedOutElsewhere}.
    */
-  #refreshRenewed: Promise<boolean> | undefined;
+  #renewal: Promise<number | undefined> | undefined;
   /**
    * The last sign-out's deletion of the viewer's cache entries, which
    * settles once they are gone.
@@ -115,6 +164,16 @@ export class SessionController {
    * out does not sign them in or store anything again.
    */
   #signOuts = 0;
+  /** The ids of the sign-outs this tab has counted, its own or another's. */
+  readonly #signOutIds = new Set<string>();
+  /** The id of the last sign-out this tab has counted. */
+  #lastSignOutId: string | undefined;
+  /**
+   * When this tab last counted a sign-out or signed in through GitHub, in
+   * milliseconds since the epoch: a sign-out in another tab that began
+   * earlier has nothing left to end here; see {@link #receive}.
+   */
+  #settledAt = Number.NEGATIVE_INFINITY;
 
   constructor(options: SessionControllerOptions) {
     this.#options = options;
@@ -124,9 +183,10 @@ export class SessionController {
       () => void this.#refreshOnExpiry(),
     );
     // The controller lives as long as the page, so it never unsubscribes.
-    options.tabs.onMessage((message) => {
-      if (message === signedOutMessage) {
-        void this.#signedOutElsewhere();
+    options.tabs.onMessage((data) => {
+      const message = decodeTabMessage(data);
+      if (message !== undefined) {
+        this.#receive(message);
       }
     });
   }
@@ -248,72 +308,124 @@ export class SessionController {
    * sets a new refresh cookie, which, arriving after the answer that clears
    * the cookie, would keep the session alive for the next load. When the
    * request fails, the cookie may still be set, and the sign-in screen
-   * says so with {@link signOutUnconfirmedNote}.
+   * says so with {@link signOutUnconfirmedNote}, in this tab and, through a
+   * `sign-out-unconfirmed` message, in the others (see {@link #endSession}).
    *
    * The returned promise settles, never rejecting, once the request has
    * answered and the cache entries are deleted.
    */
   async signOut(): Promise<void> {
     const refreshing = this.#refreshing;
-    const cleared = this.#forget();
+    const signOut = { id: crypto.randomUUID(), at: this.now().getTime() };
+    const cleared = this.#forget(signOut);
     const signOuts = this.#signOuts;
-    this.#options.tabs.post(signedOutMessage);
+    this.#post("signed-out", signOut);
     // Its outcome no longer matters: the count of sign-outs drops it.
     await refreshing?.catch(() => undefined);
-    await this.#endSession(signOuts);
+    await this.#endSession(signOut, signOuts);
     await cleared;
+  }
+
+  /**
+   * Takes in a message from another tab of the browser. A sign-out this
+   * tab has not counted yet signs it out (see {@link #signedOutElsewhere}),
+   * whichever message names it first: a `sign-out-unconfirmed` may arrive
+   * before its `signed-out`, or without it. A message about a sign-out
+   * that began before this tab's last sign-out or sign-in, as one from a
+   * tab that was asleep may be, is ignored: that sign-out ended a session
+   * this tab no longer has. A `sign-out-unconfirmed` otherwise shows
+   * {@link signOutUnconfirmedNote} on the sign-in screen, as
+   * {@link #endSession} does in the tab that sent it: only while its
+   * sign-out is still the last one this tab has counted, since a later one
+   * has its own outcome.
+   */
+  #receive(message: TabMessage): void {
+    if (message.at < this.#settledAt) {
+      return;
+    }
+    if (!this.#signOutIds.has(message.id)) {
+      void this.#signedOutElsewhere(message);
+    }
+    if (
+      message.type === "sign-out-unconfirmed" &&
+      message.id === this.#lastSignOutId &&
+      this.#state.status === "signed-out"
+    ) {
+      this.#signedOut(signOutUnconfirmedNote);
+    }
   }
 
   /**
    * Signs out for a sign-out in another tab of the browser, which ends the
    * session the tabs share: forgets the session here at once (see
    * {@link #forget}) and sends no request of its own, but for one case.
-   * When this tab's own refresh was in flight, its answer may set the
-   * refresh cookie again, with the token GitHub rotated to, after the other
-   * tab's `DELETE /session` cleared it, and so keep the session alive for
-   * the next load. This tab then waits for the refresh, and when it was
-   * answered with new tokens, sends `DELETE /session` itself, which revokes
-   * the rotated token and clears the cookie again. A refresh that failed set
-   * no cookie, and nothing is sent.
+   * When this tab's own refresh was answered with new tokens after the
+   * other tab's sign-out began, its answer may have set the refresh cookie
+   * again, with the token GitHub rotated to, after the other tab's
+   * `DELETE /session` cleared it, and so keep the session alive for the
+   * next load. This tab then sends `DELETE /session` itself, which revokes
+   * the rotated token and clears the cookie again; like the other tab's, a
+   * failure of it is shared with a `sign-out-unconfirmed` message.
+   *
+   * A refresh in flight is waited for. One that has settled counts by when
+   * it was answered rather than by whether it is still pending, because a
+   * tab the browser froze in the background may take in the refresh's
+   * answer before the `signed-out` message, though the sign-out came first.
+   * A refresh that failed set no cookie, and nothing is sent for it.
    */
-  async #signedOutElsewhere(): Promise<void> {
-    const renewed = this.#refreshRenewed;
-    const cleared = this.#forget();
+  async #signedOutElsewhere(signOut: SignOut): Promise<void> {
+    const inFlight = this.#refreshing !== undefined;
+    const renewal = this.#renewal;
+    const cleared = this.#forget(signOut);
     const signOuts = this.#signOuts;
-    if (renewed !== undefined && (await renewed)) {
-      await this.#endSession(signOuts);
+    const renewedAt = await renewal;
+    if (renewedAt !== undefined && (inFlight || renewedAt > signOut.at)) {
+      await this.#endSession(signOut, signOuts);
     }
     await cleared;
   }
 
   /**
-   * Sends `DELETE /session` for the sign-out counted as `signOuts`. When it
-   * fails, the sign-in screen says that the session may not have ended,
-   * unless a later sign-out, here or in another tab, has its own outcome.
+   * Sends `DELETE /session` for `signOut`, counted here as `signOuts`. When
+   * it fails, the sign-in screen says that the session may not have ended,
+   * and a `sign-out-unconfirmed` message tells the other tabs to say so
+   * too; unless a later sign-out, here or in another tab, has its own
+   * outcome.
    */
-  async #endSession(signOuts: number): Promise<void> {
+  async #endSession(signOut: SignOut, signOuts: number): Promise<void> {
     try {
       await this.#options.sessionApi.deleteSession();
     } catch (error) {
       console.warn("Could not end the session on the server:", error);
       if (signOuts === this.#signOuts && this.#state.status === "signed-out") {
         this.#signedOut(signOutUnconfirmedNote);
+        this.#post("sign-out-unconfirmed", signOut);
       }
     }
   }
 
+  /** Tells the browser's other tabs about `signOut`. */
+  #post(type: TabMessage["type"], signOut: SignOut): void {
+    this.#options.tabs.post(
+      encodeTabMessage({ type, id: signOut.id, at: signOut.at }),
+    );
+  }
+
   /**
    * Forgets the session in this tab, for a sign-out here or in another tab
-   * of the browser: counts the sign-out, forgets the access token (which
+   * of the browser: counts `signOut`, forgets the access token (which
    * also stops its refresh) and the last viewer, starts deleting the
    * viewer's cache entries, and shows the sign-in screen, which drops the
    * view and everything it shows. Every tab deletes the entries, so that a
    * write that was already under way in one tab when another signed out is
    * deleted too. Resolves once the entries are deleted.
    */
-  #forget(): Promise<void> {
+  #forget(signOut: SignOut): Promise<void> {
     const state = this.#state;
     this.#signOuts += 1;
+    this.#signOutIds.add(signOut.id);
+    this.#lastSignOutId = signOut.id;
+    this.#settledAt = Math.max(this.#settledAt, signOut.at);
     this.#tokens.clear();
     this.#lastViewer.forget();
     const cleared =
@@ -408,6 +520,7 @@ export class SessionController {
         storage: this.#options.storage,
       });
       this.#tokens.set(tokens);
+      this.#settledAt = this.now().getTime();
       this.#confirm(tokens.login, this.#signOuts);
     } catch (error) {
       this.#tokens.clear();
@@ -444,9 +557,9 @@ export class SessionController {
     }
     const signOuts = this.#signOuts;
     const answer = this.#options.sessionApi.refreshSession();
-    this.#refreshRenewed = answer.then(
-      () => true,
-      () => false,
+    this.#renewal = answer.then(
+      () => this.now().getTime(),
+      () => undefined,
     );
     this.#refreshing = answer
       .then(
@@ -480,7 +593,6 @@ export class SessionController {
       )
       .finally(() => {
         this.#refreshing = undefined;
-        this.#refreshRenewed = undefined;
       });
     return this.#refreshing;
   }

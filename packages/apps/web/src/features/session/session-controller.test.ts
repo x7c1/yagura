@@ -14,6 +14,7 @@ import {
   testController,
 } from "../../test-support";
 import { loadHandoff, saveHandoff } from "./handoff";
+import { signOutUnconfirmedNote } from "./session-controller";
 
 const lastViewerKey = "yagura.last-viewer";
 
@@ -435,25 +436,99 @@ describe("SessionController.restore with a remembered last viewer", () => {
   });
 });
 
+/**
+ * A tab's channel that can be frozen, as the browser freezes a tab in the
+ * background: the messages it receives meanwhile are held, and delivered
+ * once it thaws, in the order they were posted or the reverse.
+ */
+class FreezableTabChannel extends MemoryTabChannel {
+  #held: (() => void)[] | undefined;
+
+  freeze(): void {
+    this.#held ??= [];
+  }
+
+  thaw(order: "posted" | "reversed" = "posted"): void {
+    const held = this.#held ?? [];
+    this.#held = undefined;
+    for (const deliver of order === "posted" ? held : held.reverse()) {
+      deliver();
+    }
+  }
+
+  override onMessage(listener: (message: string) => void): () => void {
+    return super.onMessage((message) => {
+      if (this.#held === undefined) {
+        listener(message);
+      } else {
+        this.#held.push(() => listener(message));
+      }
+    });
+  }
+}
+
 describe("SessionController.signOut in another tab", () => {
   const refreshUrl = `${sessionApi}/session/refresh`;
   const deleteUrl = `${sessionApi}/session`;
 
   /** Two tabs of one browser, both signed in as the mock's viewer. */
   async function twoTabs() {
-    const tabs = new MemoryTabChannel();
+    const tabs = new FreezableTabChannel();
     const cache = new MemoryJsonStore();
     const lastViewer = new MemoryStore();
     const first = testController({ signedIn: true, cache, lastViewer, tabs });
+    const secondTabs = new FreezableTabChannel(tabs);
     const second = testController({
       mock: first.mock,
       cache,
       lastViewer,
-      tabs: tabs.openTab(),
+      tabs: secondTabs,
     });
     await first.controller.restore();
     await second.controller.restore();
-    return { first, second, cache, lastViewer };
+    return { first, second, tabs, secondTabs, cache, lastViewer };
+  }
+
+  /**
+   * Fails the first `DELETE /session` once `fail` is called, with a 502,
+   * and lets every later one through to the mock.
+   */
+  function failFirstDelete(mock: { signedIn: boolean }) {
+    let fail!: () => void;
+    const failing = new Promise<void>((resolve) => {
+      fail = resolve;
+    });
+    let deletes = 0;
+    server.use(
+      http.delete(deleteUrl, async () => {
+        deletes += 1;
+        if (deletes === 1) {
+          await failing;
+          return HttpResponse.json(
+            { error: "upstream_error" },
+            { status: 502 },
+          );
+        }
+        mock.signedIn = false;
+        return new HttpResponse(null, { status: 204 });
+      }),
+    );
+    return { fail, deletes: () => deletes };
+  }
+
+  /** Another tab of the browser, signed in through GitHub's redirect. */
+  async function signedInTab(
+    sibling: MemoryTabChannel,
+    shared: Pick<
+      ReturnType<typeof testController>,
+      "mock" | "cache" | "lastViewer"
+    >,
+  ) {
+    const tab = testController({ ...shared, tabs: sibling.openTab() });
+    saveHandoff(tab.storage, { state: "s1", codeVerifier: "verifier" });
+    await tab.controller.handleCallback("?code=abc&state=s1");
+    expect(tab.controller.state).toMatchObject({ status: "signed-in" });
+    return tab;
   }
 
   it("signs out the other tab at once, which sends no DELETE /session", async () => {
@@ -567,5 +642,152 @@ describe("SessionController.signOut in another tab", () => {
     expect(second.timer.pending).toBe(0);
     expect(lastViewer.get(lastViewerKey)).toBeUndefined();
     expect(cache.keys).toEqual([]);
+  });
+
+  it("shows the other tab the note when DELETE /session fails", async () => {
+    const { first, second } = await twoTabs();
+    const { fail } = failFirstDelete(first.mock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    const signedOut = first.controller.signOut();
+    expect(second.controller.state).toEqual({ status: "signed-out" });
+    fail();
+    await signedOut;
+
+    expect(first.controller.state).toEqual({
+      status: "signed-out",
+      error: signOutUnconfirmedNote,
+    });
+    expect(second.controller.state).toEqual({
+      status: "signed-out",
+      error: signOutUnconfirmedNote,
+    });
+    expect(second.tabs.posted).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it("signs the other tab out with the note when the failure reaches it before the sign-out", async () => {
+    const { first, second, secondTabs, lastViewer } = await twoTabs();
+    const { fail } = failFirstDelete(first.mock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    secondTabs.freeze();
+
+    const signedOut = first.controller.signOut();
+    fail();
+    await signedOut;
+    expect(second.controller.state).toMatchObject({ status: "signed-in" });
+    secondTabs.thaw("reversed");
+
+    expect(second.controller.state).toEqual({
+      status: "signed-out",
+      error: signOutUnconfirmedNote,
+    });
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+    expect(second.tabs.posted).toEqual([]);
+    warn.mockRestore();
+  });
+
+  it("drops the note in every tab for a later sign-out", async () => {
+    const { first, second, tabs, cache, lastViewer } = await twoTabs();
+    const { fail } = failFirstDelete(first.mock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const signedOut = first.controller.signOut();
+    fail();
+    await signedOut;
+    expect(second.controller.state).toMatchObject({
+      error: signOutUnconfirmedNote,
+    });
+
+    // The viewer signs in again in a third tab, and out once more there.
+    const third = await signedInTab(tabs, {
+      mock: first.mock,
+      cache,
+      lastViewer,
+    });
+    await third.controller.signOut();
+
+    for (const tab of [first, second, third]) {
+      expect(tab.controller.state).toEqual({ status: "signed-out" });
+    }
+    warn.mockRestore();
+  });
+
+  it("drops a failure's note in every tab when a later sign-out was counted before the failure", async () => {
+    const { first, second, tabs, cache, lastViewer } = await twoTabs();
+    const { fail, deletes } = failFirstDelete(first.mock);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const signedOut = first.controller.signOut();
+    await vi.waitFor(() => {
+      expect(deletes()).toBe(1);
+    });
+    // The first tab learns of the later sign-out only after its own
+    // request has failed, as a tab asleep in the background would. The
+    // viewer signs in again in a third tab, later than the first sign-out
+    // began.
+    tabs.freeze();
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    const third = await signedInTab(tabs, {
+      mock: first.mock,
+      cache,
+      lastViewer,
+    });
+    await third.controller.signOut();
+    fail();
+    await signedOut;
+    expect(first.controller.state).toMatchObject({
+      error: signOutUnconfirmedNote,
+    });
+    tabs.thaw();
+
+    for (const tab of [first, second, third]) {
+      expect(tab.controller.state).toEqual({ status: "signed-out" });
+    }
+    warn.mockRestore();
+  });
+
+  it("ends the session again for a refresh renewed before a frozen tab takes in the sign-out, though the refresh has settled", async () => {
+    const { first, second, secondTabs } = await twoTabs();
+    let answer!: () => void;
+    const answered = new Promise<void>((resolve) => {
+      answer = resolve;
+    });
+    let served = false;
+    server.use(
+      http.post(refreshUrl, async () => {
+        await answered;
+        served = true;
+        return HttpResponse.json({
+          access_token: "ghu_late",
+          token_type: "bearer",
+          expires_in: 28800,
+          login: mockLogin,
+        });
+      }),
+    );
+    second.timer.advance(28_740_000);
+    secondTabs.freeze();
+
+    await first.controller.signOut();
+    expect(first.mock.requestsTo("DELETE", deleteUrl)).toHaveLength(1);
+    // The refresh is answered after the sign-out began, and the frozen tab
+    // takes the answer in, and lets the refresh settle, before the message.
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    answer();
+    await vi.waitFor(() => {
+      expect(served).toBe(true);
+    });
+    await vi.waitFor(() => {
+      expect(second.controller.accessToken).toBe("ghu_late");
+    });
+    await new Promise((resolve) => setTimeout(resolve, 10));
+    secondTabs.thaw();
+
+    await vi.waitFor(() => {
+      expect(first.mock.requestsTo("DELETE", deleteUrl)).toHaveLength(2);
+    });
+    expect(second.controller.state).toEqual({ status: "signed-out" });
+    expect(second.controller.accessToken).toBeUndefined();
+    expect(second.tabs.posted).toEqual([]);
   });
 });
