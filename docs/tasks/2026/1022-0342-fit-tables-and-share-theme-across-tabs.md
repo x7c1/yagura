@@ -70,4 +70,4 @@ header at 375px and at desktop width.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `make dev` (MSW), screenshots at 375px and at 1280px, light and dark, show the Members table and the pull request list without sideways scrolling, and the organization selector in the header
+- [x] With `make dev` (MSW), screenshots at 375px and at 1280px, light and dark, show the Members table and the pull request list without sideways scrolling, and the organization selector in the header
