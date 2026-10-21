@@ -110,8 +110,12 @@ async function entries(cache: MemoryJsonStore): Promise<unknown[]> {
 }
 
 describe("Drawing the last viewer's cache before the session is confirmed", () => {
-  it("draws the cached activity while the refresh is held, and keeps it after", async () => {
-    const view = page();
+  /**
+   * Loads the page, then opens it again 10 minutes later with the refresh
+   * held, once the cached list is drawn. Resolves to the summary table's
+   * rows of the first load and a spy on the cache's writes since it.
+   */
+  async function reopenWithRefreshHeld(view: ReturnType<typeof page>) {
     await view.load();
     showPage("Members");
     const cachedRows = await memberSummaryRows();
@@ -120,8 +124,16 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     view.advanceTo(10 * minute);
     const set = vi.spyOn(view.cache, "set");
     view.open({ holdRefresh: true });
-
     await screen.findByRole("table", { name: "Pull requests" });
+    return { cachedRows, set };
+  }
+
+  // Held and released in tests of their own: together, the three loads
+  // take long enough on a busy machine to run out the test's timeout.
+  it("draws the cached activity while the refresh is held", async () => {
+    const view = page();
+    const { cachedRows, set } = await reopenWithRefreshHeld(view);
+
     expect(set).not.toHaveBeenCalled();
     expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
     showPage("Members");
@@ -135,6 +147,11 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
         url.startsWith("https://api.github.com/"),
       ),
     ).toEqual([]);
+  });
+
+  it("keeps the cached activity drawn once the refresh is answered", async () => {
+    const view = page();
+    const { cachedRows, set } = await reopenWithRefreshHeld(view);
 
     view.releaseRefresh();
 
