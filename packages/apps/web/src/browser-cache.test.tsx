@@ -292,8 +292,8 @@ describe("The browser cache", () => {
       }
       return undefined;
     });
-    await expect(view.load(failLookups)).rejects.toThrow();
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    view.open(failLookups);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not load the pull requests",
     );
     for (const login of mockMemberLogins) {
@@ -393,9 +393,8 @@ describe("The browser cache", () => {
       }
       return undefined;
     });
-    // The list never shows, so waiting for it fails.
-    await expect(view.load(failOnce)).rejects.toThrow();
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    view.open(failOnce);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not load the pull requests",
     );
 

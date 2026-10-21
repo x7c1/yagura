@@ -101,6 +101,8 @@ make check
 
 This installs dependencies from the lockfile, then runs the build, type
 check, tests, lint, format check, and dependency rules across the workspace.
+The lint covers every package and the configuration files at the root
+(`eslint.config.js` and `.dependency-cruiser.cjs`).
 It is the same gate CI runs on every pull request. Run `pnpm format` to fix
 formatting.
 

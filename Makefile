@@ -14,5 +14,6 @@ check: deps
 	pnpm -r typecheck
 	pnpm -r test
 	pnpm -r lint
+	pnpm lint
 	pnpm format:check
 	pnpm depcruise

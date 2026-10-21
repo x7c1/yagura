@@ -151,9 +151,18 @@ export function signOut(): void {
   );
 }
 
+/**
+ * The tab of the page `name`. It is looked for within the tabs, so that the
+ * pull request list's links, which outnumber them, are not named one by one.
+ */
+export function pageTab(name: "Activity" | "Members"): HTMLElement {
+  const tabs = screen.getByRole("navigation", { name: "Pages" });
+  return within(tabs).getByRole("link", { name });
+}
+
 /** Switches to the page of the tab named `name`, as a plain click does. */
 export function showPage(name: "Activity" | "Members"): void {
-  fireEvent.click(screen.getByRole("link", { name }));
+  fireEvent.click(pageTab(name));
 }
 
 /**
@@ -191,22 +200,37 @@ export function organizationIdentity(name: string): HTMLElement {
 }
 
 /**
- * Waits until the view is not loading or updating anything: no "Loading…",
- * no "Updating…" note, and no "…" placeholder in the summary table, which
- * the Members page shows instead of a "Loading…" note.
+ * Asserts that the view is not loading or updating anything: no
+ * "Loading…", no "Updating…" note, and no "…" placeholder in the summary
+ * table, which the Members page shows instead of a "Loading…" note.
  */
-async function settled(): Promise<void> {
+function expectSettled(): void {
+  // Every note and placeholder ends in "…", so the plain text rules them out
+  // without the queries below, which walk every element.
+  if (!document.body.textContent?.includes("…")) {
+    return;
+  }
+  expect(screen.queryByText(/^Loading/)).not.toBeInTheDocument();
+  expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
+  expect(screen.queryAllByText("…")).toHaveLength(0);
+}
+
+/**
+ * Waits until the view is settled and shows the table named `name`. The
+ * view is settled first, as waitFor runs this on every change to the
+ * document: while it loads, the cheap look at the text fails before the
+ * table is looked for.
+ */
+async function findSettledTable(name: string): Promise<void> {
   await waitFor(() => {
-    expect(screen.queryByText(/^Loading/)).not.toBeInTheDocument();
-    expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
-    expect(screen.queryAllByText("…")).toHaveLength(0);
+    expectSettled();
+    screen.getByRole("table", { name });
   });
 }
 
 /** The rows of the pull request list, once it is shown and settled. */
 export async function pullRequestRows(): Promise<HTMLElement[]> {
-  await screen.findByRole("table", { name: "Pull requests" });
-  await settled();
+  await findSettledTable("Pull requests");
   return shownPullRequestRows();
 }
 
@@ -214,7 +238,10 @@ export async function pullRequestRows(): Promise<HTMLElement[]> {
 function shownPullRequestRows(): HTMLElement[] {
   const table = screen.getByRole("table", { name: "Pull requests" });
   const [, body] = within(table).getAllByRole("rowgroup");
-  return within(body as HTMLElement).getAllByRole("row");
+  // The table was found accessible, and the list leaves out the rows it does
+  // not show rather than hiding them, so `hidden` skips computing the style
+  // of each row, which is most of the cost of a role query.
+  return within(body as HTMLElement).getAllByRole("row", { hidden: true });
 }
 
 /** The titles in the pull request list, once it is shown and settled. */
@@ -228,7 +255,11 @@ export function shownPullRequestTitles(): string[] {
 }
 
 function titlesOf(rows: readonly HTMLElement[]): string[] {
-  return rows.map((row) => within(row).getByRole("link").textContent ?? "");
+  // As for the rows, `hidden` skips computing the style of each link and
+  // its ancestors.
+  return rows.map(
+    (row) => within(row).getByRole("link", { hidden: true }).textContent ?? "",
+  );
 }
 
 /**
@@ -236,8 +267,7 @@ function titlesOf(rows: readonly HTMLElement[]): string[] {
  * member rows (login and counts, as shown), then the totals row.
  */
 export async function memberSummaryRows(): Promise<string[][]> {
-  await screen.findByRole("table", { name: "Members" });
-  await settled();
+  await findSettledTable("Members");
   return shownMemberSummaryRows();
 }
 
