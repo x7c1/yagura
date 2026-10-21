@@ -267,7 +267,7 @@ describe("The browser cache", () => {
       (variables) => typeof variables.query === "string",
     );
 
-    const titles = view.load();
+    view.open();
 
     await vi.waitFor(() => {
       expect(view.mock.lookups).toHaveLength(1);
@@ -276,7 +276,9 @@ describe("The browser cache", () => {
     // none has been answered.
     expect(view.mock.searches.length).toBeGreaterThan(0);
     release();
-    expect(await titles).toEqual(mockPullRequestTitles);
+    // Wait for the list only now: a wait begun before the release would
+    // count the time the searches are held against its timeout.
+    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
     expect(view.mock.lookups).toHaveLength(1);
   });
 
@@ -292,8 +294,8 @@ describe("The browser cache", () => {
       }
       return undefined;
     });
-    await expect(view.load(failLookups)).rejects.toThrow();
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    view.open(failLookups);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not load the pull requests",
     );
     for (const login of mockMemberLogins) {
@@ -393,9 +395,8 @@ describe("The browser cache", () => {
       }
       return undefined;
     });
-    // The list never shows, so waiting for it fails.
-    await expect(view.load(failOnce)).rejects.toThrow();
-    expect(screen.getByRole("alert")).toHaveTextContent(
+    view.open(failOnce);
+    expect(await screen.findByRole("alert")).toHaveTextContent(
       "Could not load the pull requests",
     );
 

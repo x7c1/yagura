@@ -6,6 +6,7 @@ import { saveHandoff } from "../session/handoff";
 import {
   memberSummaryRows,
   membersPageUrl,
+  pageTab,
   pullRequestTitles,
   showPage,
   testController,
@@ -19,8 +20,6 @@ const chart = () =>
     name: "Merged pull requests per day",
   });
 const summaryTable = () => screen.queryByRole("table", { name: "Members" });
-const tab = (name: "Activity" | "Members") =>
-  screen.getByRole("link", { name });
 
 describe("pageAt", () => {
   it("knows the pages' paths and nothing else", () => {
@@ -42,8 +41,8 @@ describe("Pages", () => {
     await pullRequestTitles();
     expect(chart()).toBeInTheDocument();
     expect(summaryTable()).not.toBeInTheDocument();
-    expect(tab("Activity")).toHaveAttribute("aria-current", "page");
-    expect(tab("Members")).not.toHaveAttribute("aria-current");
+    expect(pageTab("Activity")).toHaveAttribute("aria-current", "page");
+    expect(pageTab("Members")).not.toHaveAttribute("aria-current");
   });
 
   it("opens the members at /members: the summary table, without the chart", async () => {
@@ -63,8 +62,8 @@ describe("Pages", () => {
     expect(
       screen.queryByRole("table", { name: "Pull requests" }),
     ).not.toBeInTheDocument();
-    expect(tab("Members")).toHaveAttribute("aria-current", "page");
-    expect(tab("Activity")).not.toHaveAttribute("aria-current");
+    expect(pageTab("Members")).toHaveAttribute("aria-current", "page");
+    expect(pageTab("Activity")).not.toHaveAttribute("aria-current");
   });
 
   it("fits the activity page's frame to the window, and not the members page's", async () => {
@@ -97,8 +96,8 @@ describe("Pages", () => {
     expect(
       await screen.findByRole("navigation", { name: "Pages" }),
     ).toBeInTheDocument();
-    expect(tab("Activity")).toHaveAttribute("href", "/");
-    expect(tab("Members")).toHaveAttribute("href", "/members");
+    expect(pageTab("Activity")).toHaveAttribute("href", "/");
+    expect(pageTab("Members")).toHaveAttribute("href", "/members");
   });
 
   it("switches pages with the tabs and the history, without fetching again", async () => {
@@ -116,7 +115,7 @@ describe("Pages", () => {
     expect(location.entries).toHaveLength(2);
     expect(summaryTable()).toBeInTheDocument();
     expect(chart()).not.toBeInTheDocument();
-    expect(tab("Members")).toHaveAttribute("aria-current", "page");
+    expect(pageTab("Members")).toHaveAttribute("aria-current", "page");
     expect(document.title).toBe("Members · Yagura");
     // Drawn at once from what the activity page loaded.
     expect(screen.queryByText("…")).not.toBeInTheDocument();
@@ -126,7 +125,7 @@ describe("Pages", () => {
     expect(location.pathname).toBe("/");
     expect(chart()).toBeInTheDocument();
     expect(summaryTable()).not.toBeInTheDocument();
-    expect(tab("Activity")).toHaveAttribute("aria-current", "page");
+    expect(pageTab("Activity")).toHaveAttribute("aria-current", "page");
     expect(document.title).toBe("Activity · Yagura");
 
     act(() => location.forward());
@@ -163,7 +162,7 @@ describe("Pages", () => {
     };
     window.addEventListener("click", afterApp);
     try {
-      fireEvent.click(tab("Members"), { ctrlKey: true });
+      fireEvent.click(pageTab("Members"), { ctrlKey: true });
     } finally {
       window.removeEventListener("click", afterApp);
     }
@@ -187,7 +186,7 @@ describe("Pages", () => {
     expect(chart()).toBeInTheDocument();
     expect(location.href).toBe("http://localhost:5173/");
     expect(location.entries).toEqual(["http://localhost:5173/"]);
-    expect(tab("Activity")).toHaveAttribute("aria-current", "page");
+    expect(pageTab("Activity")).toHaveAttribute("aria-current", "page");
   });
 
   it.each(["http://localhost:5173/", membersPageUrl])(
@@ -224,6 +223,6 @@ describe("Pages", () => {
     expect(location.href).toBe("http://localhost:5173/");
     await pullRequestTitles();
     expect(chart()).toBeInTheDocument();
-    expect(tab("Activity")).toHaveAttribute("aria-current", "page");
+    expect(pageTab("Activity")).toHaveAttribute("aria-current", "page");
   });
 });

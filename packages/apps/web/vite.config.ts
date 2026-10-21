@@ -38,6 +38,12 @@ export default defineConfig(({ mode }) => {
       // The CSS modules' rules are added to the test document, so that a
       // test can read a computed style, such as whether a box scrolls.
       css: { include: /\.module\.css$/ },
+      // Each test file starts a worker that builds its own jsdom, and by
+      // default there is a worker per core. When several test runs share the
+      // machine at once, they keep several times as many workers busy as
+      // there are cores, and a test's waits run out while it waits for its
+      // turn. Half the cores run the suite as fast when it runs alone.
+      maxWorkers: "50%",
     },
   };
 });
