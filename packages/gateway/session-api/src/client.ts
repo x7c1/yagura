@@ -56,13 +56,22 @@ export class SessionApiClient {
     path: string,
     body?: unknown,
   ): Promise<Response> {
-    const response = await this.#fetch(this.#baseUrl + path, {
-      method,
-      credentials: "include",
-      headers:
-        body === undefined ? undefined : { "Content-Type": "application/json" },
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    let response: Response;
+    try {
+      response = await this.#fetch(this.#baseUrl + path, {
+        method,
+        credentials: "include",
+        headers:
+          body === undefined
+            ? undefined
+            : { "Content-Type": "application/json" },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+    } catch (error) {
+      throw new SessionApiError(0, "network_error", undefined, {
+        cause: error,
+      });
+    }
     if (!response.ok) {
       throw SessionApiError.fromBody(response.status, await readJson(response));
     }

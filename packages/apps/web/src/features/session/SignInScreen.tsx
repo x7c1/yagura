@@ -1,7 +1,22 @@
 import type { ReactNode } from "react";
 import { buttonStyles } from "../../shared";
 import { useSession } from "./session-context";
+import type { SessionError, SignInFailureReason } from "./session-controller";
 import styles from "./SignInScreen.module.css";
+
+/**
+ * The note on the sign-in screen when `DELETE /session` failed: the refresh
+ * cookie may still be set, so that the next page load would restore the
+ * session. Reloading restores that same session, if it is still there, and
+ * signing out of it sends the request once more; signing in through GitHub
+ * instead would start a new session and leave the old one's tokens
+ * unrevoked.
+ */
+export const signOutUnconfirmedNote =
+  "You are signed out in this browser, but Yagura could not reach the " +
+  "server to end your session, so it may sign you back in the next time " +
+  "you open it. To end it, reload this page and, if you are signed in " +
+  "again, sign out once more.";
 
 /**
  * What a signed-out visitor sees: the app's name and what it is, the
@@ -23,16 +38,7 @@ export function SignInScreen() {
     case "signed-out":
       return (
         <SignInFrame>
-          {/*
-           * The title stays general, since the failure may be a sign-in's
-           * or a sign-out's that the server did not confirm.
-           */}
-          {state.error && (
-            <div role="alert" className={styles.error}>
-              <p className={styles.errorTitle}>Something went wrong.</p>
-              <p>{state.error}</p>
-            </div>
-          )}
+          {state.error && <SessionFailure error={state.error} />}
           <button
             type="button"
             className={`${buttonStyles.primary} ${styles.signIn}`}
@@ -44,6 +50,90 @@ export function SignInScreen() {
       );
     case "signed-in":
       return null;
+  }
+}
+
+/**
+ * What happened to the viewer, in their terms, and what they can do about
+ * it with what the screen offers: signing in again, or reloading. What
+ * failed in technical terms is in the console.
+ */
+function SessionFailure(props: { readonly error: SessionError }) {
+  const { title, text } = describeSessionError(props.error);
+  return (
+    <div role="alert" className={styles.error}>
+      <p className={styles.errorTitle}>{title}</p>
+      <p>{text}</p>
+    </div>
+  );
+}
+
+interface Message {
+  readonly title: string;
+  readonly text: string;
+}
+
+function describeSessionError(error: SessionError): Message {
+  switch (error.kind) {
+    case "sign-in-failed":
+      return describeSignInFailure(error.reason);
+    case "session-lost":
+      return {
+        title: "You were signed out.",
+        text:
+          error.reason === "offline"
+            ? "Yagura could not reach the network to keep your session. " +
+              "Check your connection, then reload this page or sign in again."
+            : "GitHub or Yagura is not working right now, so your session " +
+              "could not be kept. Reload this page or sign in again in a moment.",
+      };
+    case "sign-out-unconfirmed":
+      return {
+        title: "Your sign-out may not be complete.",
+        text: signOutUnconfirmedNote,
+      };
+  }
+}
+
+function describeSignInFailure(reason: SignInFailureReason): Message {
+  if (reason === "cancelled") {
+    return {
+      title: "Sign-in cancelled.",
+      text:
+        "You cancelled the sign-in on GitHub. " +
+        "Sign in again whenever you are ready.",
+    };
+  }
+  const title = "Could not sign you in.";
+  switch (reason) {
+    case "stale":
+      return {
+        title,
+        text:
+          "This sign-in link is out of date, was already used, or was " +
+          "opened in another tab. Please sign in again.",
+      };
+    case "storage":
+      return {
+        title,
+        text:
+          "Your browser is blocking the storage Yagura needs to sign in. " +
+          "Allow this site to store data, then try again.",
+      };
+    case "offline":
+      return {
+        title,
+        text:
+          "Yagura could not reach the network. " +
+          "Check your connection, then try signing in again.",
+      };
+    case "unavailable":
+      return {
+        title,
+        text:
+          "GitHub or Yagura is not working right now. " +
+          "Try signing in again in a moment.",
+      };
   }
 }
 

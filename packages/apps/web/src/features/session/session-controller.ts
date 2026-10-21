@@ -12,7 +12,8 @@ import {
   type SessionTokens,
 } from "@yagura/session-api";
 import { clearViewerCache, ViewerCache } from "../../shared";
-import { completeCallback } from "./callback";
+import { CallbackError, completeCallback } from "./callback";
+import { HandoffStorageError } from "./handoff";
 import { prepareSignIn } from "./sign-in";
 import { TokenHolder } from "./token-holder";
 
@@ -62,22 +63,36 @@ function decodeTabMessage(data: string): TabMessage | undefined {
 }
 
 /**
- * The note on the sign-in screen when `DELETE /session` failed: the refresh
- * cookie may still be set, so that the next page load would restore the
- * session. Reloading restores that same session, if it is still there, and
- * signing out of it sends the request once more; signing in through GitHub
- * instead would start a new session and leave the old one's tokens
- * unrevoked.
+ * Why a sign-in failed: the viewer cancelled on GitHub (`cancelled`); the
+ * callback was stale, reused or another tab's, or GitHub no longer accepts
+ * its code (`stale`); the browser's storage is blocked (`storage`); the
+ * network is down (`offline`); or GitHub or the session API failed, or
+ * the app is not set up for signing in (`unavailable`).
  */
-export const signOutUnconfirmedNote =
-  "You are signed out in this browser, but Yagura could not reach the " +
-  "server to end your session, so it may sign you back in the next time " +
-  "you open it. To end it, reload this page and, if you are signed in " +
-  "again, sign out once more.";
+export type SignInFailureReason =
+  "cancelled" | "stale" | "storage" | "offline" | "unavailable";
+
+/**
+ * Why the viewer is signed out with a failure, for the sign-in screen to
+ * tell: a sign-in that failed (`sign-in-failed`), a session that could not
+ * be restored or refreshed (`session-lost`), or a sign-out whose
+ * `DELETE /session` failed, so that the refresh cookie may still be set
+ * and the next page load restore the session (`sign-out-unconfirmed`).
+ * The failure itself goes to the console.
+ */
+export type SessionError =
+  | { readonly kind: "sign-in-failed"; readonly reason: SignInFailureReason }
+  | {
+      readonly kind: "session-lost";
+      readonly reason: "offline" | "unavailable";
+    }
+  | { readonly kind: "sign-out-unconfirmed" };
+
+const signOutUnconfirmed: SessionError = { kind: "sign-out-unconfirmed" };
 
 export type SessionState =
   | { readonly status: "pending" }
-  | { readonly status: "signed-out"; readonly error?: string }
+  | { readonly status: "signed-out"; readonly error?: SessionError }
   | {
       readonly status: "signed-in";
       readonly login: string;
@@ -290,7 +305,7 @@ export class SessionController {
         location.assign(url);
       }
     } catch (error) {
-      this.#signedOut(describe(error));
+      this.#signedOut(signInFailure(error));
     }
   }
 
@@ -308,7 +323,7 @@ export class SessionController {
    * sets a new refresh cookie, which, arriving after the answer that clears
    * the cookie, would keep the session alive for the next load. When the
    * request fails, the cookie may still be set, and the sign-in screen
-   * says so with {@link signOutUnconfirmedNote}, in this tab and, through a
+   * says so (a `sign-out-unconfirmed` error), in this tab and, through a
    * `sign-out-unconfirmed` message, in the others (see {@link #endSession}).
    *
    * The returned promise settles, never rejecting, once the request has
@@ -333,8 +348,8 @@ export class SessionController {
    * before its `signed-out`, or without it. A message about a sign-out
    * that began before this tab's last sign-out or sign-in, as one from a
    * tab that was asleep may be, is ignored: that sign-out ended a session
-   * this tab no longer has. A `sign-out-unconfirmed` otherwise shows
-   * {@link signOutUnconfirmedNote} on the sign-in screen, as
+   * this tab no longer has. A `sign-out-unconfirmed` message otherwise
+   * signs this tab out with a `sign-out-unconfirmed` error, as
    * {@link #endSession} does in the tab that sent it: only while its
    * sign-out is still the last one this tab has counted, since a later one
    * has its own outcome.
@@ -351,7 +366,7 @@ export class SessionController {
       message.id === this.#lastSignOutId &&
       this.#state.status === "signed-out"
     ) {
-      this.#signedOut(signOutUnconfirmedNote);
+      this.#signedOut(signOutUnconfirmed);
     }
   }
 
@@ -398,7 +413,7 @@ export class SessionController {
     } catch (error) {
       console.warn("Could not end the session on the server:", error);
       if (signOuts === this.#signOuts && this.#state.status === "signed-out") {
-        this.#signedOut(signOutUnconfirmedNote);
+        this.#signedOut(signOutUnconfirmed);
         this.#post("sign-out-unconfirmed", signOut);
       }
     }
@@ -506,7 +521,7 @@ export class SessionController {
       }
     } catch (error) {
       if (signOuts === this.#signOuts) {
-        this.#signedOut(describe(error));
+        this.#signedOut(sessionLost(error));
       }
     }
   }
@@ -524,7 +539,7 @@ export class SessionController {
       this.#confirm(tokens.login, this.#signOuts);
     } catch (error) {
       this.#tokens.clear();
-      this.#signedOut(describe(error));
+      this.#signedOut(signInFailure(error));
     }
   }
 
@@ -601,7 +616,7 @@ export class SessionController {
     try {
       await this.#refresh();
     } catch (error) {
-      this.#signedOut(describe(error));
+      this.#signedOut(sessionLost(error));
     }
   }
 
@@ -613,7 +628,7 @@ export class SessionController {
     return token;
   }
 
-  #signedOut(error?: string): void {
+  #signedOut(error?: SessionError): void {
     this.#setState(
       error === undefined
         ? { status: "signed-out" }
@@ -677,6 +692,42 @@ function warnLastViewer(action: string, error: unknown): void {
   console.warn(`Could not ${action} the last viewer:`, error);
 }
 
-function describe(error: unknown): string {
-  return error instanceof Error ? error.message : String(error);
+/** The sign-in screen's account of a failed sign-in, logging `error`. */
+function signInFailure(error: unknown): SessionError {
+  console.warn("Could not sign in:", error);
+  return { kind: "sign-in-failed", reason: signInFailureReason(error) };
+}
+
+function signInFailureReason(error: unknown): SignInFailureReason {
+  if (error instanceof CallbackError) {
+    return error.reason === "declined" ? "unavailable" : error.reason;
+  }
+  if (error instanceof HandoffStorageError) {
+    return "storage";
+  }
+  // GitHub accepts a code only once, and only for a few minutes.
+  if (error instanceof SessionApiError && error.code === "invalid_grant") {
+    return "stale";
+  }
+  return connectionFailure(error);
+}
+
+/**
+ * The sign-in screen's account of a session that could not be restored or
+ * refreshed, logging `error`.
+ */
+function sessionLost(error: unknown): SessionError {
+  console.warn("Could not keep the session:", error);
+  return { kind: "session-lost", reason: connectionFailure(error) };
+}
+
+/**
+ * Whether a failed session API request got no response (`offline`), or
+ * failed otherwise (`unavailable`), as a `502 upstream_error` does when
+ * GitHub is slow or failing.
+ */
+function connectionFailure(error: unknown): "offline" | "unavailable" {
+  return error instanceof SessionApiError && error.code === "network_error"
+    ? "offline"
+    : "unavailable";
 }

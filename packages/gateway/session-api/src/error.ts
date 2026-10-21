@@ -1,6 +1,7 @@
 /**
  * The `error` codes the session API documents, plus `unexpected_response`
- * for a response this client cannot interpret.
+ * for a response this client cannot interpret and `network_error` for a
+ * request that got no response at all.
  */
 export type SessionApiErrorCode =
   | "invalid_request"
@@ -9,7 +10,8 @@ export type SessionApiErrorCode =
   | "upstream_error"
   | "forbidden_origin"
   | "unsupported_media_type"
-  | "unexpected_response";
+  | "unexpected_response"
+  | "network_error";
 
 const documentedCodes: ReadonlySet<string> = new Set([
   "invalid_request",
@@ -20,16 +22,27 @@ const documentedCodes: ReadonlySet<string> = new Set([
   "unsupported_media_type",
 ]);
 
-/** A non-2xx (or unreadable) response from the session API. */
+/**
+ * A non-2xx (or unreadable) response from the session API, or no response
+ * at all (`network_error`, with `status` 0 and the failure as `cause`).
+ */
 export class SessionApiError extends Error {
   readonly status: number;
   readonly code: SessionApiErrorCode;
   readonly description: string | undefined;
 
-  constructor(status: number, code: SessionApiErrorCode, description?: string) {
+  constructor(
+    status: number,
+    code: SessionApiErrorCode,
+    description?: string,
+    options?: ErrorOptions,
+  ) {
     super(
-      `Session API responded ${status} ${code}` +
+      (code === "network_error"
+        ? "Session API could not be reached"
+        : `Session API responded ${status} ${code}`) +
         (description ? `: ${description}` : ""),
+      options,
     );
     this.name = "SessionApiError";
     this.status = status;

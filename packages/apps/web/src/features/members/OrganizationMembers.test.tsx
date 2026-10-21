@@ -5,7 +5,7 @@ import {
 } from "@yagura/api-mocks";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "../../App";
 import {
   findOrganization,
@@ -127,17 +127,50 @@ describe("OrganizationMembers", () => {
       ),
     );
 
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     render(
       <App session={controller} widths={testWidths()} theme={testTheme()} />,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      `Could not load the members of ${mockOrganization}`,
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      `Could not load the members of ${mockOrganization} because GitHub or Yagura is not working right now. Retry in a moment, or reload the page if it keeps failing.`,
     );
+    expect(alert).not.toHaveTextContent(/responded|GET \/|\b500\b/);
+    expect(warn).toHaveBeenCalledWith(
+      "Could not fetch:",
+      expect.objectContaining({ status: 500 }),
+    );
+    warn.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await memberLogins()).toEqual(mockMemberLogins);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("says when the members cannot be loaded for the network being down", async () => {
+    const { controller } = testController({
+      signedIn: true,
+      url: membersPageUrl,
+    });
+    server.use(
+      http.get(membersUrl(mockOrganization), () => HttpResponse.error(), {
+        once: true,
+      }),
+    );
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      `Could not load the members of ${mockOrganization} because you appear to be offline. Check your connection, then retry.`,
+    );
+    expect(alert).not.toHaveTextContent("Failed to fetch");
+    warn.mockRestore();
   });
 
   it("says so when no members are visible", async () => {

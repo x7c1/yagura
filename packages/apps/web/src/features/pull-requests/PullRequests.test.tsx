@@ -6,7 +6,7 @@ import {
 import { dayKeyOf, periodEndingAt, type PullRequest } from "@yagura/activity";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { App } from "../../App";
 import {
   pullRequestRows,
@@ -383,13 +383,18 @@ describe("MembersActivity", () => {
       ),
     );
 
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+
     render(
       <App session={controller} widths={testWidths()} theme={testTheme()} />,
     );
 
-    expect(await screen.findByRole("alert")).toHaveTextContent(
-      `Could not load the pull requests of ${mockOrganization}'s members`,
+    const alert = await screen.findByRole("alert");
+    expect(alert).toHaveTextContent(
+      `Could not load the pull requests of ${mockOrganization}'s members because GitHub or Yagura is not working right now. Retry in a moment, or reload the page if it keeps failing.`,
     );
+    expect(alert).not.toHaveTextContent(/responded|POST \/graphql|\b502\b/);
+    warn.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
     expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);

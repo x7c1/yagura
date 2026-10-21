@@ -323,18 +323,32 @@ export class GitHubApiClient {
     url: string,
     init: { method: string; headers?: Record<string, string>; body?: string },
   ): Promise<{ response: Response; body: unknown }> {
-    const response = await this.#fetch(url, {
-      ...init,
-      headers: {
-        ...init.headers,
-        Accept: "application/vnd.github+json",
-        Authorization: `Bearer ${accessToken}`,
-      },
-    });
+    let response: Response;
+    try {
+      response = await this.#fetch(url, {
+        ...init,
+        headers: {
+          ...init.headers,
+          Accept: "application/vnd.github+json",
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+    } catch (error) {
+      throw new GitHubApiError(0, `GitHub API could not be reached: ${name}`, {
+        cause: error,
+      });
+    }
     if (!response.ok) {
+      // GitHub's own message is the only place that tells a rate limit's
+      // 403 from a refusal's.
+      const body: unknown = await response.json().catch(() => undefined);
+      const detail =
+        isRecord(body) && typeof body.message === "string"
+          ? `: ${body.message}`
+          : "";
       throw new GitHubApiError(
         response.status,
-        `GitHub API responded ${response.status} to ${name}`,
+        `GitHub API responded ${response.status} to ${name}${detail}`,
       );
     }
     const body: unknown = await response.json().catch(() => undefined);
