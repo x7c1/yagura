@@ -12,6 +12,16 @@ export const mockLogin = "mock-user";
 /** The organization the mock reports the GitHub App installed on. */
 export const mockOrganization = "mock-org";
 
+/**
+ * The organizations the development server's mock reports the GitHub App
+ * installed on: more than one, so that the header's organization selector
+ * shows. Each has the same members and pull requests.
+ */
+export const mockDevelopmentOrganizations: readonly string[] = [
+  mockOrganization,
+  "mock-labs",
+];
+
 /** The members of {@link mockOrganization}, sorted by login. */
 export const mockMemberLogins: readonly string[] = [
   "mock-alice",

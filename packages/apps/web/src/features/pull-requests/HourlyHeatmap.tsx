@@ -273,43 +273,23 @@ function busiestHour(hours: readonly DayHourCounts[]): number {
   return Math.max(0, ...hours.flatMap((d) => d.merged));
 }
 
-/** The size of a swatch of the heatmap's scale, its gap included. */
-const scaleSwatch = 10;
-
 /**
- * The key to the heatmap's strengths, as the caption of the chart's figure:
- * the steps, weakest first, between 1 and the count of the busiest hour,
- * which the strongest stands for. With no hour busy, there is nothing to
- * key. What is counted needs no key of its own: the card's heading says it.
+ * The description of the heatmap's strengths, as the caption of the chart's
+ * figure, for assistive technology only: the cells' shades show them on
+ * the page without a key. With no hour busy, there is nothing to describe.
+ * What is counted needs no description of its own: the card's heading says
+ * it.
  */
-export function HeatScale(props: { readonly hours: readonly DayHourCounts[] }) {
+export function HeatDescription(props: {
+  readonly hours: readonly DayHourCounts[];
+}) {
   const busiest = busiestHour(props.hours);
   if (busiest === 0) {
     return null;
   }
   return (
-    <figcaption className={styles.legend}>
-      <span aria-hidden="true">Per hour: 1</span>
-      <svg
-        width={heatSteps * scaleSwatch}
-        height={scaleSwatch}
-        aria-hidden="true"
-      >
-        {stepClasses.slice(1).map((className, step) => (
-          <rect
-            key={step}
-            x={step * scaleSwatch}
-            y={0}
-            width={scaleSwatch - 1}
-            height={scaleSwatch - 1}
-            className={className}
-          />
-        ))}
-      </svg>
-      <span aria-hidden="true">{busiest}</span>
-      <span className={styles.visuallyHidden}>
-        {`Hours shaded in ${heatSteps} steps, from 1 up to the busiest hour's ${busiest}`}
-      </span>
+    <figcaption className={styles.visuallyHidden}>
+      {`Hours shaded in ${heatSteps} steps, from 1 up to the busiest hour's ${busiest}`}
     </figcaption>
   );
 }

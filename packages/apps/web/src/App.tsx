@@ -63,10 +63,12 @@ export function App(props: {
 
   // Bring the theme controller, and so the menu's check, in line with the
   // stored choice, which the early script in `index.html` has already
-  // applied to the page.
+  // applied to the page, and keep it in line with the choice made in
+  // another tab.
   const { theme } = props;
   useLayoutEffect(() => {
     theme.restore();
+    return theme.followOtherTabs();
   }, [theme]);
 
   // Drop the code and state from the address bar and the history entry.

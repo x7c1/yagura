@@ -5,7 +5,7 @@ import { chartGeometry, type Bar, type TextSpot } from "./chart-geometry";
 import styles from "./DailyChart.module.css";
 import { formatDay } from "./format";
 import { heatmapGeometry } from "./heatmap-geometry";
-import { HeatScale, HourlyHeatmap } from "./HourlyHeatmap";
+import { HeatDescription, HourlyHeatmap } from "./HourlyHeatmap";
 import type { ChartSelection } from "./selection";
 
 /** The attributes that place a piece of text at `spot`. */
@@ -23,9 +23,10 @@ function placed({ x, y, anchor }: TextSpot) {
  *
  * Under the bars, the heatmap of `hours` shows when in each day the merges
  * happened, laid out to share the bars' days (see {@link HourlyHeatmap});
- * a cell chooses its hour as a bar chooses its day. Under both, the key to
- * the heatmap's strengths; what both count is said by the heading of the
- * card the chart is drawn in.
+ * a cell chooses its hour as a bar chooses its day. The cells' shades need
+ * no key; the figure's caption describes them to assistive technology
+ * only. What both count is said by the heading of the card the chart is
+ * drawn in.
  */
 export function DailyChart(props: {
   readonly days: readonly DayCounts[];
@@ -160,7 +161,7 @@ export function DailyChart(props: {
       <div ref={ref} className={styles.frame}>
         {width !== null && chart(width)}
       </div>
-      <HeatScale hours={hours} />
+      <HeatDescription hours={hours} />
     </figure>
   );
 }

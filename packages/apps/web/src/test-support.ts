@@ -4,6 +4,7 @@ import {
   MemoryElementWidths,
   MemoryJsonStore,
   MemoryLocation,
+  MemoryStorageChanges,
   MemoryStore,
   MemoryTabChannel,
   type JsonStore,
@@ -117,7 +118,11 @@ export function testWidths(width = 1000): MemoryElementWidths {
 export function testTheme(
   store: KeyValueStore = new MemoryStore(),
 ): ThemeController {
-  return new ThemeController({ store, root: new MemoryElementAttribute() });
+  return new ThemeController({
+    store,
+    changes: new MemoryStorageChanges(),
+    root: new MemoryElementAttribute(),
+  });
 }
 
 /** The header's menu button, which holds the theme choice and "Sign out". */

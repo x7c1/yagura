@@ -6,6 +6,7 @@ import {
   ResizeObserverWidths,
   WebStorageStore,
   WindowLocation,
+  WindowStorageChanges,
   type KeyValueStore,
 } from "@yagura/browser";
 import { GitHubApiClient } from "@yagura/github-api";
@@ -77,6 +78,10 @@ async function main(container: HTMLElement): Promise<void> {
         theme={
           new ThemeController({
             store: localStore,
+            changes: new WindowStorageChanges(
+              window,
+              () => window.localStorage,
+            ),
             root: new DomElementAttribute(
               document.documentElement,
               themeAttributeName,

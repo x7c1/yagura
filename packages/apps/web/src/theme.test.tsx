@@ -1,6 +1,12 @@
 import { mockLogin } from "@yagura/api-mocks";
-import { DomElementAttribute, MemoryStore } from "@yagura/browser";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  DomElementAttribute,
+  MemoryStorageChanges,
+  MemoryStore,
+  WebStorageStore,
+  WindowStorageChanges,
+} from "@yagura/browser";
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import indexHtml from "../index.html?raw";
 import { App } from "./App";
@@ -21,18 +27,21 @@ const root = document.documentElement;
 
 /**
  * A theme controller over the test document's root element, as the app's
- * is over the page's, and the store it keeps the choice in.
+ * is over the page's, the store it keeps the choice in, and the changes
+ * other tabs make to that store.
  */
 function theme(stored?: string) {
   const store = new MemoryStore();
   if (stored !== undefined) {
     store.set(themeStorageKey, stored);
   }
+  const changes = new MemoryStorageChanges();
   const controller = new ThemeController({
     store,
+    changes,
     root: new DomElementAttribute(root, themeAttributeName),
   });
-  return { controller, store };
+  return { controller, store, changes };
 }
 
 /** The theme options in the open header menu. */
@@ -179,6 +188,7 @@ describe("The header menu", () => {
     });
     const themeController = new ThemeController({
       store,
+      changes: new MemoryStorageChanges(),
       root: new DomElementAttribute(root, themeAttributeName),
     });
 
@@ -191,6 +201,7 @@ describe("The header menu", () => {
 
     const unknown = new ThemeController({
       store: theme("sepia").store,
+      changes: new MemoryStorageChanges(),
       root: new DomElementAttribute(root, themeAttributeName),
     });
     unknown.restore();
@@ -277,6 +288,82 @@ describe("The header menu", () => {
     expect(store.get("yagura.last-viewer")).toBeUndefined();
     expect(store.get(themeStorageKey)).toBe("dark");
     expect(root).toHaveAttribute(themeAttributeName, "dark");
+  });
+});
+
+describe("A choice made in another tab", () => {
+  it("applies here, through the window's storage events", async () => {
+    const changes = new WindowStorageChanges(window, () => localStorage);
+    const themeController = new ThemeController({
+      store: new WebStorageStore(() => localStorage),
+      changes,
+      root: new DomElementAttribute(root, themeAttributeName),
+    });
+    await renderSignedIn(themeController);
+    openMenu();
+    expect(checkedTheme()).toBe("System");
+
+    // What another tab does: it writes the store, and this tab is told by a
+    // `storage` event.
+    const otherTab = (key: string | null, value: string | null) => {
+      if (key === null) {
+        localStorage.clear();
+      } else if (value === null) {
+        localStorage.removeItem(key);
+      } else {
+        localStorage.setItem(key, value);
+      }
+      act(() => {
+        window.dispatchEvent(
+          new StorageEvent("storage", {
+            key,
+            newValue: value,
+            storageArea: localStorage,
+          }),
+        );
+      });
+    };
+
+    otherTab(themeStorageKey, "dark");
+    expect(root).toHaveAttribute(themeAttributeName, "dark");
+    expect(checkedTheme()).toBe("Dark");
+
+    otherTab(themeStorageKey, "light");
+    expect(root).toHaveAttribute(themeAttributeName, "light");
+    expect(checkedTheme()).toBe("Light");
+
+    otherTab(themeStorageKey, null);
+    expect(root).not.toHaveAttribute(themeAttributeName);
+    expect(checkedTheme()).toBe("System");
+
+    otherTab(themeStorageKey, "dark");
+    otherTab(null, null);
+    expect(root).not.toHaveAttribute(themeAttributeName);
+    expect(checkedTheme()).toBe("System");
+  });
+
+  it("is ignored for another key, and stops being followed on teardown", async () => {
+    const { controller: themeController, store, changes } = theme();
+    const { controller } = testController({ signedIn: true });
+    const { unmount } = render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={themeController}
+      />,
+    );
+    expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    expect(changes.listeners).toBe(1);
+
+    store.set(themeStorageKey, "dark");
+    act(() => changes.change("yagura.last-viewer"));
+    expect(root).not.toHaveAttribute(themeAttributeName);
+
+    act(() => changes.change(themeStorageKey));
+    expect(root).toHaveAttribute(themeAttributeName, "dark");
+
+    unmount();
+    expect(changes.listeners).toBe(0);
   });
 });
 
