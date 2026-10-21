@@ -60,5 +60,5 @@ times in 24 runs when 8 runs were in parallel: `findByRole` timed out. A plain
 
 ### Before merge (verified outside the check command)
 
-- [ ] Running the web tests 24 times, 8 in parallel, fails 0 times
-- [ ] `dependabot.yml` passes GitHub's validation (no Dependabot configuration error on the pull request)
+- [x] Running the web tests 24 times, 8 in parallel, fails 0 times
+- [x] `dependabot.yml` passes GitHub's validation (no Dependabot configuration error on the pull request)
