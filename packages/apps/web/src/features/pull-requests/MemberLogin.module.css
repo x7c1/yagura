@@ -1,13 +1,12 @@
 /*
- * A login with the member's avatar beside it, on one line: a login is a
- * name, and broken inside itself it no longer reads as one. A table too
- * wide for the page scrolls inside its own container instead.
+ * A login with the member's avatar beside it. The login wraps where its
+ * table leaves it too little room, after a hyphen where it has one, so
+ * that the table fits the card rather than scrolling sideways.
  */
 .login {
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  white-space: nowrap;
 }
 
 .avatar {
@@ -16,4 +15,15 @@
   height: var(--avatar-size);
   border-radius: var(--radius-pill);
   background: var(--color-surface);
+}
+
+/*
+ * A table may set `--login-max-width` where it has little room for its
+ * logins: a login wider than that breaks anywhere, even one without a
+ * hyphen, so that it never widens its table past its card.
+ */
+.name {
+  min-width: 0;
+  max-width: var(--login-max-width, none);
+  overflow-wrap: break-word;
 }

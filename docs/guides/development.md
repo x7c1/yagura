@@ -70,14 +70,15 @@ With `VITE_API_MOCK=1`, the app starts [Mock Service Worker](https://mswjs.io/)
 in the browser and answers the session API and the GitHub API from the
 handlers in `packages/testing/api-mocks`, the same ones the tests use: the
 session API (signed in as `mock-user`), and from the GitHub API
-`GET /user/installations` (one organization, `mock-org`),
-`GET /orgs/mock-org/members` (a few members, including the signed-in
+`GET /user/installations` (two organizations, `mock-org` and `mock-labs`,
+so that the header shows the organization selector),
+`GET /orgs/{org}/members` (the same few members for each, including the signed-in
 `mock-user`), and the GraphQL pull request searches and lookups by id (a handful of pull
 requests per member, spread over the 14 days before the page loaded).
 "Sign in with GitHub" skips the GitHub authorize page and returns straight
 to the callback with a mock code, so sign-in completes without leaving
-localhost and without a client id, and the page then shows `mock-org`, its
-members, and their pull requests. The mock session survives a reload in the
+localhost and without a client id, and the page then shows `mock-labs`
+(the first by login), its members, and their pull requests. The mock session survives a reload in the
 same tab, as the refresh cookie would, until "Sign out". Unlike the cookie, it is kept per tab: another tab needs signing in on its own, and a tab signed out by a sign-out in another tab signs in again when it is reloaded.
 
 The worker script is `packages/apps/web/public/mockServiceWorker.js`,

@@ -39,6 +39,47 @@ describe("MembersActivity", () => {
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
 
+  it("fits both tables to their cards, in no container that scrolls sideways", async () => {
+    const { controller } = testController({ signedIn: true });
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    /** Whether `element` scrolls sideways, by `overflow` or `overflow-x`. */
+    const scrollsSideways = (element: Element) => {
+      const style = getComputedStyle(element);
+      const [overflowX] = style.overflow.split(" ");
+      return [overflowX, style.overflowX].some(
+        (value) => value === "auto" || value === "scroll",
+      );
+    };
+    const sidewaysScrolling = (table: HTMLElement) => {
+      const found: Element[] = [];
+      for (
+        let element: Element | null = table;
+        element !== null;
+        element = element.parentElement
+      ) {
+        if (scrollsSideways(element)) {
+          found.push(element);
+        }
+      }
+      return found;
+    };
+
+    await pullRequestTitles();
+    const list = screen.getByRole("table", { name: "Pull requests" });
+    expect(sidewaysScrolling(list)).toEqual([]);
+    // The list still scrolls up and down inside its card, where the page
+    // fits the window.
+    expect(getComputedStyle(list.parentElement as Element).overflowY).toBe(
+      "auto",
+    );
+
+    showPage("Members");
+    const members = await screen.findByRole("table", { name: "Members" });
+    expect(sidewaysScrolling(members)).toEqual([]);
+  });
+
   it("writes each pull request's number under its repository, and the title alone in its cell", async () => {
     const { controller } = testController({ signedIn: true });
 
@@ -57,6 +98,29 @@ describe("MembersActivity", () => {
       expect(repository?.textContent).toBe(`${name}#${number?.[1]}`);
       expect(repository?.lastElementChild?.textContent).toBe(`#${number?.[1]}`);
     }
+  });
+
+  it("names the list's table roles, which its narrow layout's display would drop", async () => {
+    const { controller } = testController({ signedIn: true });
+    render(
+      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+    );
+    await pullRequestTitles();
+
+    const table = screen.getByRole("table", { name: "Pull requests" });
+    expect(table.getAttribute("role")).toBe("table");
+    const roles = (selector: string) =>
+      [...table.querySelectorAll(selector)].map((element) =>
+        element.getAttribute("role"),
+      );
+    expect(roles("thead, tbody")).toEqual(["rowgroup", "rowgroup"]);
+    const rows = roles("tr");
+    expect(rows.length).toBeGreaterThan(1);
+    expect(new Set(rows)).toEqual(new Set(["row"]));
+    expect(new Set(roles("th"))).toEqual(new Set(["columnheader"]));
+    const cells = roles("td");
+    expect(cells).toHaveLength((rows.length - 1) * 6);
+    expect(new Set(cells)).toEqual(new Set(["cell"]));
   });
 
   it("writes the repository's name alone for an address with no number", () => {

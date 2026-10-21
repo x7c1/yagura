@@ -144,14 +144,19 @@ describe("DailyChart", () => {
     expect(
       screen.queryByRole("gridcell", { name: /opened/ }),
     ).not.toBeInTheDocument();
-    // Under the chart is only the key to the heatmap's strengths: what is
-    // counted is said by the card's heading, not by a legend.
-    const caption = screen
+    // The figure draws no legend: its caption only describes the heatmap's
+    // strengths to assistive technology, and what is counted is said by
+    // the card's heading.
+    const figure = screen
       .getByRole("group", { name: chartName })
-      .closest("figure")
-      ?.querySelector("figcaption");
-    expect(caption).toHaveTextContent(/^Per hour: 1/);
-    expect(caption).not.toHaveTextContent(/Merged|Opened/);
+      .closest("figure");
+    expect(figure).not.toBeNull();
+    const caption = figure?.querySelector("figcaption");
+    expect(caption?.textContent).toMatch(
+      /^Hours shaded in 4 steps, from 1 up to the busiest hour's \d+$/,
+    );
+    expect(caption?.querySelector("svg, [aria-hidden]")).toBeNull();
+    expect(figure).not.toHaveTextContent(/Per hour/);
   });
 
   it.each([1000, 340])(

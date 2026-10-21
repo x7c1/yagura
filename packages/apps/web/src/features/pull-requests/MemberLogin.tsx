@@ -14,7 +14,7 @@ export function MemberLogin(props: {
       {avatarUrl !== undefined && (
         <img className={styles.avatar} src={avatarUrl} alt="" />
       )}
-      {login}
+      <span className={styles.name}>{login}</span>
     </span>
   );
 }

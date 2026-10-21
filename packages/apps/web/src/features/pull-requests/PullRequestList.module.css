@@ -1,22 +1,23 @@
 /*
- * The table scrolls inside here when it is wider than the page, and, where
- * its card has less height than the table needs (as where the page fits the
- * window), when it is taller too. One container scrolls both ways, so that
- * a wheel or a trackpad scrolls the list as it would a page.
+ * The table's scrolling area. Where its card has less height than the table
+ * needs (as where the page fits the window), the rows scroll up and down in
+ * here, so that a wheel or a trackpad scrolls the list as it would a page.
+ * It never scrolls sideways: the table fits the card's width (below).
  */
 .scroll {
   flex: 1 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow-x: hidden;
+  overflow-y: auto;
 }
 
 /*
- * Where the platform draws classic scroll bars, the list's bars, both ways,
- * are thin and show only while the pointer is over the list or focus is
- * inside it, so that at rest they do not weigh on the card. Only their
- * colours change, transparent at rest, so the room they take stays the
- * same and nothing moves when they show. Browsers without
- * `scrollbar-color` keep their own bars.
+ * Where the platform draws classic scroll bars, the list's bar is thin and
+ * shows only while the pointer is over the list or focus is inside it, so
+ * that at rest it does not weigh on the card. Only its colours change,
+ * transparent at rest, so the room it takes stays the same and nothing
+ * moves when it shows. Browsers without `scrollbar-color` keep their own
+ * bars.
  */
 .scroll {
   scrollbar-width: thin;
@@ -40,6 +41,21 @@
 }
 
 /*
+ * A login takes at most this much of a line (see `MemberLogin`), so that a
+ * long one cannot widen the table past its card; less where the card has
+ * little room beside the title.
+ */
+.table {
+  --login-max-width: 10em;
+}
+
+@media (width < 64rem) {
+  .table {
+    --login-max-width: 5em;
+  }
+}
+
+/*
  * The column headings stay at the top of the scrolling area while the rows
  * scroll under them, on the card's background so that the rows do not
  * show through.
@@ -57,10 +73,19 @@
   white-space: nowrap;
 }
 
-/* A long title wraps rather than stretching the table. */
+/*
+ * A long title wraps rather than stretching the table, and so do the
+ * repository's name and the author's login (which wraps on its own), so
+ * that the table fits the card's width.
+ */
 .table .title {
   white-space: normal;
   min-width: var(--wrap-column-min-width);
+  overflow-wrap: anywhere;
+}
+
+.table .repository {
+  white-space: normal;
   overflow-wrap: anywhere;
 }
 
@@ -131,4 +156,86 @@
 .scroll .table th:last-child,
 .scroll .table td:last-child {
   padding-right: var(--space-2);
+}
+
+/*
+ * On a narrow screen, where the columns would leave the title only a few
+ * words a line, each pull request is a block instead: its title on the
+ * first line, its repository and author on the next, and its state,
+ * lines and date on the last, the date at the right end. The column
+ * headings, which nothing lines up under, are only read out.
+ */
+@media (width < 50rem) {
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+    white-space: nowrap;
+  }
+
+  .table,
+  .table tbody {
+    display: block;
+  }
+
+  /* The author has a line to share with the repository alone. */
+  .table {
+    --login-max-width: none;
+  }
+
+  .table tbody tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    column-gap: var(--space-3);
+    padding: var(--space-2);
+    border-bottom: var(--border-width) solid var(--color-border-subtle);
+  }
+
+  /*
+   * An empty line between the author and the state, so that the state,
+   * lines and date always start the last line. The lines' spacing is
+   * margins, as a row gap would add up around it.
+   */
+  .table tbody tr::after {
+    content: "";
+    order: 1;
+    flex-basis: 100%;
+  }
+
+  .scroll .table td,
+  .scroll .table td:first-child,
+  .scroll .table td:last-child {
+    padding: 0;
+    border-bottom: none;
+  }
+
+  .table .title {
+    flex-basis: 100%;
+    min-width: 0;
+    margin-bottom: var(--space-1);
+  }
+
+  .table .author {
+    min-width: 0;
+  }
+
+  .table .state,
+  .table .lines,
+  .table .date {
+    order: 2;
+    margin-top: var(--space-1);
+  }
+
+  .table .date {
+    margin-left: auto;
+  }
+
+  /* The number follows the repository's name on its line. */
+  .table .number {
+    display: inline;
+    margin-left: var(--space-1);
+  }
 }

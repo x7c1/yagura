@@ -6,10 +6,12 @@ import {
   MemoryElementAttribute,
   MemoryElementWidths,
   MemoryLocation,
+  MemoryStorageChanges,
   MemoryStore,
   MemoryTabChannel,
   ResizeObserverWidths,
   WebStorageStore,
+  WindowStorageChanges,
 } from ".";
 
 describe("MemoryStore", () => {
@@ -279,5 +281,64 @@ describe("BroadcastTabChannel", () => {
 
     expect(warn).toHaveBeenCalled();
     warn.mockRestore();
+  });
+});
+
+describe("WindowStorageChanges", () => {
+  /** A `storage` event as the browser fires it, for `key` in `area`. */
+  const storageEvent = (key: string | null, area: object) =>
+    Object.assign(new Event("storage"), { key, storageArea: area });
+
+  it("reports the key of each change to its own area, until unsubscribed", () => {
+    const window = new EventTarget();
+    const local = {} as Storage;
+    const session = {} as Storage;
+    const changes = new WindowStorageChanges(
+      window as unknown as Window,
+      () => local,
+    );
+    const keys: (string | null)[] = [];
+    const unsubscribe = changes.onChange((key) => keys.push(key));
+
+    window.dispatchEvent(storageEvent("yagura.theme", local));
+    window.dispatchEvent(storageEvent("other", session));
+    window.dispatchEvent(storageEvent(null, local));
+    expect(keys).toEqual(["yagura.theme", null]);
+
+    unsubscribe();
+    window.dispatchEvent(storageEvent("yagura.theme", local));
+    expect(keys).toEqual(["yagura.theme", null]);
+  });
+
+  it("ignores a change while its area cannot be reached", () => {
+    const window = new EventTarget();
+    const changes = new WindowStorageChanges(
+      window as unknown as Window,
+      () => {
+        throw new Error("storage is blocked");
+      },
+    );
+    const keys: (string | null)[] = [];
+    changes.onChange((key) => keys.push(key));
+
+    window.dispatchEvent(storageEvent("yagura.theme", {}));
+    expect(keys).toEqual([]);
+  });
+});
+
+describe("MemoryStorageChanges", () => {
+  it("reports each change to its listeners, until unsubscribed", () => {
+    const changes = new MemoryStorageChanges();
+    const keys: (string | null)[] = [];
+    const unsubscribe = changes.onChange((key) => keys.push(key));
+    expect(changes.listeners).toBe(1);
+
+    changes.change("yagura.theme");
+    changes.change(null);
+    unsubscribe();
+    changes.change("yagura.theme");
+
+    expect(keys).toEqual(["yagura.theme", null]);
+    expect(changes.listeners).toBe(0);
   });
 });

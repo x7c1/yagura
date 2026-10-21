@@ -43,7 +43,7 @@
   /* Room for a short note such as "Updating…" kept while it is absent. */
   --note-min-width: 7em;
   /* The narrowest a wrapping column such as a title is allowed to get. */
-  --wrap-column-min-width: 16em;
+  --wrap-column-min-width: 12em;
   /* An avatar beside a name: a member's, or the organization's. */
   --avatar-size: 24px;
   /*

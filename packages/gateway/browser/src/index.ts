@@ -11,6 +11,8 @@ export { MemoryStore, WebStorageStore } from "./key-value-store";
 export type { KeyValueStore } from "./key-value-store";
 export { MemoryLocation, WindowLocation } from "./page-location";
 export type { PageLocation, Unsubscribe } from "./page-location";
+export { MemoryStorageChanges, WindowStorageChanges } from "./storage-changes";
+export type { StorageChanges } from "./storage-changes";
 export { GlobalTimer, ManualTimer } from "./timer";
 export type { CancelTimer, Timer } from "./timer";
 export { BroadcastTabChannel, MemoryTabChannel } from "./tab-channel";

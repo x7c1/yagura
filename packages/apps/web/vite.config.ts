@@ -35,6 +35,9 @@ export default defineConfig(({ mode }) => {
     test: {
       environment: "jsdom",
       setupFiles: ["./src/test-setup.ts"],
+      // The CSS modules' rules are added to the test document, so that a
+      // test can read a computed style, such as whether a box scrolls.
+      css: { include: /\.module\.css$/ },
     },
   };
 });

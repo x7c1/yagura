@@ -1,20 +1,24 @@
 /*
- * The table scrolls inside here when it is wider than the card, as the
- * logins keep to one line, so that the page never scrolls sideways.
+ * `.table` is applied with the shared table class, which it adjusts. It
+ * fits the card's width, a login wrapping where the numbers leave it too
+ * little room, so that the page never scrolls sideways.
  */
-.scroll {
-  overflow-x: auto;
-}
-
-/* `.table` is applied with the shared table class, which it adjusts. */
 
 /* A member's row heading is not bold; the total's is (see below). */
 .table th {
   font-weight: var(--font-weight-normal);
 }
 
-/* On a phone, closer columns keep the table within the page. */
+/*
+ * On a phone, closer columns keep the table within the page, and the
+ * logins take what the numbers leave, a part of about five letters a line
+ * (see `MemberLogin`).
+ */
 @media (max-width: 30rem) {
+  .table {
+    --login-max-width: 3em;
+  }
+
   .table th,
   .table td {
     padding-left: var(--space-1);

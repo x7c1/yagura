@@ -1,4 +1,9 @@
-import type { ElementAttribute, KeyValueStore } from "@yagura/browser";
+import type {
+  ElementAttribute,
+  KeyValueStore,
+  StorageChanges,
+  Unsubscribe,
+} from "@yagura/browser";
 
 /**
  * The theme the viewer chose: `system` follows the operating system's
@@ -28,6 +33,11 @@ export interface ThemeControllerOptions {
    * in the browser): it is the browser's preference, not the viewer's.
    */
   readonly store: KeyValueStore;
+  /**
+   * The changes the browser's other tabs make to `store`, so that a choice
+   * made in one tab applies in every other.
+   */
+  readonly changes: StorageChanges;
   /** The root element's {@link themeAttributeName} attribute. */
   readonly root: ElementAttribute;
 }
@@ -39,12 +49,14 @@ export interface ThemeControllerOptions {
  */
 export class ThemeController {
   readonly #store: KeyValueStore;
+  readonly #changes: StorageChanges;
   readonly #root: ElementAttribute;
   readonly #listeners = new Set<() => void>();
   #choice: ThemeChoice = "system";
 
   constructor(options: ThemeControllerOptions) {
     this.#store = options.store;
+    this.#changes = options.changes;
     this.#root = options.root;
   }
 
@@ -66,6 +78,19 @@ export class ThemeController {
    */
   restore(): void {
     this.#apply(this.#read());
+  }
+
+  /**
+   * Applies the choice another tab stores, or forgets, from now until the
+   * returned function is called, as {@link restore} applies it on load.
+   */
+  followOtherTabs(): Unsubscribe {
+    return this.#changes.onChange((key) => {
+      // `null`: the other tab cleared the whole store, the choice with it.
+      if (key === themeStorageKey || key === null) {
+        this.restore();
+      }
+    });
   }
 
   /**

@@ -144,7 +144,8 @@ element as `data-theme`, which the style sheet's colours and
 `color-scheme` follow, so that native controls and scrollbars match, and
 is kept in `localStorage` under its own key, `yagura.theme`; choosing
 System removes both. It is the browser's preference, not the viewer's, so
-signing out keeps it. A small script in `index.html` applies the stored
+signing out keeps it, and a choice made in another tab applies in this one
+too, as soon as the browser reports the change. A small script in `index.html` applies the stored
 choice before the first paint, so that a page set to Dark on a light
 system does not flash light while the app loads.
 
@@ -207,10 +208,12 @@ the strongest: each step covers a quarter of the busiest count, so that up
 to a quarter of it takes the weakest step and over three quarters the
 strongest. The weakest step has 3:1 contrast against the card in both
 themes, as the chart's other marks do, and the light theme strengthens
-toward dark, the dark theme toward light. Under both the bars and the
-heatmap, a small key at the card's right edge gives the strengths ("Per
-hour: 1", the steps, and the busiest count). No legend names what is counted, as the card's heading says
-it; the accessible names of the bars and the heatmap spell it out.
+toward dark, the dark theme toward light. The chart draws no key: the
+cells' shades show which hours were busier, and a key would list every
+step, even those no cell takes. The figure's caption, read out but not drawn,
+describes the strengths ("Hours shaded in 4 steps, from 1 up to the
+busiest hour's 4"). No legend names what is counted, as the card's heading
+says it; the accessible names of the bars and the heatmap spell it out.
 
 The heatmap is one tab stop, a grid that the arrow keys move through as it
 is drawn (Home and End to the ends of a line), with Enter or Space choosing
@@ -243,6 +246,16 @@ without comparing dates. The days are counted in the viewer's time zone,
 as in the chart. The bands follow the dates shown, in a list narrowed by
 the chart too.
 
+Neither the list nor the summary table scrolls sideways, and the page
+never does: each fits its card's width. In the list, the title, the
+repository and the author wrap; the state, the lines and the date keep to
+one line. In the summary table, a login wraps, after a hyphen where it
+has one, and the numbers keep to one line. Narrower than 50rem, where the
+list's columns would leave the title a few words a line, each pull request
+is a block instead of a row: its title, then its repository and author,
+then its state, lines and date, the date at the right end, with the day's
+band behind it; the column headings are then read out but not drawn.
+
 The activity page fits the window when the window is tall and wide
 enough: the header, the chart's card with the heatmap, the list's card and
 the footer are
@@ -252,12 +265,10 @@ mobile browser's bars do not cut the footer off). The chart's card keeps
 its natural height and the list's card takes the rest, with the
 narrowing's "Show all" line, when the list is narrowed, at its top. The
 list's column headings stay at the top of its scrolling area, on the
-card's background, while the rows scroll under them; the same area
-scrolls sideways when the table is wider than the card. Where the
-platform draws classic scroll bars, the area's bars are thin and show only
-while the pointer is over the list or focus is inside it, in room kept
-for them at rest so that nothing moves. A new narrowing,
-or clearing it, shows the list from its top. While the list loads, fails
+card's background, while the rows scroll under them. Where the platform
+draws classic scroll bars, the area's bar is thin and shows only while the
+pointer is over the list or focus is inside it, in room kept for it at
+rest so that nothing moves. A new narrowing, or clearing it, shows the list from its top. While the list loads, fails
 or has nothing, its card holds only a note and keeps its natural height.
 
 The fitting applies from 51rem (816px) of height and 50rem (800px) of
