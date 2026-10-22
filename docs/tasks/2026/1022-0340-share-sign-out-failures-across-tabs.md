@@ -70,4 +70,4 @@ leaving the rotated token's cookie in place.
 
 ### Before merge (verified outside the check command)
 
-- [ ] On the development deployment, with two tabs open, signing out in one shows the sign-in screen in both (a person signs in for this)
+- [x] On the development deployment, with two tabs open, signing out in one shows the sign-in screen in both (a person signs in for this)
