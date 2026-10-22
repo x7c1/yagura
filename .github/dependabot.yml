@@ -23,3 +23,10 @@ updates:
         update-types: [major, minor, patch]
       minor-and-patch:
         update-types: [minor, patch]
+    # MSW 3 makes the web tests fail when several runs share a machine: its
+    # Node interceptor picks handlers later than MSW 2, which widens races in
+    # the tests' waits. Stay on MSW 2 until the tests are made robust to it,
+    # then drop this entry.
+    ignore:
+      - dependency-name: msw
+        update-types: ["version-update:semver-major"]
