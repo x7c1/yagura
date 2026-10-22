@@ -63,10 +63,10 @@ else, and say why in a short comment, as the existing entries do.
 
 ### Before merge (verified outside the check command)
 
-- [ ] `.github/dependabot.yml` has a group that keeps the four React packages
+- [x] `.github/dependabot.yml` has a group that keeps the four React packages
       in one pull request, and GitHub accepts the configuration (no Dependabot
       configuration error on the pull request)
-- [ ] With `make dev` (the API mock), the sign-in screen, Activity (chart,
+- [x] With `make dev` (the API mock), the sign-in screen, Activity (chart,
       heatmap, list and its filters) and Members render and respond, the theme
       menu switches themes, and the browser console shows no React errors or
       warnings
