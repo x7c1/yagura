@@ -15,5 +15,11 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # react and react-dom must be on the same version, and their type
+      # packages follow them, so a major update to one alone cannot pass.
+      # Listed first: a dependency goes to the first group that matches.
+      react:
+        patterns: [react, react-dom, "@types/react", "@types/react-dom"]
+        update-types: [major, minor, patch]
       minor-and-patch:
         update-types: [minor, patch]

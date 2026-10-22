@@ -31,7 +31,7 @@ export function ElementWidthsProvider(props: {
  * shows at a wrong width.
  */
 export function useElementWidth<T extends Element>(): {
-  readonly ref: RefObject<T>;
+  readonly ref: RefObject<T | null>;
   readonly width: number | null;
 } {
   const widths = useContext(ElementWidthsContext);
