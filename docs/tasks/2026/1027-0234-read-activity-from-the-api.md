@@ -155,12 +155,12 @@ without any backend.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `VITE_API_MOCK=1 make dev`, the activity page shows the merged bars
+- [x] With `VITE_API_MOCK=1 make dev`, the activity page shows the merged bars
       with the push circles above them, the heatmap, and the list with a draft
       badge, the Pushes column, the latest-activity dates and the bot toggle;
       the members page shows the Pushed column and a bot row with "—";
       narrowing by a bar and by a push circle works (checked in a browser by
-      the merging session, with screenshots in the PR)
+      the merging session, what it saw is recorded in the PR)
 - [ ] The same build, deployed to the development host with the development
       API, signs in and shows real data — needs a person: signing in to GitHub
       is not done on the person's behalf
