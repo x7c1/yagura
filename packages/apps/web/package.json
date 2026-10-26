@@ -12,7 +12,7 @@
   "dependencies": {
     "@yagura/activity": "workspace:*",
     "@yagura/browser": "workspace:*",
-    "@yagura/github-api": "workspace:*",
+    "@yagura/activity-api": "workspace:*",
     "@yagura/session-api": "workspace:*",
     "react": "^19.3.1",
     "react-dom": "^19.3.1"

@@ -38,10 +38,6 @@ const reasons: Readonly<
     why: "you appear to be offline",
     then: "Check your connection, then retry.",
   },
-  "rate-limited": {
-    why: "GitHub is limiting how often Yagura can ask",
-    then: "Wait a few minutes, then retry.",
-  },
   denied: {
     why: "GitHub no longer lets you see them",
     then: "Reload the page to see what you can access now.",

@@ -5,10 +5,14 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   membersPageUrl,
+  memberSummaryRows,
+  pullRequestRows,
   sessionApi,
   testController,
   testTheme,
   testWidths,
+  testPreferences,
+  showPage,
 } from "./test-support";
 
 // There is no service worker here: the mock's handlers are served by the
@@ -27,7 +31,12 @@ describe("The development server's API mock", () => {
     const { controller } = testController({ mock, url: membersPageUrl });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     const selector = await screen.findByRole("combobox", {
@@ -40,5 +49,41 @@ describe("The development server's API mock", () => {
         .getAllByRole("option")
         .map((option) => option.textContent),
     ).toEqual([...mockDevelopmentOrganizations].sort());
+  });
+
+  it("serves drafts, pushes, merges and a bot's pull requests, so that every part of the view shows", async () => {
+    const mock = await startBrowserApiMock({
+      sessionApiBaseUrl: sessionApi,
+      signedIn: true,
+    });
+    const { controller } = testController({ mock });
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+
+    const rows = await pullRequestRows();
+    expect(rows.some((row) => within(row).queryByText("draft"))).toBe(true);
+    expect(
+      rows.some((row) =>
+        /^Pushed /.test(row.lastElementChild?.textContent ?? ""),
+      ),
+    ).toBe(true);
+    expect(
+      within(
+        screen.getByRole("group", { name: "Pushes per day" }),
+      ).getAllByRole("button").length,
+    ).toBeGreaterThan(0);
+    expect(
+      screen.getByRole("button", { name: /^Show \d+ bot pull requests$/ }),
+    ).toBeInTheDocument();
+    showPage("Members");
+    const summary = await memberSummaryRows();
+    expect(summary.some((row) => row[3] === "—")).toBe(true);
   });
 });

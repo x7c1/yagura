@@ -1,17 +1,33 @@
-/* What the list is narrowed to, and the button that clears it. */
-.selection {
+/*
+ * The lines above the list: what it is narrowed to, with the button that
+ * clears it, and the button that shows or hides bots' pull requests.
+ */
+.lines {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+  margin-bottom: var(--space-3);
+}
+
+.line {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
+}
+
+/* The bots' button keeps to the right, with or without a narrowing. */
+.bots {
+  margin-left: auto;
 }
 
 /*
- * The list's card, a column whose list takes the height the selection
- * leaves, or all of it when nothing is selected. It grows only where the
- * page's main part has a height of its own, as where the page fits the
- * window; elsewhere it keeps its natural height, and the page scrolls.
+ * The list's card, a column whose list takes the height the lines above it
+ * leave, or all of it when there are none. It grows only where the page's
+ * main part has a height of its own, as where the page fits the window;
+ * elsewhere it keeps its natural height, and the page scrolls.
  */
 .listSection {
   display: flex;

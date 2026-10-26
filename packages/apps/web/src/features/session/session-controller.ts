@@ -5,7 +5,7 @@ import type {
   TabChannel,
   Timer,
 } from "@yagura/browser";
-import { GitHubApiError, type GitHubApiClient } from "@yagura/github-api";
+import { ActivityApiError, type ActivityApiClient } from "@yagura/activity-api";
 import {
   SessionApiError,
   type SessionApiClient,
@@ -107,7 +107,7 @@ export type SessionState =
 
 export interface SessionControllerOptions {
   readonly sessionApi: SessionApiClient;
-  readonly githubApi: GitHubApiClient;
+  readonly activityApi: ActivityApiClient;
   readonly clientId: string;
   /** Must match the callback URL registered for the GitHub App. */
   readonly redirectUri: string;
@@ -211,9 +211,9 @@ export class SessionController {
     return this.#options.location;
   }
 
-  /** The GitHub API client; call it through {@link withAccessToken}. */
-  get githubApi(): GitHubApiClient {
-    return this.#options.githubApi;
+  /** The activity API client; call it through {@link withAccessToken}. */
+  get activityApi(): ActivityApiClient {
+    return this.#options.activityApi;
   }
 
   /** The current time, from the clock the controller was given. */
@@ -453,7 +453,7 @@ export class SessionController {
   }
 
   /**
-   * Runs a GitHub API call with the current access token. While the session
+   * Runs an activity API call with the current access token. While the session
    * is not confirmed yet, waits for the restore first, and fails when it
    * did not confirm the same viewer. On a 401 the token is refreshed and the
    * call retried once, unless the refresh answered with another login.
@@ -489,7 +489,7 @@ export class SessionController {
     try {
       return await call(token);
     } catch (error) {
-      if (!(error instanceof GitHubApiError && error.isUnauthorized)) {
+      if (!(error instanceof ActivityApiError && error.isUnauthorized)) {
         throw error;
       }
     }

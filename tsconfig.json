@@ -4,7 +4,7 @@
     { "path": "packages/domain/activity" },
     { "path": "packages/gateway/browser" },
     { "path": "packages/gateway/session-api" },
-    { "path": "packages/gateway/github-api" },
+    { "path": "packages/gateway/activity-api" },
     { "path": "packages/testing/api-mocks" },
     { "path": "packages/apps/web" }
   ]

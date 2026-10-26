@@ -17,8 +17,9 @@ This installs nothing; run `make deps` first on a fresh checkout. The dev
 server listens on http://localhost:5173 and refuses to start if that port is
 taken, because sign-in redirects back to that exact address.
 
-Sign-in needs the session API server running on http://localhost:8787 (set
-in `packages/apps/web/.env.development`) and the GitHub App's client id.
+Sign-in needs the Yagura API server running on http://localhost:8787 (set
+in `packages/apps/web/.env.development`), which serves both the session API
+and the activity API, and the GitHub App's client id.
 Put the client id in `packages/apps/web/.env.local`, which is not committed:
 
 ```sh
@@ -38,7 +39,7 @@ Against a deployed API on another site, sign-in appears to succeed but the
 session is lost on reload.
 
 Instead, let the dev server proxy the deployed API, so that the app calls
-`/session` on its own origin. Put these lines in
+`/session` and `/activity` on its own origin. Put these lines in
 `packages/apps/web/.env.local`:
 
 ```sh
@@ -60,21 +61,23 @@ server only and never reaches the app or a build. The deployed API must
 allow the origin `http://localhost:5173`, and the GitHub App it belongs to
 must list `http://localhost:5173/callback` as one of its callback URLs.
 
-## Running without the session API
+## Running without the Yagura API
 
 ```sh
 VITE_API_MOCK=1 make dev
 ```
 
 With `VITE_API_MOCK=1`, the app starts [Mock Service Worker](https://mswjs.io/)
-in the browser and answers the session API and the GitHub API from the
+in the browser and answers the session API and the activity API from the
 handlers in `packages/testing/api-mocks`, the same ones the tests use: the
-session API (signed in as `mock-user`), and from the GitHub API
-`GET /user/installations` (two organizations, `mock-org` and `mock-labs`,
-so that the header shows the organization selector),
-`GET /orgs/{org}/members` (the same few members for each, including the signed-in
-`mock-user`), and the GraphQL pull request searches and lookups by id (a handful of pull
-requests per member, spread over the 14 days before the page loaded).
+session API (signed in as `mock-user`), `GET /activity/organizations` (two
+organizations, `mock-labs` and `mock-org`, so that the header shows the
+organization selector), and `GET /activity` (the same activity for each:
+a few members including the signed-in `mock-user`, and Dependabot as a
+bot; their pull requests over the 14 days before the page loaded, with
+drafts, pushes, merges of one another's pull requests, a closed one, and
+the bot's own pull requests, merged and open). Nothing is fetched from
+GitHub.
 "Sign in with GitHub" skips the GitHub authorize page and returns straight
 to the callback with a mock code, so sign-in completes without leaving
 localhost and without a client id, and the page then shows `mock-labs`

@@ -1,52 +1,60 @@
 # Activity view
 
-The activity view is what a signed-in user sees: the pull requests
-that the members of an organization opened and merged over the last 14
-days. Members use it to see that development is moving and to notice when it
-stalls. It does not try to show imbalance between repositories or between
-members; the numbers are there to show movement, not to rank anyone.
+The activity view is what a signed-in user sees: how much the members of an
+organization worked over the last 14 days, in the pull requests they
+opened, pushed to and merged. Members use it to see that development is
+moving and to notice when it stalls. Merges alone would hide days spent
+iterating on a draft, so pushes count as activity too. It does not try to
+show imbalance between repositories or between members; the numbers are
+there to show movement, not to rank anyone.
 
 ## What is counted
 
 ### Members, not repositories
 
-The view is organized around people. It covers pull requests whose author is
-a member of the organization, in any repository: the organization's own
-repositories and the members' personal ones alike. Pull requests by people
-outside the organization, and by bots, are not shown.
+The view is organized around people. It covers pull requests that the
+organization's members opened or pushed to, in any repository: the
+organization's own repositories and the members' personal ones alike.
+Pull requests that bots such as Dependabot opened are counted where a
+merge is counted, as a merge of theirs landed a change too, but the list
+hides them until the viewer asks for them (below). A bot's pushes, such
+as Dependabot rebasing its own branch, are not counted anywhere, and
+neither are the pushes of people outside the organization.
 
 The view never goes beyond what the signed-in user can see on GitHub. A pull
 request in a repository the user cannot see is never shown, even if a member
-of the organization wrote it.
+of the organization wrote it: the server returns to each viewer only what
+that viewer can see (see the [activity API](activity-api.md#visibility)).
 
 ### The organization
 
-The organization is one that the Yagura GitHub App is installed on, among
-those the signed-in user can access: the installations returned by
-`GET /user/installations` whose account type is `Organization`.
+The organization is one of those the viewer can use Yagura for, as
+`GET /activity/organizations` lists them: those the Yagura GitHub App is
+installed on, among the ones the viewer can see.
 
 - With exactly one such organization, it is chosen without asking.
 - With several, a plain selector lets the user switch between them.
 - With none, the view says that the app is not installed on any of the
   user's organizations.
 
-The members are those returned by `GET /orgs/{org}/members`. The GitHub App
-needs the organization permission "Members" (read) for this: without it, the
-user token is answered as an anonymous request would be, with the public
-members only, and members who keep their membership private go missing
-without an error.
+The members are those `GET /activity` returns with the organization's
+activity: its current members, each listed even without activity in the
+period, and the bots that opened one of the pull requests.
 
 ### The period
 
 The last 14 days, including today. Days are split in the browser's time
-zone, so "today" and each day in the chart are the user's local days.
+zone, so "today" and each day in the chart are the user's local days. The
+view asks for the activity from local midnight at the start of the first
+day up to local midnight at the end of today.
 
 ### Measures
 
 | Measure | Definition                                                                                                                                  |
 | ------- | ------------------------------------------------------------------------------------------------------------------------------------------- |
-| Opened  | Pull requests created within the period, whatever their state now                                                                           |
-| Merged  | Pull requests merged within the period, even if created before it                                                                           |
+| Opened  | Pull requests opened within the period, whatever their state now                                                                            |
+| Merged  | Pull requests merged within the period, even if opened before it                                                                            |
+| Pushed  | Pushes by members to the branch of a pull request within the period, each push once, whoever opened the pull request                        |
 | Lines   | The additions and deletions GitHub reports for a pull request. Lockfiles and generated files are not excluded; the numbers are GitHub's own |
 
 ## The screen
@@ -54,18 +62,18 @@ zone, so "today" and each day in the chart are the user's local days.
 Two pages, one per question the view answers:
 
 - **Activity**, at `/`, answers what happened on which day, and when in
-  the day. It has a **chart** of the merged counts per day, a **heatmap**
-  of their hours under it in the same card, and below them a
-  **list of pull requests**, newest first: title, repository (with the pull
-  request's number, "#123", read from its address, on a second line under
-  the repository's name), author, state,
+  the day. It has a **chart** of the merged counts per day with a row of
+  **push circles** above it, a **heatmap** of the hours of both under it
+  in the same card, and below them a **list of pull requests**, newest
+  first: title, repository (with the pull request's number, "#123", on a
+  second line under the repository's name), author, state, pushes,
   additions, deletions, a link to the pull request on GitHub, and a
   **Date** column. The state is a badge coloured as GitHub draws it: open
-  green, merged purple, closed red. It is the page that opens first, after
-  sign-in too.
+  green, draft grey, merged purple, closed red. It is the page that opens
+  first, after sign-in too.
 - **Members**, at `/members`, answers who has been quiet. It has a
-  **summary table** with a row per member: opened, merged, additions,
-  deletions.
+  **summary table** with a row per member: opened, merged, pushed,
+  additions, deletions.
 
 The activity page's first card, the chart's, is headed "Merged PRs", which
 says what the chart counts; the list's card below it has no heading, as it
@@ -121,8 +129,9 @@ Signed out, there is no page frame: no header, tabs or footer. The screen
 is for signing in alone, one panel in the middle of the viewport with the
 app's name as the page's heading, the README's first line saying what the
 app is, the "Sign in with GitHub" button, and under it a short note on
-what signing in gives the app (it only reads what the visitor can already
-see on GitHub, in their browser, and the server stores nothing). A
+what the app keeps and shows: the server stores the pull request activity
+of the organizations that use it, and shows each visitor only what they
+can already see on GitHub. A
 failure shows in the panel above the button, marked as a failure in words
 as well as colour: a title that says which action failed ("Could not sign
 you in.", "Sign-in cancelled.", "You were signed out.", "Your sign-out may
@@ -158,18 +167,18 @@ too, as soon as the browser reports the change. A small script in `index.html` a
 choice before the first paint, so that a page set to Dark on a light
 system does not flash light while the app loads.
 
-Both pages are drawn from one load of the members' pull requests, so that
-switching between them fetches nothing again and shows the same data at
-once. The bar or hour chosen in the chart (below) is not kept when leaving
-Activity.
+Both pages are drawn from one answer of the activity API, so that
+switching between them asks for nothing again and shows the same data at
+once. The bar, circle or hour chosen in the chart (below) is not kept when
+leaving Activity.
 
-The chart counts merged pull requests only: what the view shows is how
-often changes landed, and a merge is that. Opened pull requests are not
+The chart's bars count merged pull requests, a bot's included: they show
+how often changes landed, and a merge is that. Opened pull requests are not
 drawn in it, though the list below still shows every pull request opened
-or merged in the period, and the members page still counts both. The chart
-has a bar for every day of the period, a day with nothing included, so
-that a quiet day shows as a gap rather than going missing. A pull request
-counts on the local day it was merged.
+in the period, and the members page still counts them. The chart has a bar
+for every day of the period, a day with nothing included, so that a quiet
+day shows as a gap rather than going missing. A pull request counts on the
+local day it was merged.
 
 Each bar is solid, in a blue of the chart's own, apart from the colours of
 the list's state badges, and has its count written past its end, so that a
@@ -190,11 +199,26 @@ two), the days are rows, oldest at the top, with the date left of the bar,
 growing right on an axis below. Either way, all the bars share one axis
 that starts at zero, so that their lengths compare across days.
 
+Above the bars, one row, labelled "Pushes" at its left where the axis's
+labels are, holds a small circle for each day with that day's number of
+pushes by members written in it; a day without pushes leaves its place
+empty. The circles are filled in a push colour of their own, an orange
+apart from the bars' blue and the list's state badges, with the count in a
+colour that keeps 4.5:1 contrast on it in both themes. They are all one
+size, wide enough for the largest count, so that the counts, not the
+sizes, tell the days apart. Where the days are rows, each day's circle
+sits next to its date, between the date and the bar, and the "Pushes"
+label heads the circles above the first row. Pushes and merges are drawn
+differently on purpose: they are counted on different scales, and bars
+side by side or stacked would invite comparing heights that mean nothing.
+A circle's accessible name carries its count ("Oct 13, 5 pushes"), and the
+circles as a whole are named "Pushes per day".
+
 Under the bars, in the same card, the heatmap shows when in the day the
-merges happened: whether the work went on from morning to evening, or
-bunched into a few hours. It counts the pull requests already loaded, each
+work happened: whether it went on from morning to evening, or bunched into
+a few hours. It counts the members' pushes and the merges together, each
 in the local hour of the same time that places it on its day, so that a
-day's hours add up to its bar. Where the days are columns, each day has a
+day's hours add up to that day's merges plus its pushes. Where the days are columns, each day has a
 column of 24 cells under its bar and as wide as it, one per hour from 0 at
 the top to 23; the hours 0, 6, 12 and 18 are labelled at the left, where
 the bars' axis is. The dates under the columns head both the bars above
@@ -228,27 +252,58 @@ The heatmap is one tab stop, a grid that the arrow keys move through as it
 is drawn (Home and End to the ends of a line), with Enter or Space choosing
 the cell with focus; focus enters on the cell last moved to, else the chosen
 one, else the first hour with something. Each cell is named with its day,
-hour and count ("Oct 13, 14:00 to 15:00: 2 merged"), and the heatmap as a
-whole "Merged pull requests per hour of each day".
+hour and the breakdown of its count ("Oct 13, 14:00 to 15:00: 5 pushes, 1
+merged"), and the heatmap as a whole "Pushes and merged pull requests per
+hour of each day".
 
 Choosing a day's bar narrows the list to the pull requests merged on that
 day; a day with none cannot be chosen. A click on a bar's count chooses the
 bar too, since a bar for a small count can be too short to hit. Choosing a
-cell of the heatmap narrows the list the same way, to the pull requests
-merged on that day within that hour, and an empty cell cannot be chosen
-either. Choosing a bar or a cell replaces any earlier choice, and the
-chosen one is outlined in the text colour, not marked by colour alone. The
-narrowing applies to the list only: the summary table on Members keeps
-covering the whole period. Above the narrowed list, the view says what it
-is narrowed to ("Merged on Oct 3", or "Merged on Oct 13, 14:00–15:00" for
-an hour) with a way to show all again; choosing the same bar or cell again
-clears it too.
+push circle narrows the list to the pull requests a member pushed to on
+that day. Choosing a cell of the heatmap narrows the list to the pull
+requests merged or pushed to by a member on that day within that hour, and
+an empty cell cannot be chosen. Choosing a bar, a circle or a cell
+replaces any earlier choice, and the chosen one is outlined in the text
+colour, not marked by colour alone. The narrowing applies to the list
+only: the summary table on Members keeps covering the whole period. Above
+the narrowed list, the view says what it is narrowed to ("Merged on Oct
+3", "Pushed on Oct 3", or "Merged or pushed on Oct 13, 14:00–15:00" for an
+hour) with a way to show all again; choosing the same bar, circle or cell
+again clears it too.
 
-The list's Date is when the pull request's latest event in the period
-happened: when it was merged if it was merged in the period, otherwise
-when it was opened. It is shown with its time, in the viewer's time zone
-and 24-hour form ("2026-10-13 14:05"), on one line, every part padded so
-that the column lines up. The rows of each day share
+The list holds one row per pull request: those opened or merged in the
+period, and those a member pushed to in it. A pull request opened by a bot
+is hidden by default, as it is not the members' work, though its merge
+counts in the chart. A button above the list, at its right, says how many
+it hides and shows them ("Show 12 bot pull requests"); once they are
+shown, the same button hides them again ("Hide 12 bot pull requests").
+The choice is the browser's, kept in `localStorage` under
+`yagura.show-bot-pull-requests`, so that it holds on the next visit and
+for any viewer of the browser, and is kept on sign-out. When the chart
+narrows the list, the button counts the bots' pull requests of the
+narrowed list, so that the narrowed view says how many it hides too; when
+a narrowing holds only bots' pull requests, the list says so ("Only bots'
+pull requests here.") above the button. There is no button when there is
+nothing to hide.
+
+The author is shown with their avatar, found by their account's id (see
+the [activity API](activity-api.md#get-activity)). A bot's pull request
+names only the bot as its author, marked "bot" after its login. A draft that is still open shows a "draft" badge in GitHub's
+grey instead of "open". The Pushes column gives the number of members'
+pushes to the pull request in the period, or, while the chart narrows the
+list, in the chosen day or hour; on a narrow screen, where the column
+headings are not drawn, the number is followed by "push" or "pushes".
+
+The list's Date is when the row's latest event in the period happened,
+with its kind in words: its merge ("Merged 2026-10-13 14:05"), a member's
+push ("Pushed 2026-10-13 14:05") or its opening ("Opened 2026-10-13
+14:05"), whichever came last. While the chart narrows the list, the Date
+is instead the latest event the narrowing chose the row for, within the
+chosen day or hour: the merge for a bar, the day's last push by a member
+for a push circle, and the hour's last merge or push for a cell; the list
+is ordered by these dates. The time is in the viewer's time zone and
+24-hour form, on one line, every part padded so that the column lines
+up. The rows of each day share
 a background, alternating from one day to the next, the newest day's on
 the page background, so that where one day ends and the next begins shows
 without comparing dates. The days are counted in the viewer's time zone,
@@ -257,12 +312,12 @@ the chart too.
 
 Neither the list nor the summary table scrolls sideways, and the page
 never does: each fits its card's width. In the list, the title, the
-repository and the author wrap; the state, the lines and the date keep to
-one line. In the summary table, a login wraps, after a hyphen where it
+repository and the author wrap; the state, the pushes, the lines and the
+date keep to one line. In the summary table, a login wraps, after a hyphen where it
 has one, and the numbers keep to one line. Narrower than 50rem, where the
 list's columns would leave the title a few words a line, each pull request
 is a block instead of a row: its title, then its repository and author,
-then its state, lines and date, the date at the right end, with the day's
+then its state, pushes, lines and date, the date at the right end, with the day's
 band behind it; the column headings are then read out but not drawn.
 
 The activity page fits the window when the window is tall and wide
@@ -272,7 +327,8 @@ always in view, and only the list scrolls, inside its card. The page takes
 exactly the window's height (`100dvh`, after a `100vh` fallback, so that a
 mobile browser's bars do not cut the footer off). The chart's card keeps
 its natural height and the list's card takes the rest, with the
-narrowing's "Show all" line, when the list is narrowed, at its top. The
+narrowing's "Show all" line and the bots' button, when there are any, at
+its top. The
 list's column headings stay at the top of its scrolling area, on the
 card's background, while the rows scroll under them. Where the platform
 draws classic scroll bars, the area's bar is thin and shows only while the
@@ -293,128 +349,74 @@ spare. In a shorter or narrower
 window, a phone's included, the page scrolls as a whole, as it does on
 Members, which never fits the window.
 
-The summary table and the list cover the same period, and the table adds
-up to the list when it is not narrowed. A pull request opened and merged
-in the period counts toward both the member's opened and merged, but its
-lines are summed once. Members with no pull requests in the period are
-listed with zeros: a member with nothing in two weeks is what the view is
-there to show. Rows are in login order, not ranked by any measure, and a
-totals row closes the table.
+The summary table and the list cover the same period. A row counts the
+pull requests its member opened: how many were opened and how many merged
+in the period, and their lines, summed once per pull request of the list
+however many measures it counts toward. Merging someone else's pull
+request, or a bot's, does not count toward the merger's Merged. The Pushed
+column counts the member's pushes in the period, to any pull request.
+Each row shows the member's avatar beside the login, as the list does.
+Members with no activity in the period are listed with zeros: a member
+with nothing in two weeks is what the view is there to show. Rows are in
+login order, not ranked by any measure.
+
+After the members comes one row per bot that opened a pull request of the
+list, marked "bot" after its login, in login order. Its
+Opened, Merged, Additions and Deletions are counted as a member's are;
+its Pushed shows "—", since a bot's pushes are not counted. A totals row
+closes the table and includes the bots' rows, so that its Merged equals
+the number of merges the chart's bars count.
 
 Review counts and review latency are not shown.
 
-## Fetching
+## Loading
 
-Pull requests are found with GitHub's GraphQL `search`, one search per
-member and measure, with `author:<login>` and a date range (`created:` for
-opened, `merged:` for merged). A search can page through at most 1,000
-results; one member's 14 days stays well within that. A search asks only
-for what places a pull request on a day: its node id, state, creation and
-merge times. GitHub computes `additions` and `deletions` per pull request,
-so a search asking for them takes seconds, also for pull requests the cache
-already holds.
-
-The range is written with the local offset, so that days start at local
-midnight. It starts at the earliest day the browser cache (below) cannot
-answer, the period's first day when nothing is stored. When today needs
-searching as well, which is the usual case, the range runs on to now
-(`created:>=<start>`), so that one search covers the past days and today;
-when today is still fresh in the cache, it ends at the last second before
-today (`created:<start>..<end>`). Either way there are at most two
-searches per member, and none for a member the cache answers entirely.
-
-The rest of a pull request (title, repository, author, lines) is fetched by
-node id, with GraphQL `nodes(ids: [...])` lookups of up to 100 ids each. As
-soon as a search answers, one lookup fetches the pull requests it found that
-the cache lacks: those not stored, and those stored but not merged, unless
-they were stored within the last 10 minutes and the search reports the same
-state. A stored merged pull request is final and is not fetched again.
-
-The pull requests the cache holds that are not merged, once their 10
-minutes have passed, are fetched again by node id rather than searched.
-Which they are is known from the cache alone, so their lookup is sent
-together with the searches, without waiting for them.
-
-Within one load, each id is looked up at most once: one that a search finds
-while the refresh above already covers it is not looked up again, and where
-the search and the lookup disagree on its state or merge, the lookup's
-answer is taken. An id that comes back `null` (the pull request was
-deleted, or the user can no longer see it) is dropped. At most four
-requests, searches and lookups together, run at once, lookups first.
-
-Every request runs in the browser with the signed-in user's token and counts
-against that user's rate limit. The browser cache (below) keeps the number of
-requests low.
-
-The token is a GitHub App user token. Such a token reaches only what both the
-user can see and the app is installed on. Checked against a search with a
-regular user token for the same member and period, the app's searches
-returned exactly the same pull requests, both in the member's personal public
-repositories and in private repositories of the organization, with the app
-installed on the member's personal account and on the organization. Pull
-requests in repositories of accounts the app is not installed on were not
-covered by that check.
-
-Looking up a couple of hundred pull requests by id takes a few seconds,
-because `additions` and `deletions` are computed per pull request; the
-browser cache is what keeps later visits fast.
+Everything the view shows comes from the [activity API](activity-api.md),
+served from the same host as the session API: the organizations from
+`GET /activity/organizations`, and the selected organization's members,
+pull requests and activity over the period from one `GET /activity`. The
+page calls no other API and never calls the GitHub API: the server
+collects the activity from GitHub and returns to each viewer only what
+that viewer can see there. Every request carries the session's access
+token; an expired one is refreshed and the request sent again (see the
+activity API's [errors](activity-api.md#errors)).
 
 ## The browser cache
 
-Results are kept in the browser's IndexedDB so that a reload does not fetch
-everything again. What cannot change is kept longer than what can:
+The browser keeps the last answer of each request in IndexedDB, so that a
+reload draws at once instead of waiting for the API:
 
-| Data                                          | Changes?                                  | Kept as                                                  |
-| --------------------------------------------- | ----------------------------------------- | -------------------------------------------------------- |
-| A merged pull request                         | Not in practice (title edits are ignored) | Lasting, with expiry                                     |
-| The set of pull requests merged on a past day | No                                        | Lasting, with expiry; a fetched day is not fetched again |
-| The set of pull requests opened on a past day | No                                        | Lasting, with expiry                                     |
-| An unmerged pull request                      | State and lines change                    | Short-lived; fetched again by node id                    |
-| Today's pull requests                         | Grow                                      | Short-lived                                              |
-| The organization's member list                | Changes                                   | Short-lived                                              |
-| The installations (the user's organizations)  | Changes                                   | Short-lived                                              |
+| Data                                      | Kept as                                                    |
+| ----------------------------------------- | ---------------------------------------------------------- |
+| The viewer's organizations                | The last answer, with when it was stored                   |
+| The activity of each organization         | The last answer, per organization, with when it was stored |
+| The organization the viewer last selected | Its id                                                     |
 
-Short-lived entries are used for 10 minutes after they were stored, so a
-reload within 10 minutes requests neither the installations, nor the member
-list, nor any pull requests. Lasting entries expire 7 days after they were
-stored. Without an expiry, a pull request in a private repository the user
-can no longer see would stay on screen; checking its visibility on every
-display would defeat the purpose of the cache, so the expiry bounds how long
-that can last instead.
-
-A past day counts as fetched only when its results were fetched after the
-day had ended: the results of a day fetched while it was still today are
-searched again once it is over. A day with no pull requests is stored too,
-so that it counts as fetched. An unmerged pull request found to be merged
-becomes lasting.
-
-When one request fails, no further request is sent, and what the others
-fetched before it is stored all the same, so that retrying after the
-failure searches only what is still missing. A day is stored only together
-with the pull requests it lists: when a search succeeds but the lookup of
-what it found fails, its days are not stored and are searched again.
-
-Entries that fall out of the 14-day period are removed without waiting for
-their expiry, when the view loads.
+An answer is drawn only for 7 days after it was stored. Without an
+expiry, a pull request in a private repository the user can no longer see
+would stay on screen when the page has not been opened for a while; the
+next answer replaces it anyway. A stored answer of the activity is drawn
+for the period ending now, so that what fell out of the period is not
+shown.
 
 The cache is kept per signed-in login, so that two users of the same browser
-never see each other's results, and the viewer's entries are deleted on
+never see each other's answers, and the viewer's entries are deleted on
 sign-out. A sign-out in any tab of the browser also stops every tab from
 storing anything more for the viewer, so that a load still in flight in
 another tab cannot write the entries again once they are deleted. The
-organization the viewer last selected is kept in the cache too, under its own
-key, and is selected again on the next load while the installations (stored
-or fetched) still list it; otherwise the first one is.
+organization the viewer last selected is selected again on the next load
+while the organizations (stored or fetched) still list it; otherwise the
+first one is.
 
-The cache only saves requests. When IndexedDB is unavailable or fails
-(private browsing, blocked storage, a full quota), the view fetches
-everything as if nothing were stored, and the failure is not shown.
+The cache only saves waiting. When IndexedDB is unavailable or fails
+(private browsing, blocked storage, a full quota), the view asks the API as
+if nothing were stored, and the failure is not shown.
 
 ### Drawing from the cache first
 
 The view draws what the cache holds at once and brings it up to date behind
 it, so that a reload waits on none of the view's requests before showing the
-members' pull requests.
+members' activity.
 
 It does not wait for the session either. The browser remembers the login of
 the last viewer who signed in (outside the cache, and forgotten on sign-out
@@ -429,31 +431,29 @@ the session is restored.
 
 What is drawn, and when:
 
-- A stored installation or member list is drawn at once, also past its
-  short life; it is then fetched again, and drawn again if the fetched list
-  differs. Without a stored list, the view says it is loading until the
-  list arrives.
-- The members' stored pull requests in the period are drawn at once, as
-  they are: the summary table, the chart and the list, even when some days
-  are not fetched yet. The fetch described in "Fetching" then runs as
-  usual, and its result replaces what was drawn. While it runs, an
-  "Updating…" note sits in the first card's top row, in room kept for it
-  so that its coming and going moves nothing. When the cache answers
-  everything, nothing is fetched and no note shows.
-- When nothing is stored for the members, the summary table lists them at
-  once with placeholders for the numbers, and the chart and the list say
-  they are loading.
+- The stored organizations are drawn at once; they are then asked for
+  again, and drawn again if the answer differs. Without stored ones, the
+  view says it is loading until the answer arrives.
+- The stored activity of the selected organization is drawn at once: the
+  chart, the list and the summary table. The API is then asked again, and
+  its answer replaces what was drawn and is stored in place of the last
+  one. While the request runs, an "Updating…" note sits in the first
+  card's top row, in room kept for it so that its coming and going moves
+  nothing. The request is made on every load: the activity of the day
+  keeps growing, and the server holds the up-to-date answer.
+- When nothing is stored for the organization, the activity page's cards
+  say they are loading, and so does the members page, until the API
+  answers.
 
-When a fetch fails behind what is drawn, what is drawn stays, and the
-failure with a way to retry shows above the cards, as it does for the
-installations and the members. Retrying fetches again without clearing the
-screen. When nothing is drawn yet, the failure shows in place of the list,
-or, for the pull requests, below the table's placeholders. The failure
-says what could not be loaded or updated, and, for an update, that what
-is shown may be out of date; why, in the viewer's terms (they appear to be
-offline, GitHub is limiting requests, GitHub no longer lets them see it,
-or GitHub or Yagura is not working); and what to do: retry, wait, or
-reload. Like the sign-in screen, it names no endpoint or status code.
+When a request fails behind what is drawn, what is drawn stays, and the
+failure with a way to retry shows above the cards. Retrying asks again
+without clearing the screen. When nothing is drawn yet, the failure shows
+in place of what is loading. The failure says what could not be loaded or
+updated ("the activity of my-org's members"), and, for an update, that
+what is shown may be out of date; why, in the viewer's terms (they appear
+to be offline, GitHub no longer lets them see it, or GitHub or Yagura is
+not working); and what to do: retry or reload. Like the sign-in screen, it
+names no endpoint, status or error code.
 
-What is shown once the fetches have answered is the same as without the
-cache; the cache changes when things are drawn, not what is drawn.
+What is shown once the API has answered is the same as without the cache;
+the cache changes when things are drawn, not what is drawn.

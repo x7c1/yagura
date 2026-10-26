@@ -17,12 +17,6 @@ export function startOfDay(day: string): Date {
   return new Date(year, month - 1, date);
 }
 
-/** Local midnight at the end of the day `day`: the start of the next one. */
-export function startOfNextDay(day: string): Date {
-  const [year, month, date] = parseDayKey(day);
-  return new Date(year, month - 1, date + 1);
-}
-
 /** The keys of the period's days, oldest first; the last is today. */
 export function periodDayKeys(period: Period): string[] {
   const { start } = period;

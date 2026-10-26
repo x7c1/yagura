@@ -57,6 +57,18 @@ const columnsPlotHeight = 120;
  */
 const hourLabelWidth = 2 * digitWidth;
 
+/**
+ * The width the push row's label, "Pushes", needs at the left of the
+ * columns, where the axis's labels go.
+ */
+const pushLabelWidth = 46;
+
+/** The smallest a push circle is: room for a count of one digit. */
+const minPushDiameter = 16;
+
+/** The room a push circle leaves around its count, on each side. */
+const pushPadding = 3;
+
 /** The thickness of a row's bar. */
 const rowBarThickness = 14;
 
@@ -105,9 +117,13 @@ export interface Tick {
   readonly label: TextSpot;
 }
 
-/** The count a day's bar is drawn from: the pull requests merged on it. */
+/**
+ * The counts a day is drawn from: the pull requests merged on it, for its
+ * bar, and the members' pushes, for its push circle.
+ */
 export interface Counts {
   readonly merged: number;
+  readonly pushed: number;
 }
 
 /** A bar, and where its count is written. */
@@ -116,13 +132,21 @@ export interface Bar {
   readonly count: TextSpot;
 }
 
+/** A circle, its count written at its centre. */
+export interface Circle {
+  readonly cx: number;
+  readonly cy: number;
+  readonly r: number;
+}
+
 /**
- * One day's group: the day it was drawn from, its bar, and where its label
- * goes, if it has one.
+ * One day's group: the day it was drawn from, its bar, its push circle,
+ * and where its label goes, if it has one.
  */
 export interface DayGroup<T extends Counts = Counts> {
   readonly day: T;
   readonly bar: Bar;
+  readonly push: Circle;
   readonly label: TextSpot | null;
 }
 
@@ -134,6 +158,8 @@ export interface ChartGeometry<T extends Counts = Counts> {
   /** The plot area, inside the axes, the bars start from its bottom or left. */
   readonly plot: Rect;
   readonly ticks: readonly Tick[];
+  /** Where the push circles' label, "Pushes", goes. */
+  readonly pushLabel: TextSpot;
   readonly groups: readonly DayGroup<T>[];
 }
 
@@ -163,17 +189,28 @@ function textWidth(value: number): number {
   return String(value).length * digitWidth;
 }
 
-/** The largest count of `days`, or 0 for none. */
+/** The largest merged count of `days`, or 0 for none. */
 function maxCount(days: readonly Counts[]): number {
   return Math.max(0, ...days.map((d) => d.merged));
 }
 
 /**
- * The room left of the column layout's plot, for the axis's labels and the
- * labels of the hours' heatmap under it, which shares the plot's columns.
+ * The diameter of every push circle: room for the largest count of pushes
+ * of `days`, so that the circles are all one size and their counts, not
+ * their sizes, tell the days apart.
+ */
+export function pushDiameter(days: readonly Counts[]): number {
+  const most = Math.max(0, ...days.map((d) => d.pushed));
+  return Math.max(minPushDiameter, textWidth(most) + pushPadding * 2);
+}
+
+/**
+ * The room left of the column layout's plot, for the axis's labels, the
+ * push row's label and the labels of the hours' heatmap under it, which
+ * shares the plot's columns.
  */
 function columnsAxisWidth(axisMax: number): number {
-  return Math.max(textWidth(axisMax), hourLabelWidth) + textGap;
+  return Math.max(textWidth(axisMax), hourLabelWidth, pushLabelWidth) + textGap;
 }
 
 /**
@@ -187,16 +224,18 @@ function columnBarWidthNeeded(days: readonly Counts[]): number {
 /**
  * The narrowest width at which every column has room for its bar and its
  * count, with at least a digit's width of space between one day's bar and
- * the next, so that neighbouring days' counts do not run together, and
- * room for a label under at least every other day, so that the days can be
- * told apart without counting columns. Narrower than this, as on a phone,
- * the days are laid out in rows, each labelled.
+ * the next, so that neighbouring days' counts do not run together, room
+ * for its push circle with a gap to the next one, and room for a label
+ * under at least every other day, so that the days can be told apart
+ * without counting columns. Narrower than this, as on a phone, the days
+ * are laid out in rows, each labelled.
  */
 export function minColumnsWidth(days: readonly Counts[]): number {
   const axis = yAxis(maxCount(days));
   const groupWidth = Math.max(
     columnBarWidthNeeded(days) / barShare,
     digitWidth / (1 - barShare),
+    pushDiameter(days) + textGap,
     (dayLabelWidth + textGap) / 2,
   );
   return columnsAxisWidth(axis.max) + groupWidth * days.length;
@@ -234,10 +273,11 @@ function tickValues(axis: { max: number; step: number }): number[] {
 }
 
 /**
- * A column per day, its bar growing up from the axis, centred in it.
- * Every day is labelled below if the labels fit side by side, else every
- * other day (or fewer, as needed), counting back from the last one so that
- * today always has a label.
+ * A column per day, its bar growing up from the axis, centred in it, and
+ * its push circle above the plot, in a row of its own labelled at its
+ * left. Every day is labelled below if the labels fit side by side, else
+ * every other day (or fewer, as needed), counting back from the last one
+ * so that today always has a label.
  */
 function columnsGeometry<T extends Counts>(
   days: readonly T[],
@@ -245,10 +285,13 @@ function columnsGeometry<T extends Counts>(
 ): ChartGeometry<T> {
   const axis = yAxis(maxCount(days));
   const left = columnsAxisWidth(axis.max);
-  // Room above the plot for the count of a bar that reaches its top.
+  const r = pushDiameter(days) / 2;
+  // The push row at the top, a focus ring's reach clear of the edge, then
+  // room above the plot for the count of a bar that reaches its top.
+  const pushY = focusRingReach + r;
   const plot: Rect = {
     x: left,
-    y: textHeight + textGap,
+    y: pushY + r + textGap + textHeight + textGap,
     width: width - left,
     height: columnsPlotHeight,
   };
@@ -289,11 +332,13 @@ function columnsGeometry<T extends Counts>(
       },
       label: { x: plot.x - textGap, y: yOf(value), anchor: "end" },
     })),
+    pushLabel: { x: plot.x - textGap, y: pushY, anchor: "end" },
     groups: days.map((day, index) => {
       const center = plot.x + groupWidth * (index + 0.5);
       return {
         day,
         bar: bar(center - barWidth / 2, day.merged),
+        push: { cx: center, cy: pushY, r },
         label:
           (days.length - 1 - index) % labelEvery === 0
             ? {
@@ -308,8 +353,9 @@ function columnsGeometry<T extends Counts>(
 }
 
 /**
- * A row per day, the day's label left of its bar, which grows to the right
- * from the axis. Every day is labelled.
+ * A row per day, the day's label left of its push circle, and the bar
+ * right of that, growing to the right from the axis. Every day is
+ * labelled, and the circles are labelled "Pushes" above them.
  */
 function rowsGeometry<T extends Counts>(
   days: readonly T[],
@@ -317,14 +363,18 @@ function rowsGeometry<T extends Counts>(
 ): ChartGeometry<T> {
   const max = maxCount(days);
   const axis = yAxis(max);
-  const left = dayLabelWidth + textGap * 2;
-  const rowHeight = rowBarThickness + rowGap;
+  const r = pushDiameter(days) / 2;
+  const pushX = dayLabelWidth + textGap * 2 + r;
+  const left = pushX + r + textGap * 2;
+  const rowInner = Math.max(rowBarThickness, r * 2);
+  const rowHeight = rowInner + rowGap;
   // A count starts clear of its bar's focus ring, and there is room right
   // of the plot for the count of a bar that reaches its end.
   const countOffset = focusRingReach + textGap;
   const plot: Rect = {
     x: left,
-    y: 0,
+    // Room above the rows for the push circles' label.
+    y: textHeight + textGap,
     width: Math.max(0, width - left - countOffset - textWidth(max)),
     height: rowHeight * days.length,
   };
@@ -358,14 +408,17 @@ function rowsGeometry<T extends Counts>(
         anchor: "middle",
       },
     })),
+    pushLabel: { x: pushX, y: textHeight / 2, anchor: "middle" },
     groups: days.map((day, index) => {
       const top = plot.y + rowHeight * index + rowGap / 2;
+      const middle = top + rowInner / 2;
       return {
         day,
-        bar: bar(top, day.merged),
+        bar: bar(middle - rowBarThickness / 2, day.merged),
+        push: { cx: pushX, cy: middle, r },
         label: {
-          x: plot.x - textGap * 2,
-          y: top + rowBarThickness / 2,
+          x: pushX - r - textGap * 2,
+          y: middle,
           anchor: "end",
         },
       };

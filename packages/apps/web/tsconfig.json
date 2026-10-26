@@ -15,7 +15,7 @@
     { "path": "../../domain/activity" },
     { "path": "../../gateway/browser" },
     { "path": "../../gateway/session-api" },
-    { "path": "../../gateway/github-api" },
+    { "path": "../../gateway/activity-api" },
     { "path": "../../testing/api-mocks" }
   ]
 }

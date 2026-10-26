@@ -4,9 +4,10 @@ import type { Plugin } from "vite";
 /** What the policy of a build depends on. */
 export interface PolicyOptions {
   /**
-   * The session API's base URL (`VITE_YAGURA_SESSION_API`). Only its origin
-   * is allowed. Empty when the variable is not set, in which case the app
-   * refuses to start anyway, so no session API is allowed.
+   * The Yagura API's base URL (`VITE_YAGURA_SESSION_API`), which serves the
+   * session API and the activity API. Only its origin is allowed. Empty
+   * when the variable is not set, in which case the app refuses to start
+   * anyway, so nothing is allowed to be called.
    */
   readonly sessionApi: string;
   /**
@@ -20,9 +21,6 @@ export interface PolicyOptions {
 
 /** The host GitHub serves user and organization avatars from. */
 const githubAvatars = "https://avatars.githubusercontent.com";
-
-/** The GitHub API, which the page calls with the viewer's access token. */
-const githubApi = "https://api.github.com";
 
 /** A `<script>` element, capturing its attributes and its text. */
 const scriptPattern = /<script\b([^>]*)>([\s\S]*?)<\/script>/gi;
@@ -49,7 +47,7 @@ export function inlineScriptHashes(html: string): string[] {
 /**
  * The Content Security Policy for a build of `html`: the page may load its
  * own scripts and styles, the inline scripts `html` carries, GitHub's
- * avatars, and call the GitHub API and the session API, and nothing else.
+ * avatars, and call the Yagura API, and nothing else.
  */
 export function contentSecurityPolicy(
   html: string,
@@ -62,14 +60,11 @@ export function contentSecurityPolicy(
     ["default-src", "'none'"],
     ["script-src", "'self'", ...inlineScriptHashes(html)],
     ["style-src", "'self'"],
-    // The mocks draw avatars as data URLs, so that mock mode loads nothing
+    // The mocks draw the organizations' avatars as data URLs, and answer
+    // for GitHub's avatar host themselves, so that mock mode loads nothing
     // from the network.
     ["img-src", "'self'", githubAvatars, ...(options.apiMock ? ["data:"] : [])],
-    [
-      "connect-src",
-      githubApi,
-      ...(sessionApiOrigin === undefined ? [] : [sessionApiOrigin]),
-    ],
+    ["connect-src", sessionApiOrigin ?? "'none'"],
     ["font-src", "'self'"],
     ...(options.apiMock ? [["worker-src", "'self'"] as [string, string]] : []),
     ["base-uri", "'none'"],

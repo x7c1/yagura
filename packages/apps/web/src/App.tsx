@@ -1,4 +1,4 @@
-import type { ElementWidths } from "@yagura/browser";
+import type { ElementWidths, KeyValueStore } from "@yagura/browser";
 import { useCallback, useEffect, useLayoutEffect, useState } from "react";
 import styles from "./App.module.css";
 import { OrganizationMembers } from "./features/members";
@@ -9,7 +9,7 @@ import {
   PageTabs,
   type Page,
 } from "./features/pages";
-import { ElementWidthsProvider } from "./shared";
+import { ElementWidthsProvider, PreferencesProvider } from "./shared";
 import {
   CallbackHandler,
   SessionProvider,
@@ -28,6 +28,11 @@ export function App(props: {
   readonly widths: ElementWidths;
   /** The viewer's choice of light, dark or the system's theme. */
   readonly theme: ThemeController;
+  /**
+   * Where the view keeps the browser's other choices, such as whether the
+   * list shows bots' pull requests (`localStorage` in the browser).
+   */
+  readonly preferences: KeyValueStore;
 }) {
   const { location } = props.session;
   const [pathname, setPathname] = useState(location.pathname);
@@ -94,11 +99,13 @@ export function App(props: {
     <SessionProvider controller={session}>
       <ThemeProvider controller={theme}>
         <ElementWidthsProvider widths={props.widths}>
-          {onCallback ? (
-            <CallbackHandler onDone={leaveCallback} />
-          ) : (
-            <Screen page={page} onNavigate={navigate} />
-          )}
+          <PreferencesProvider store={props.preferences}>
+            {onCallback ? (
+              <CallbackHandler onDone={leaveCallback} />
+            ) : (
+              <Screen page={page} onNavigate={navigate} />
+            )}
+          </PreferencesProvider>
         </ElementWidthsProvider>
       </ThemeProvider>
     </SessionProvider>

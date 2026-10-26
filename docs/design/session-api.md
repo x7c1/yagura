@@ -3,9 +3,11 @@
 The browser never sees the GitHub App's client secret, so the one thing the
 app needs a server for is turning an OAuth `code` into tokens and refreshing
 them later. This document is the contract between the single-page app and
-that server. The server stores nothing: the refresh token travels in an
-encrypted cookie the browser holds, and the access token lives only in the
-page's memory.
+that server's session API. The session API stores nothing: the refresh
+token travels in an encrypted cookie the browser holds, and the access
+token lives only in the page's memory. The same server also serves the
+activity the app shows, to requests that carry that access token; that is
+the [activity API's](activity-api.md) contract.
 
 Keeping the access token in memory, rather than in the browser's storage,
 keeps it from being left behind in storage after the page is closed, where a
@@ -21,8 +23,8 @@ The app does not wait for that refresh to draw. It remembers in the browser
 the login of the last viewer who signed in, and on a page load draws that
 viewer's cached activity at once, while the refresh, which answers with the
 login as well as the token, runs behind it. Until it answers, the viewer is
-signed in unconfirmed: their cache is read but not written, and GitHub requests wait
-for the token. When the session has ended (the refresh answers `401`, for
+signed in unconfirmed: their cache is read but not written, and activity API
+requests wait for the token. When the session has ended (the refresh answers `401`, for
 example after signing out on another device or once the refresh token has
 expired), the previous view shows for a moment, then gives way to the
 sign-in button, and the last viewer is forgotten so that the next load

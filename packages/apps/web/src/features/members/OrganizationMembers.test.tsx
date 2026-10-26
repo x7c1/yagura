@@ -1,7 +1,9 @@
 import {
+  mockBotLogin,
   mockLogin,
   mockMemberLogins,
   mockOrganization,
+  mockOrganizationId,
 } from "@yagura/api-mocks";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
@@ -12,21 +14,26 @@ import {
   membersPageUrl,
   memberSummaryRows,
   server,
+  sessionApi,
   showsOrganization,
   signOut,
   testController,
   testTheme,
   testWidths,
+  testPreferences,
 } from "../../test-support";
 
-const membersUrl = (org: string) =>
-  `https://api.github.com/orgs/${org}/members`;
+const activityUrl = `${sessionApi}/activity`;
 
+/** The logins of the summary table's rows, a bot's with its mark. */
 async function memberLogins(): Promise<string[]> {
   const rows = await memberSummaryRows();
   // The last row is the totals.
   return rows.slice(0, -1).map(([login]) => login ?? "");
 }
+
+/** The rows of the summary table for the mock: its members, then its bot. */
+const mockRowLogins = [...mockMemberLogins, `${mockBotLogin}bot`];
 
 describe("OrganizationMembers", () => {
   it("shows the organization and its members after sign-in", async () => {
@@ -36,25 +43,37 @@ describe("OrganizationMembers", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     await findOrganization(mockOrganization);
-    expect(await memberLogins()).toEqual(mockMemberLogins);
+    expect(await memberLogins()).toEqual(mockRowLogins);
     expect(screen.queryByRole("combobox")).not.toBeInTheDocument();
     expect(
-      mock.requestsTo(
-        "GET",
-        "https://api.github.com/user/installations?per_page=100",
-      ),
+      mock.requestsTo("GET", `${sessionApi}/activity/organizations`),
     ).toHaveLength(1);
+    expect(
+      mock.activityRequests.map(({ url }) =>
+        new URL(url).searchParams.get("organization"),
+      ),
+    ).toEqual([mockOrganizationId(mockOrganization)]);
   });
 
   it("links the organization, the login and the footer's credit to GitHub, in a new tab", async () => {
     const { controller } = testController({ signedIn: true });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     await findOrganization(mockOrganization);
 
@@ -88,7 +107,12 @@ describe("OrganizationMembers", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     await screen.findByRole("table", { name: "Members" });
     signOut();
@@ -104,7 +128,12 @@ describe("OrganizationMembers", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(
@@ -114,15 +143,19 @@ describe("OrganizationMembers", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows an error when the members request fails, and retries", async () => {
+  it("shows an error when the activity request fails, and retries", async () => {
     const { controller } = testController({
       signedIn: true,
       url: membersPageUrl,
     });
     server.use(
       http.get(
-        membersUrl(mockOrganization),
-        () => HttpResponse.json({ message: "Server Error" }, { status: 500 }),
+        activityUrl,
+        () =>
+          HttpResponse.json(
+            { error: "internal_error", error_description: "Oops." },
+            { status: 500 },
+          ),
         { once: true },
       ),
     );
@@ -130,14 +163,19 @@ describe("OrganizationMembers", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      `Could not load the members of ${mockOrganization} because GitHub or Yagura is not working right now. Retry in a moment, or reload the page if it keeps failing.`,
+      `Could not load the activity of ${mockOrganization}'s members because GitHub or Yagura is not working right now. Retry in a moment, or reload the page if it keeps failing.`,
     );
-    expect(alert).not.toHaveTextContent(/responded|GET \/|\b500\b/);
+    expect(alert).not.toHaveTextContent(/responded|GET \/|\b500\b|internal/);
     expect(warn).toHaveBeenCalledWith(
       "Could not fetch:",
       expect.objectContaining({ status: 500 }),
@@ -145,29 +183,34 @@ describe("OrganizationMembers", () => {
     warn.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await memberLogins()).toEqual(mockMemberLogins);
+    expect(await memberLogins()).toEqual(mockRowLogins);
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("says when the members cannot be loaded for the network being down", async () => {
+  it("says when the activity cannot be loaded for the network being down", async () => {
     const { controller } = testController({
       signedIn: true,
       url: membersPageUrl,
     });
     server.use(
-      http.get(membersUrl(mockOrganization), () => HttpResponse.error(), {
+      http.get(activityUrl, () => HttpResponse.error(), {
         once: true,
       }),
     );
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      `Could not load the members of ${mockOrganization} because you appear to be offline. Check your connection, then retry.`,
+      `Could not load the activity of ${mockOrganization}'s members because you appear to be offline. Check your connection, then retry.`,
     );
     expect(alert).not.toHaveTextContent("Failed to fetch");
     warn.mockRestore();
@@ -176,13 +219,21 @@ describe("OrganizationMembers", () => {
   it("says so when no members are visible", async () => {
     const { controller } = testController({ signedIn: true });
     server.use(
-      http.get(membersUrl(mockOrganization), () => HttpResponse.json([]), {
-        once: true,
-      }),
+      http.get(
+        activityUrl,
+        () =>
+          HttpResponse.json({ members: [], pullRequests: [], activities: [] }),
+        { once: true },
+      ),
     );
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(
@@ -200,19 +251,29 @@ describe("OrganizationMembers", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     await findOrganization(mockOrganization);
     await memberLogins();
     fireEvent.change(screen.getByRole("combobox", { name: "Organization" }), {
-      target: { value: "other-org" },
+      target: { value: mockOrganizationId("other-org") },
     });
 
     await findOrganization("other-org");
-    expect(await memberLogins()).toEqual(mockMemberLogins);
+    expect(await memberLogins()).toEqual(mockRowLogins);
     expect(
-      mock.requestsTo("GET", `${membersUrl("other-org")}?per_page=100`),
-    ).toHaveLength(1);
+      mock.activityRequests.map(({ url }) =>
+        new URL(url).searchParams.get("organization"),
+      ),
+    ).toEqual([
+      mockOrganizationId(mockOrganization),
+      mockOrganizationId("other-org"),
+    ]);
   });
 });

@@ -21,6 +21,7 @@ import {
   signOut,
   testController,
   testWidths,
+  testPreferences,
 } from "./test-support";
 
 const root = document.documentElement;
@@ -79,7 +80,12 @@ function choose(name: "System" | "Light" | "Dark"): void {
 async function renderSignedIn(themeController: ThemeController) {
   const { controller } = testController({ signedIn: true });
   render(
-    <App session={controller} widths={testWidths()} theme={themeController} />,
+    <App
+      session={controller}
+      widths={testWidths()}
+      theme={themeController}
+      preferences={testPreferences()}
+    />,
   );
   expect(await screen.findByText(mockLogin)).toBeInTheDocument();
 }
@@ -99,6 +105,7 @@ describe("The sign-in screen", () => {
         session={controller}
         widths={testWidths()}
         theme={theme("dark").controller}
+        preferences={testPreferences()}
       />,
     );
     await screen.findByRole("button", { name: "Sign in with GitHub" });
@@ -275,6 +282,7 @@ describe("The header menu", () => {
         session={controller}
         widths={testWidths()}
         theme={themeController}
+        preferences={testPreferences()}
       />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
@@ -350,6 +358,7 @@ describe("A choice made in another tab", () => {
         session={controller}
         widths={testWidths()}
         theme={themeController}
+        preferences={testPreferences()}
       />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();

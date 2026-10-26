@@ -12,23 +12,16 @@
 }
 
 /*
- * A rounded square, as GitHub draws an organization's avatar. Without an
- * image, the login's first letter on the surface colour takes its place.
+ * A rounded square, as GitHub draws an organization's avatar, on the
+ * surface colour while the image loads.
  */
 .avatar {
   flex: none;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
   width: var(--avatar-size);
   height: var(--avatar-size);
   border: var(--border-width) solid var(--color-border-subtle);
   border-radius: var(--radius-md);
   background: var(--color-surface);
-  color: var(--color-text-muted);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1;
 }
 
 /*

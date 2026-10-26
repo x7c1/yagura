@@ -56,6 +56,53 @@
 }
 
 /*
+ * A day's push circle, filled in the push colour apart from the bars'
+ * blue, with its count written on it. The whole circle is the button.
+ */
+.push {
+  cursor: pointer;
+}
+
+.pushCircle {
+  fill: var(--color-push);
+  stroke: var(--color-push);
+  stroke-width: var(--border-width);
+}
+
+.pushCount {
+  fill: var(--color-on-push);
+  stroke: none;
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-semibold);
+  pointer-events: none;
+  user-select: none;
+}
+
+/* The push row's label, "Pushes", in the axes' colour. */
+.pushLabel {
+  fill: currentColor;
+}
+
+/* The focus ring is drawn as the circle's stroke, below. */
+.push:focus {
+  outline: none;
+}
+
+.push.pressed .pushCircle {
+  stroke: var(--color-text);
+  stroke-width: var(--border-width-strong);
+}
+
+.push:focus-visible .pushCircle {
+  stroke: var(--color-focus);
+  stroke-width: var(--focus-ring-width);
+}
+
+.chosen .push:not(.pressed) {
+  opacity: 0.75;
+}
+
+/*
  * With a bar chosen, the others step back so that it stands out. 0.75 keeps
  * the bar colour above 3:1 against the background in both themes with some
  * margin (the light one is barely 3:1 at 0.7).

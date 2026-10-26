@@ -9,7 +9,7 @@ import {
   WindowStorageChanges,
   type KeyValueStore,
 } from "@yagura/browser";
-import { GitHubApiClient } from "@yagura/github-api";
+import { ActivityApiClient } from "@yagura/activity-api";
 import { SessionApiClient } from "@yagura/session-api";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -23,8 +23,8 @@ import "./global.css";
 // browser implementations everything else receives.
 
 /**
- * With `VITE_API_MOCK=1`, serves the session API and the GitHub API
- * endpoints the app calls from Mock Service Worker, and skips the GitHub
+ * With `VITE_API_MOCK=1`, serves the session API and the activity API
+ * from Mock Service Worker, and skips the GitHub
  * authorize page. The mocks are imported only in that mode, so they stay out
  * of the production bundle.
  */
@@ -53,7 +53,8 @@ async function main(container: HTMLElement): Promise<void> {
 
   const session = new SessionController({
     sessionApi: new SessionApiClient({ baseUrl: config.sessionApiBaseUrl }),
-    githubApi: new GitHubApiClient(),
+    // The activity API is on the session API's host.
+    activityApi: new ActivityApiClient({ baseUrl: config.sessionApiBaseUrl }),
     // Empty only in mock mode, whose authorize page accepts any client id.
     clientId: config.githubClientId || "mock-client-id",
     redirectUri: location.origin + callbackPath,
@@ -75,6 +76,7 @@ async function main(container: HTMLElement): Promise<void> {
         widths={
           new ResizeObserverWidths((callback) => new ResizeObserver(callback))
         }
+        preferences={localStore}
         theme={
           new ThemeController({
             store: localStore,

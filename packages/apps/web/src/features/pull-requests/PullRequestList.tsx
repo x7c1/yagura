@@ -1,8 +1,7 @@
-import { latestEventIn, type Period, type PullRequest } from "@yagura/activity";
-import type { Member } from "@yagura/github-api";
+import { pullRequestUrl, type ListedPullRequest } from "@yagura/activity";
 import { tableStyles } from "../../shared";
 import { dayBands } from "./day-bands";
-import { formatDateTime, pullRequestNumber } from "./format";
+import { eventWords, formatDateTime } from "./format";
 import { MemberLogin } from "./MemberLogin";
 import styles from "./PullRequestList.module.css";
 
@@ -11,28 +10,19 @@ import styles from "./PullRequestList.module.css";
  * share a background, alternating from one day to the next, so that the
  * days stand apart. The table fits the width it is given: its title,
  * repository and author wrap, and on a narrow screen each pull request is
- * a block of lines rather than a row of columns. An author among `members`
- * is shown with their avatar, as in the summary table; any other author by
- * the login alone.
+ * a block of lines rather than a row of columns. The author is shown with
+ * their avatar, as in the summary table; a bot's pull request names the
+ * bot alone as its author, marked as a bot.
  *
  * The table's elements name their roles, as the narrow layout displays
  * them as blocks and flex rows, which some browsers take to mean they are
  * no longer a table.
  */
 export function PullRequestList(props: {
-  readonly pullRequests: readonly PullRequest[];
-  readonly period: Period;
-  readonly members: readonly Member[];
+  readonly pullRequests: readonly ListedPullRequest[];
 }) {
-  const { pullRequests, period, members } = props;
-  const avatars = new Map(
-    members.map(({ login, avatarUrl }) => [login, avatarUrl]),
-  );
-  const rows = pullRequests.map((pr) => ({
-    pr,
-    time: latestEventIn(pr, period),
-  }));
-  const bands = dayBands(rows.map((row) => row.time));
+  const { pullRequests } = props;
+  const bands = dayBands(pullRequests.map(({ latest }) => latest.at));
   return (
     <div className={styles.scroll}>
       <table
@@ -55,6 +45,9 @@ export function PullRequestList(props: {
               State
             </th>
             <th scope="col" role="columnheader">
+              Pushes
+            </th>
+            <th scope="col" role="columnheader">
               Lines
             </th>
             <th scope="col" role="columnheader">
@@ -63,64 +56,71 @@ export function PullRequestList(props: {
           </tr>
         </thead>
         <tbody role="rowgroup">
-          {rows.map(({ pr, time }, index) => (
-            <tr
-              key={pr.id}
-              role="row"
-              data-band={bands[index]}
-              className={bands[index] === 1 ? styles.tinted : undefined}
-            >
-              <td role="cell" className={styles.title}>
-                <a href={pr.url} target="_blank" rel="noreferrer">
-                  {pr.title}
-                </a>
-              </td>
-              <td
-                role="cell"
-                className={`${styles.repository} ${styles.muted}`}
+          {pullRequests.map((row, index) => {
+            const { pullRequest: pr, author, state, latest, pushes } = row;
+            return (
+              <tr
+                key={pr.id}
+                role="row"
+                data-band={bands[index]}
+                className={bands[index] === 1 ? styles.tinted : undefined}
               >
-                {pr.repository}
-                <PullRequestNumber url={pr.url} />
-              </td>
-              <td role="cell" className={styles.author}>
-                <MemberLogin
-                  login={pr.author}
-                  avatarUrl={avatars.get(pr.author)}
-                />
-              </td>
-              <td role="cell" className={styles.state}>
-                <span className={`${styles.badge} ${styles[pr.state]}`}>
-                  {pr.state}
-                </span>
-              </td>
-              <td role="cell" className={`${styles.lines} ${styles.numeric}`}>
-                <span className={tableStyles.additions}>+{pr.additions}</span>{" "}
-                <span className={tableStyles.deletions}>−{pr.deletions}</span>
-              </td>
-              <td
-                role="cell"
-                className={`${styles.date} ${styles.numeric} ${styles.muted}`}
-              >
-                <time dateTime={time.toISOString()}>
-                  {formatDateTime(time)}
-                </time>
-              </td>
-            </tr>
-          ))}
+                <td role="cell" className={styles.title}>
+                  <a href={pullRequestUrl(pr)} target="_blank" rel="noreferrer">
+                    {pr.title}
+                  </a>
+                </td>
+                <td
+                  role="cell"
+                  className={`${styles.repository} ${styles.muted}`}
+                >
+                  {pr.repository.ownerLogin}/{pr.repository.name}
+                  <span className={styles.number}>#{pr.number}</span>
+                </td>
+                <td role="cell" className={styles.author}>
+                  {author === undefined ? (
+                    <span className={styles.muted}>unknown</span>
+                  ) : (
+                    <MemberLogin
+                      id={author.id}
+                      login={author.login}
+                      bot={row.byBot}
+                    />
+                  )}
+                </td>
+                <td role="cell" className={styles.state}>
+                  <span className={`${styles.badge} ${styles[state]}`}>
+                    {state}
+                  </span>
+                </td>
+                <td
+                  role="cell"
+                  className={`${styles.pushes} ${styles.numeric}`}
+                >
+                  {pushes}
+                  {/* Where the column headings are not drawn. */}
+                  <span className={styles.unit}>
+                    {pushes === 1 ? " push" : " pushes"}
+                  </span>
+                </td>
+                <td role="cell" className={`${styles.lines} ${styles.numeric}`}>
+                  <span className={tableStyles.additions}>+{pr.additions}</span>{" "}
+                  <span className={tableStyles.deletions}>−{pr.deletions}</span>
+                </td>
+                <td
+                  role="cell"
+                  className={`${styles.date} ${styles.numeric} ${styles.muted}`}
+                >
+                  {eventWords[latest.kind]}{" "}
+                  <time dateTime={latest.at.toISOString()}>
+                    {formatDateTime(latest.at)}
+                  </time>
+                </td>
+              </tr>
+            );
+          })}
         </tbody>
       </table>
     </div>
-  );
-}
-
-/**
- * The pull request's number, as GitHub writes it ("#123"), on a line of its
- * own under the repository's name, so that the two read as the pull
- * request's address.
- */
-function PullRequestNumber(props: { readonly url: string }) {
-  const number = pullRequestNumber(props.url);
-  return number === null ? null : (
-    <span className={styles.number}>{number}</span>
   );
 }

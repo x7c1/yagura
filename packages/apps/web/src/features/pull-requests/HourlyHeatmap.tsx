@@ -2,17 +2,17 @@ import {
   hoursPerDay,
   type DayCounts,
   type DayHourCounts,
+  type Narrowing,
 } from "@yagura/activity";
 import { useRef, useState, type KeyboardEvent } from "react";
 import styles from "./DailyChart.module.css";
-import { formatDay, formatHour } from "./format";
+import { formatDay, formatHour, formatPushes } from "./format";
 import {
   heatStep,
   heatSteps,
   type HeatmapGeometry,
   type HeatGroup,
 } from "./heatmap-geometry";
-import type { ChartSelection } from "./selection";
 
 /**
  * The class of each strength of a cell, from the empty cell's up to the
@@ -37,12 +37,18 @@ function clamp(value: number, last: number): number {
   return Math.min(Math.max(value, 0), last);
 }
 
+/** The pushes and merges in one hour of a day. */
+function hourCount(day: DayHourCounts | undefined, hour: number): number {
+  return (day?.merged[hour] ?? 0) + (day?.pushed[hour] ?? 0);
+}
+
 /**
- * The heatmap of the hours of each day the pull requests were merged in,
- * drawn under the bar chart as laid out by `geometry`, with the counts of
- * `hours`, a day per group of `geometry` in the same order. Each cell with a
- * count chooses its day and hour, as a bar chooses its day; choosing the
- * chosen one again clears the choice.
+ * The heatmap of the hours of each day the members pushed and the pull
+ * requests were merged in, the two counted together, drawn under the bar
+ * chart as laid out by `geometry`, with the counts of `hours`, a day per
+ * group of `geometry` in the same order. Each cell with a count chooses
+ * its day and hour, as a bar chooses its day; choosing the chosen one
+ * again clears the choice.
  *
  * It is a grid of one tab stop: the arrow keys move between its cells, the
  * way they are laid out, Home and End to the ends of a line, and Enter or
@@ -53,8 +59,8 @@ function clamp(value: number, last: number): number {
 export function HourlyHeatmap(props: {
   readonly geometry: HeatmapGeometry<DayCounts>;
   readonly hours: readonly DayHourCounts[];
-  readonly selected: ChartSelection | null;
-  readonly onSelect: (selection: ChartSelection | null) => void;
+  readonly selected: Narrowing | null;
+  readonly onSelect: (selection: Narrowing | null) => void;
 }) {
   const { geometry, hours, selected, onSelect } = props;
   const grid = useRef<SVGSVGElement>(null);
@@ -63,10 +69,10 @@ export function HourlyHeatmap(props: {
   const days = geometry.groups.length;
 
   const countAt = ({ day, hour }: CellPosition): number =>
-    hours[day]?.merged[hour] ?? 0;
+    hourCount(hours[day], hour);
 
   const chosen = (): CellPosition | null => {
-    if (selected === null || selected.hour === null) {
+    if (selected?.kind !== "hour") {
       return null;
     }
     const day = hours.findIndex((d) => d.day === selected.day);
@@ -87,7 +93,7 @@ export function HourlyHeatmap(props: {
   const active = moved ?? chosen() ?? firstWithCount() ?? { day: 0, hour: 0 };
 
   const isChosen = ({ day, hour }: CellPosition): boolean =>
-    selected !== null &&
+    selected?.kind === "hour" &&
     selected.hour === hour &&
     selected.day === hours[day]?.day;
 
@@ -96,7 +102,9 @@ export function HourlyHeatmap(props: {
     if (countAt(position) === 0 || day === undefined) {
       return;
     }
-    onSelect(isChosen(position) ? null : { day, hour: position.hour });
+    onSelect(
+      isChosen(position) ? null : { kind: "hour", day, hour: position.hour },
+    );
   };
 
   /** Moves focus to the cell at `position`, making it the tab stop. */
@@ -168,9 +176,12 @@ export function HourlyHeatmap(props: {
     if (pressed) {
       classes.push(styles.pressed);
     }
+    const counts = hours[day];
     const label =
       `${formatDay(group.day.day)}, ${formatHour(hour)} to ` +
-      `${formatHour(hour + 1)}: ${count} merged`;
+      `${formatHour(hour + 1)}: ` +
+      `${formatPushes(counts?.pushed[hour] ?? 0)}, ` +
+      `${counts?.merged[hour] ?? 0} merged`;
     const isActive = active.day === day && active.hour === hour;
     return (
       <rect
@@ -218,7 +229,7 @@ export function HourlyHeatmap(props: {
           : styles.chart
       }
       role="grid"
-      aria-label="Merged pull requests per hour of each day"
+      aria-label="Pushes and merged pull requests per hour of each day"
       onKeyDown={onKeyDown}
     >
       {/*
@@ -270,15 +281,20 @@ export function HourlyHeatmap(props: {
 
 /** The count of the busiest hour of `hours`, or 0 for none. */
 function busiestHour(hours: readonly DayHourCounts[]): number {
-  return Math.max(0, ...hours.flatMap((d) => d.merged));
+  return Math.max(
+    0,
+    ...hours.flatMap((day) =>
+      Array.from({ length: hoursPerDay }, (_, hour) => hourCount(day, hour)),
+    ),
+  );
 }
 
 /**
  * The description of the heatmap's strengths, as the caption of the chart's
  * figure, for assistive technology only: the cells' shades show them on
  * the page without a key. With no hour busy, there is nothing to describe.
- * What is counted needs no description of its own: the card's heading says
- * it.
+ * What is counted needs no description of its own: the heatmap's name and
+ * its cells' names say it.
  */
 export function HeatDescription(props: {
   readonly hours: readonly DayHourCounts[];

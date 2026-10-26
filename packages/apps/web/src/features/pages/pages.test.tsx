@@ -12,6 +12,7 @@ import {
   testController,
   testTheme,
   testWidths,
+  testPreferences,
 } from "../../test-support";
 import { pageAt } from "./pages";
 
@@ -35,7 +36,12 @@ describe("Pages", () => {
     const { controller } = testController({ signedIn: true });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     await pullRequestTitles();
@@ -52,7 +58,12 @@ describe("Pages", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     await memberSummaryRows();
@@ -75,7 +86,12 @@ describe("Pages", () => {
       screen.getByRole("main").parentElement?.getAttribute("data-fit");
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     await pullRequestTitles();
 
@@ -90,7 +106,12 @@ describe("Pages", () => {
     const { controller } = testController({ signedIn: true });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(
@@ -104,7 +125,12 @@ describe("Pages", () => {
     const { controller, mock, location } = testController({ signedIn: true });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     await pullRequestTitles();
     const requests = mock.requests.length;
@@ -149,7 +175,12 @@ describe("Pages", () => {
     const { controller, location } = testController({ signedIn: true });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     await pullRequestTitles();
 
@@ -179,7 +210,12 @@ describe("Pages", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     await pullRequestTitles();
@@ -195,7 +231,12 @@ describe("Pages", () => {
       const { controller, location } = testController({ url });
 
       render(
-        <App session={controller} widths={testWidths()} theme={testTheme()} />,
+        <App
+          session={controller}
+          widths={testWidths()}
+          theme={testTheme()}
+          preferences={testPreferences()}
+        />,
       );
 
       await screen.findByRole("button", { name: "Sign in with GitHub" });
@@ -216,7 +257,12 @@ describe("Pages", () => {
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();

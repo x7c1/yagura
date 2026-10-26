@@ -26,10 +26,14 @@ export default defineConfig(({ mode }) => {
       strictPort: true,
       // The refresh token cookie is SameSite=Lax, so the browser sends it only
       // to a same-site session API. Proxying /session keeps the API on this
-      // origin. changeOrigin rewrites only the Host header; the Origin header
+      // origin, and /activity with it, as the app calls both at the one base
+      // URL. changeOrigin rewrites only the Host header; the Origin header
       // the API checks is left as the browser sent it.
       proxy: sessionApiProxy
-        ? { "/session": { target: sessionApiProxy, changeOrigin: true } }
+        ? {
+            "/session": { target: sessionApiProxy, changeOrigin: true },
+            "/activity": { target: sessionApiProxy, changeOrigin: true },
+          }
         : undefined,
     },
     test: {

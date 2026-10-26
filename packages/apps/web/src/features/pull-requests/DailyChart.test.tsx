@@ -1,55 +1,90 @@
 import {
   countByDay,
   countByHour,
+  countedEvents,
   hoursPerDay,
+  listPullRequests,
+  narrowList,
   periodEndingAt,
-  pullRequestsInHour,
-  pullRequestsOn,
+  requestRange,
   startOfDay,
   type DayCounts,
+  type Narrowing,
 } from "@yagura/activity";
-import { mockPullRequestTitles } from "@yagura/api-mocks";
+import { parseOrganizationActivity } from "@yagura/activity-api";
+import { mockActivityFixtures, mockActivityResponse } from "@yagura/api-mocks";
 import { act, fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 import { App } from "../../App";
 import {
   memberSummaryRows,
-  mockDomainPullRequests,
   pullRequestRows,
   pullRequestTitles,
   showPage,
   testController,
   testTheme,
   testWidths,
+  testPreferences,
+  titlesOf,
 } from "../../test-support";
 import { dayFormat } from "./format";
 
 /** 15:30 local time, so that the fixtures of the last hours fall on today. */
 const now = new Date(2026, 9, 12, 15, 30);
 const period = periodEndingAt(now);
-const pullRequests = mockDomainPullRequests(now);
+
+/** The API mock's answer at {@link now}, as the view reads it. */
+const activity = (() => {
+  const { from, to } = requestRange(period);
+  const parsed = parseOrganizationActivity(
+    mockActivityResponse(mockActivityFixtures(now), from, to),
+  );
+  if (parsed === undefined) {
+    throw new Error("The API mock's activity does not parse");
+  }
+  return parsed;
+})();
+const events = countedEvents(activity, period);
+const listed = listPullRequests(activity, events);
+
+/** The members' pull requests the list shows when it is not narrowed. */
+const allTitles = titlesOf(listed);
 
 /** The fixtures' counts per day, as the chart should show them. */
-const expectedDays = countByDay(pullRequests, period);
+const expectedDays = countByDay(events, period);
 
+/** The whole chart, the push circles, the bars and their labels. */
+const figureName = "Merged pull requests and pushes per day";
+
+/** The bars alone. */
 const chartName = "Merged pull requests per day";
 
+const dayName = (day: string) => dayFormat.format(startOfDay(day));
+
 const barName = (day: DayCounts) =>
-  `${dayFormat.format(startOfDay(day.day))}, merged: ${day.merged}`;
+  `${dayName(day.day)}, merged: ${day.merged}`;
+
+const pushName = (day: DayCounts) =>
+  `${dayName(day.day)}, ${day.pushed === 1 ? "1 push" : `${day.pushed} pushes`}`;
+
+/** The titles the list shows narrowed to `narrowing`, in list order. */
+function titlesNarrowedTo(narrowing: Narrowing): string[] {
+  return titlesOf(narrowList(listed, events, narrowing));
+}
 
 /** The titles the list shows narrowed to a day's merges, in list order. */
 function narrowedTitles(day: string): string[] {
-  const selected = new Set(
-    pullRequestsOn(pullRequests, period, day, "merged").map(
-      ({ title }) => title,
-    ),
-  );
-  return mockPullRequestTitles.filter((title) => selected.has(title));
+  return titlesNarrowedTo({ kind: "merged", day });
 }
 
-/** The days the fixtures have merges on, oldest first; at least two. */
+/**
+ * The days the fixtures have merges of members' pull requests on, oldest
+ * first; at least two.
+ */
 function daysWithMerges(): [DayCounts, DayCounts, ...DayCounts[]] {
-  const [first, second, ...rest] = expectedDays.filter((d) => d.merged > 0);
+  const [first, second, ...rest] = expectedDays.filter(
+    (d) => d.merged > 0 && narrowedTitles(d.day).length > 0,
+  );
   if (first === undefined || second === undefined) {
     throw new Error("Fewer than two days with merges in the fixtures");
   }
@@ -70,61 +105,82 @@ function chartLayout(): "columns" | "rows" {
 }
 
 /** The fixtures' counts per hour of each day, as the heatmap should show them. */
-const expectedHours = countByHour(pullRequests, period);
+const expectedHours = countByHour(events, period);
 
-const heatmapName = "Merged pull requests per hour of each day";
+const heatmapName = "Pushes and merged pull requests per hour of each day";
 
 const pad = (hour: number) => String(hour).padStart(2, "0");
 
-/** A cell's accessible name, for example "Oct 13, 14:00 to 15:00: 2 merged". */
-const cellName = (day: string, hour: number, count: number) =>
-  `${dayFormat.format(startOfDay(day))}, ${pad(hour)}:00 to ` +
-  `${pad(hour + 1)}:00: ${count} merged`;
+/**
+ * A cell's accessible name, for example "Oct 13, 14:00 to 15:00: 5 pushes,
+ * 1 merged".
+ */
+const cellName = (day: string, hour: number, pushed: number, merged: number) =>
+  `${dayName(day)}, ${pad(hour)}:00 to ${pad(hour + 1)}:00: ` +
+  `${pushed === 1 ? "1 push" : `${pushed} pushes`}, ${merged} merged`;
 
-/** An hour of a day, and how many pull requests were merged within it. */
+/** An hour of a day, and how many pushes and merges it had. */
 interface HourCell {
   readonly day: string;
   readonly hour: number;
-  readonly count: number;
+  readonly pushed: number;
+  readonly merged: number;
 }
 
-/** The fixtures' hours, those with merges or those without. */
+/** The fixtures' hours, those with pushes or merges or those without. */
 function hourCells(busy: boolean): HourCell[] {
-  return expectedHours.flatMap(({ day, merged }) =>
-    merged.flatMap((count, hour) =>
-      count > 0 === busy ? [{ day, hour, count }] : [],
-    ),
+  return expectedHours.flatMap(({ day, merged, pushed }) =>
+    merged.flatMap((count, hour) => {
+      const pushes = pushed[hour] ?? 0;
+      return count + pushes > 0 === busy
+        ? [{ day, hour, pushed: pushes, merged: count }]
+        : [];
+    }),
   );
 }
 
-/** An hour with merges in the fixtures. */
+/** An hour with both a push and a merge of members' pull requests. */
 function busyHour(): HourCell {
-  const [cell] = hourCells(true);
+  const cell = hourCells(true).find(
+    (candidate) =>
+      candidate.pushed > 0 &&
+      candidate.merged > 0 &&
+      narrowedHourTitles(candidate).length > 0,
+  );
   if (cell === undefined) {
-    throw new Error("No hour with merged pull requests in the fixtures");
+    throw new Error("No hour with pushes and merges in the fixtures");
   }
   return cell;
 }
 
-function heatmapCell({ day, hour, count }: HourCell): HTMLElement {
-  return screen.getByRole("gridcell", { name: cellName(day, hour, count) });
+function heatmapCell({ day, hour, pushed, merged }: HourCell): HTMLElement {
+  return screen.getByRole("gridcell", {
+    name: cellName(day, hour, pushed, merged),
+  });
 }
 
 /** The titles the list shows narrowed to an hour, in list order. */
 function narrowedHourTitles({ day, hour }: HourCell): string[] {
-  const selected = new Set(
-    pullRequestsInHour(pullRequests, period, day, hour, "merged").map(
-      ({ title }) => title,
-    ),
-  );
-  return mockPullRequestTitles.filter((title) => selected.has(title));
+  return titlesNarrowedTo({ kind: "hour", day, hour });
 }
 
 /** Renders the app with the chart drawn to `widths`, a desktop's by default. */
 async function renderChart(widths = testWidths()) {
   const { controller } = testController({ signedIn: true, clock: () => now });
-  render(<App session={controller} widths={widths} theme={testTheme()} />);
+  render(
+    <App
+      session={controller}
+      widths={widths}
+      theme={testTheme()}
+      preferences={testPreferences()}
+    />,
+  );
   await screen.findByRole("group", { name: chartName });
+}
+
+/** The chart's drawing: the push circles, the bars and their labels. */
+function chartFigure(): HTMLElement {
+  return screen.getByRole("group", { name: figureName });
 }
 
 describe("DailyChart", () => {
@@ -163,7 +219,7 @@ describe("DailyChart", () => {
     "writes each bar's count but a zero, which only its name carries, at %ipx",
     async (width) => {
       await renderChart(testWidths(width));
-      const chart = screen.getByRole("group", { name: chartName });
+      const chart = chartFigure();
       const counts = expectedDays.map((day) => day.merged);
       expect(counts).toContain(0);
 
@@ -191,8 +247,7 @@ describe("DailyChart", () => {
     });
 
     expect(chartLayout()).toBe("rows");
-    const chart = screen.getByRole("group", { name: chartName });
-    expect(chart).toHaveAttribute("width", "340");
+    expect(chartFigure()).toHaveAttribute("width", "340");
   });
 
   it("stops measuring its width once it is gone", async () => {
@@ -231,7 +286,7 @@ describe("DailyChart", () => {
 
       fireEvent.click(bar);
 
-      expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+      expect(await pullRequestTitles()).toEqual(allTitles);
       expect(bar).toHaveAttribute("aria-pressed", "false");
       expect(
         screen.queryByRole("button", { name: "Show all" }),
@@ -243,7 +298,7 @@ describe("DailyChart", () => {
     "chooses a bar when its count is clicked, at %ipx",
     async (width) => {
       await renderChart(testWidths(width));
-      const chart = screen.getByRole("group", { name: chartName });
+      const chart = chartFigure();
       const [day] = daysWithMerges();
       const bar = screen.getByRole("button", { name: barName(day) });
       // The counts come last, in the order of the bars, but for the zeros.
@@ -279,7 +334,7 @@ describe("DailyChart", () => {
       expect(await pullRequestTitles()).toEqual(narrowedTitles(day.day));
       fireEvent.click(screen.getByRole("button", { name: "Show all" }));
 
-      expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+      expect(await pullRequestTitles()).toEqual(allTitles);
       expect(bar).toHaveAttribute("aria-pressed", "false");
 
       fireEvent.keyDown(bar, { key: " " });
@@ -323,7 +378,7 @@ describe("DailyChart", () => {
     fireEvent.click(bar);
     fireEvent.keyDown(bar, { key: "Enter" });
 
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual(allTitles);
     expect(
       screen.queryByRole("button", { name: "Show all" }),
     ).not.toBeInTheDocument();
@@ -343,6 +398,212 @@ describe("DailyChart", () => {
     showPage("Members");
 
     expect(await memberSummaryRows()).toEqual(before);
+  });
+});
+
+describe("The push circles", () => {
+  const pushDays = () => expectedDays.filter((day) => day.pushed > 0);
+
+  it.each([1000, 340])(
+    'draw a circle per day with the members\' pushes, labelled "Pushes", at %ipx',
+    async (width) => {
+      await renderChart(testWidths(width));
+      const circles = within(
+        screen.getByRole("group", { name: "Pushes per day" }),
+      ).getAllByRole("button");
+
+      expect(
+        circles.map((circle) => circle.getAttribute("aria-label")),
+      ).toEqual(pushDays().map(pushName));
+      for (const [index, circle] of circles.entries()) {
+        expect(circle).toHaveTextContent(String(pushDays()[index]?.pushed));
+      }
+      expect(within(chartFigure()).getByText("Pushes")).toBeInTheDocument();
+      // A day without pushes has no circle, though a bot pushed on Oct 7.
+      expect(expectedDays.find(({ day }) => day === "2026-10-07")?.pushed).toBe(
+        0,
+      );
+      expect(
+        screen.queryByRole("button", { name: /^Oct 7, \d+ push/ }),
+      ).not.toBeInTheDocument();
+    },
+  );
+
+  it.each([1000, 340])(
+    "sit above the bars, or next to the dates, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const day = pushDays().find((d) => d.merged > 0);
+      if (day === undefined) {
+        throw new Error("No day with pushes and merges in the fixtures");
+      }
+      const circle = screen
+        .getByRole("button", { name: pushName(day) })
+        .querySelector("circle");
+      const bar = screen.getByRole("button", { name: barName(day) });
+      const cx = Number(circle?.getAttribute("cx"));
+      const cy = Number(circle?.getAttribute("cy"));
+      const r = Number(circle?.getAttribute("r"));
+      const x = Number(bar.getAttribute("x"));
+      const y = Number(bar.getAttribute("y"));
+      const barWidth = Number(bar.getAttribute("width"));
+      const barHeight = Number(bar.getAttribute("height"));
+
+      if (width === 1000) {
+        expect(cx).toBeCloseTo(x + barWidth / 2);
+        expect(cy + r).toBeLessThan(y);
+      } else {
+        expect(cx + r).toBeLessThan(x);
+        expect(cy).toBeCloseTo(y + barHeight / 2);
+      }
+    },
+  );
+
+  it.each([1000, 340])(
+    "narrow the list to the pull requests a member pushed to that day, and back, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const [day] = pushDays() as [DayCounts];
+      const circle = screen.getByRole("button", { name: pushName(day) });
+
+      fireEvent.click(circle);
+
+      const pushed = titlesNarrowedTo({ kind: "pushed", day: day.day });
+      expect(pushed.length).toBeGreaterThan(0);
+      expect(await pullRequestTitles()).toEqual(pushed);
+      expect(circle).toHaveAttribute("aria-pressed", "true");
+      expect(
+        screen.getByText(`Pushed on ${dayName(day.day)}`, { exact: false }),
+      ).toBeInTheDocument();
+
+      fireEvent.keyDown(circle, { key: "Enter" });
+
+      expect(await pullRequestTitles()).toEqual(allTitles);
+      expect(circle).toHaveAttribute("aria-pressed", "false");
+    },
+  );
+
+  it("replace a chosen bar, and a bar replaces them", async () => {
+    await renderChart();
+    const day = pushDays().find((d) => d.merged > 0) as DayCounts;
+    const circle = screen.getByRole("button", { name: pushName(day) });
+    const bar = screen.getByRole("button", { name: barName(day) });
+
+    fireEvent.click(bar);
+    fireEvent.click(circle);
+
+    expect(circle).toHaveAttribute("aria-pressed", "true");
+    expect(bar).toHaveAttribute("aria-pressed", "false");
+    expect(await pullRequestTitles()).toEqual(
+      titlesNarrowedTo({ kind: "pushed", day: day.day }),
+    );
+
+    fireEvent.click(bar);
+
+    expect(circle).toHaveAttribute("aria-pressed", "false");
+    expect(await pullRequestTitles()).toEqual(narrowedTitles(day.day));
+  });
+});
+
+describe("A narrowed list's Pushes and Date", () => {
+  /** The Pushes and Date cells of the row titled `title`, as shown. */
+  async function pushesAndDate(title: string): Promise<[string, string]> {
+    const row = (await pullRequestRows()).find(
+      (candidate) =>
+        within(candidate).queryByRole("link", { name: title, hidden: true }) !==
+        null,
+    );
+    if (row === undefined) {
+      throw new Error(`No row titled "${title}"`);
+    }
+    const cells = [...row.children].map(
+      (cell) => cell.textContent?.trim() ?? "",
+    );
+    return [cells[4] ?? "", cells[6] ?? ""];
+  }
+
+  const yesterday = expectedDays.find(
+    (d) => d.day === "2026-10-11",
+  ) as DayCounts;
+
+  it("are those of the chosen day, and of the period again once cleared", async () => {
+    await renderChart();
+    // Four pushes in the period, the last one an hour ago.
+    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+      "4 pushes",
+      "Pushed 2026-10-12 14:30",
+    ]);
+    // Pushed to two days ago, merged yesterday.
+    expect(await pushesAndDate("Document the API mock")).toEqual([
+      "1 push",
+      "Merged 2026-10-11 11:30",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: pushName(yesterday) }));
+
+    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+      "1 push",
+      "Pushed 2026-10-11 10:05",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: barName(yesterday) }));
+
+    expect(await pushesAndDate("Document the API mock")).toEqual([
+      "0 pushes",
+      "Merged 2026-10-11 11:30",
+    ]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+
+    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+      "4 pushes",
+      "Pushed 2026-10-12 14:30",
+    ]);
+  });
+
+  it("are those of the chosen hour", async () => {
+    await renderChart();
+    const hours = expectedHours.find(({ day }) => day === "2026-10-11");
+    const pushed = hours?.pushed[10] ?? 0;
+    const merged = hours?.merged[10] ?? 0;
+
+    fireEvent.click(
+      heatmapCell({ day: "2026-10-11", hour: 10, pushed, merged }),
+    );
+
+    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+      "1 push",
+      "Pushed 2026-10-11 10:05",
+    ]);
+  });
+});
+
+describe("Bots' pull requests in a narrowed list", () => {
+  it("are counted in the narrowing's button, and shown on request", async () => {
+    await renderChart();
+    // On Oct 7, only Dependabot's pull request was merged.
+    const day = expectedDays.find((d) => d.day === "2026-10-07") as DayCounts;
+    expect(day.merged).toBe(1);
+
+    fireEvent.click(screen.getByRole("button", { name: barName(day) }));
+
+    expect(
+      await screen.findByText("Only bots' pull requests here."),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("table", { name: "Pull requests" }),
+    ).not.toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 1 bot pull request" }),
+    );
+
+    expect(await pullRequestTitles()).toEqual([
+      "Bump vite from 8.3.4 to 8.3.5",
+    ]);
+    fireEvent.click(screen.getByRole("button", { name: "Show all" }));
+    expect(
+      screen.getByRole("button", { name: "Hide 3 bot pull requests" }),
+    ).toBeInTheDocument();
   });
 });
 
@@ -393,7 +654,7 @@ describe("The hours' heatmap", () => {
       const [day] = daysWithMerges();
       const bar = screen.getByRole("button", { name: barName(day) });
       const cell = screen.getByRole("gridcell", {
-        name: cellName(day.day, 0, 0),
+        name: cellName(day.day, 0, 0, 0),
       });
       const right =
         Number(cell.getAttribute("x")) + Number(cell.getAttribute("width"));
@@ -419,11 +680,10 @@ describe("The hours' heatmap", () => {
       fireEvent.click(cell);
 
       expect(await pullRequestTitles()).toEqual(narrowedHourTitles(hour));
-      expect(narrowedHourTitles(hour)).toHaveLength(hour.count);
       expect(cell).toHaveAttribute("aria-selected", "true");
       expect(
         screen.getByText(
-          `Merged on ${dayFormat.format(startOfDay(hour.day))}, ` +
+          `Merged or pushed on ${dayFormat.format(startOfDay(hour.day))}, ` +
             `${pad(hour.hour)}:00–${pad(hour.hour + 1)}:00`,
           { exact: false },
         ),
@@ -431,7 +691,7 @@ describe("The hours' heatmap", () => {
 
       fireEvent.click(screen.getByRole("button", { name: "Show all" }));
 
-      expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+      expect(await pullRequestTitles()).toEqual(allTitles);
       expect(cell).toHaveAttribute("aria-selected", "false");
     },
   );
@@ -470,7 +730,7 @@ describe("The hours' heatmap", () => {
     fireEvent.click(cell);
     fireEvent.click(cell);
 
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual(allTitles);
     expect(
       screen.queryByRole("button", { name: "Show all" }),
     ).not.toBeInTheDocument();
@@ -491,7 +751,7 @@ describe("The hours' heatmap", () => {
       throw new Error("No hour with merged pull requests in the fixtures");
     }
     expect(stops[0]).toHaveAccessibleName(
-      cellName(earliest.day, earliest.hour, earliest.count),
+      cellName(earliest.day, earliest.hour, earliest.pushed, earliest.merged),
     );
   });
 
@@ -508,7 +768,12 @@ describe("The hours' heatmap", () => {
         if (counts === undefined) {
           throw new Error(`No day ${day} in the period`);
         }
-        return cellName(counts.day, hour, counts.merged[hour] ?? 0);
+        return cellName(
+          counts.day,
+          hour,
+          counts.pushed[hour] ?? 0,
+          counts.merged[hour] ?? 0,
+        );
       };
       const first = screen.getByRole("gridcell", { name: name(0, 0) });
       act(() => {
@@ -558,7 +823,7 @@ describe("The hours' heatmap", () => {
 
       fireEvent.keyDown(target, { key: " " });
 
-      expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+      expect(await pullRequestTitles()).toEqual(allTitles);
     },
   );
 
@@ -578,7 +843,7 @@ describe("The hours' heatmap", () => {
     });
     fireEvent.keyDown(cell, { key: "Enter" });
 
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual(allTitles);
     expect(
       screen.queryByRole("button", { name: "Show all" }),
     ).not.toBeInTheDocument();

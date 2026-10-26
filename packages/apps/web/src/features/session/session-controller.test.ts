@@ -4,7 +4,7 @@ import {
   MemoryStore,
   MemoryTabChannel,
 } from "@yagura/browser";
-import { GitHubApiError } from "@yagura/github-api";
+import { ActivityApiError } from "@yagura/activity-api";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import {
@@ -286,7 +286,7 @@ describe("SessionController token refresh", () => {
 });
 
 describe("SessionController.withAccessToken", () => {
-  it("refreshes once on a GitHub 401 and retries with the new token", async () => {
+  it("refreshes once on an activity API 401 and retries with the new token", async () => {
     const { controller, mock } = testController({ signedIn: true });
     await controller.restore();
     expect(controller.accessToken).toBe("ghu_mock_1");
@@ -295,7 +295,7 @@ describe("SessionController.withAccessToken", () => {
     const result = await controller.withAccessToken(async (token) => {
       seen.push(token);
       if (seen.length === 1) {
-        throw new GitHubApiError(401, "expired");
+        throw new ActivityApiError(401, "invalid_token");
       }
       return token;
     });
@@ -325,7 +325,7 @@ describe("SessionController.withAccessToken", () => {
     await expect(
       controller.withAccessToken(async () => {
         calls += 1;
-        throw new GitHubApiError(401, "expired");
+        throw new ActivityApiError(401, "invalid_token");
       }),
     ).rejects.toThrow("Signed in as someone-else instead");
     expect(calls).toBe(1);
@@ -337,6 +337,50 @@ describe("SessionController.withAccessToken", () => {
     expect(lastViewer.get(lastViewerKey)).toBe("someone-else");
   });
 
+  it("takes the activity API's invalid_token as an expired token: refreshes, then asks again", async () => {
+    const { controller, mock } = testController({ signedIn: true });
+    await controller.restore();
+    server.use(
+      http.get(
+        `${sessionApi}/activity/organizations`,
+        () =>
+          HttpResponse.json(
+            { error: "invalid_token", error_description: "Expired." },
+            { status: 401 },
+          ),
+        { once: true },
+      ),
+    );
+
+    const organizations = await controller.withAccessToken((token) =>
+      controller.activityApi.listOrganizations(token),
+    );
+
+    expect(organizations.map(({ login }) => login)).toEqual(["mock-org"]);
+    expect(
+      mock.requestsTo("GET", `${sessionApi}/activity/organizations`),
+    ).toEqual([
+      expect.objectContaining({ authorization: "Bearer ghu_mock_2" }),
+    ]);
+  });
+
+  it("signs out when the activity API answers 401 and the session has ended", async () => {
+    const { controller, mock, lastViewer } = testController({
+      signedIn: true,
+    });
+    await controller.restore();
+    // The refresh cookie is gone, as after signing out on another device.
+    mock.signedIn = false;
+
+    await expect(
+      controller.withAccessToken((token) =>
+        controller.activityApi.listOrganizations(token),
+      ),
+    ).rejects.toThrow("The session has ended");
+    expect(controller.state).toEqual({ status: "signed-out" });
+    expect(lastViewer.get(lastViewerKey)).toBeUndefined();
+  });
+
   it("does not retry a second 401", async () => {
     const { controller } = testController({ signedIn: true });
     await controller.restore();
@@ -345,9 +389,9 @@ describe("SessionController.withAccessToken", () => {
     await expect(
       controller.withAccessToken(async () => {
         calls += 1;
-        throw new GitHubApiError(401, "expired");
+        throw new ActivityApiError(401, "invalid_token");
       }),
-    ).rejects.toBeInstanceOf(GitHubApiError);
+    ).rejects.toBeInstanceOf(ActivityApiError);
     expect(calls).toBe(2);
   });
 });
@@ -396,7 +440,7 @@ describe("SessionController.restore with a remembered last viewer", () => {
     expect(await cache.get(`${mockLogin}/after`)).toBe(2);
   });
 
-  it("runs a GitHub call once the restore has the token", async () => {
+  it("runs an activity API call once the restore has the token", async () => {
     const { controller, mock, release } = remembering(mockLogin, true);
     void controller.restore();
 

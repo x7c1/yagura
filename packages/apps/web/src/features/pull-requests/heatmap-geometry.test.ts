@@ -15,6 +15,7 @@ import {
 
 const fortnight = Array.from({ length: 14 }, (_, index) => ({
   merged: index % 3,
+  pushed: index % 4,
 }));
 
 const bottom = ({ y, height }: Rect) => y + height;

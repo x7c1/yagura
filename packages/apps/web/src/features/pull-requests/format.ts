@@ -1,4 +1,9 @@
-import { periodDays, startOfDay, type Period } from "@yagura/activity";
+import {
+  periodDays,
+  startOfDay,
+  type EventKind,
+  type Period,
+} from "@yagura/activity";
 
 /** A day as its month and day, for example "Oct 12". */
 export const dayFormat = new Intl.DateTimeFormat("en-US", {
@@ -9,16 +14,6 @@ export const dayFormat = new Intl.DateTimeFormat("en-US", {
 /** A day key as its month and day, for example "Oct 3". */
 export function formatDay(day: string): string {
   return dayFormat.format(startOfDay(day));
-}
-
-/**
- * The number of the pull request at `url`, for example "#123" for
- * "https://github.com/owner/repo/pull/123", read from the address so that
- * nothing more is fetched or stored; `null` for an address of another shape.
- */
-export function pullRequestNumber(url: string): string | null {
-  const match = /\/pull\/(\d+)\/?$/.exec(url);
-  return match ? `#${match[1]}` : null;
 }
 
 /**
@@ -49,4 +44,16 @@ export function formatPeriod(period: Period): string {
 
 function pad(value: number): string {
   return String(value).padStart(2, "0");
+}
+
+/** What the list's Date column says of each kind of latest event. */
+export const eventWords: Readonly<Record<EventKind, string>> = {
+  opened: "Opened",
+  pushed: "Pushed",
+  merged: "Merged",
+};
+
+/** A count of pushes, for example "1 push" or "5 pushes". */
+export function formatPushes(count: number): string {
+  return count === 1 ? "1 push" : `${count} pushes`;
 }

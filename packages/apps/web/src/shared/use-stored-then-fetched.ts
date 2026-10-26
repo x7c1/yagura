@@ -1,20 +1,10 @@
 import { useCallback, useEffect, useState } from "react";
 import { classifyLoadFailure, type LoadFailure } from "./load-failure";
 
-/** A value read from the browser cache, without any request. */
-export interface Stored<T> {
-  readonly value: T;
-  /**
-   * Whether the fetch is known to request nothing, the stored value being
-   * within its short life, so that it is not shown as updating.
-   */
-  readonly fresh: boolean;
-}
-
 /** Where a value comes from: the browser cache first, then a fetch. */
 export interface StoredThenFetchedSource<T> {
   /** What the cache holds, or `undefined` when it holds nothing to draw. */
-  readonly stored: () => Promise<Stored<T> | undefined>;
+  readonly stored: () => Promise<T | undefined>;
   /** The up-to-date value. */
   readonly fetch: () => Promise<T>;
 }
@@ -39,7 +29,6 @@ export interface StoredThenFetched<T> {
 interface State<T> {
   readonly source: StoredThenFetchedSource<T>;
   readonly value: T | undefined;
-  readonly fresh: boolean;
   readonly running: boolean;
   readonly error: LoadFailure | undefined;
 }
@@ -70,10 +59,10 @@ export function useStoredThenFetched<T>(
         : initial(source),
     );
     void (async () => {
-      // The cache only saves requests: a failing read is drawn as nothing.
+      // The cache only saves waiting: a failing read is drawn as nothing.
       // `try` also catches a source that throws instead of rejecting, as
       // one does when the viewer signed out before this effect ran.
-      let stored: Stored<T> | undefined;
+      let stored: T | undefined;
       try {
         stored = await source.stored();
       } catch {
@@ -85,8 +74,7 @@ export function useStoredThenFetched<T>(
       if (stored !== undefined) {
         setState((prev) => ({
           ...prev,
-          value: sameOrNext(prev.value, stored.value),
-          fresh: stored.fresh,
+          value: sameOrNext(prev.value, stored),
         }));
       }
       try {
@@ -119,7 +107,7 @@ export function useStoredThenFetched<T>(
   const shown = state.source === source ? state : initial(source);
   return {
     value: shown.value,
-    updating: shown.running && shown.value !== undefined && !shown.fresh,
+    updating: shown.running && shown.value !== undefined,
     error: shown.error,
     retry,
   };
@@ -129,7 +117,6 @@ function initial<T>(source: StoredThenFetchedSource<T>): State<T> {
   return {
     source,
     value: undefined,
-    fresh: false,
     running: true,
     error: undefined,
   };
