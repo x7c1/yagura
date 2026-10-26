@@ -6,5 +6,24 @@ export {
   encodeOrganizationActivity,
   parseOrganizationActivity,
   parseOrganizations,
+  parseSignalToken,
 } from "./parse";
-export type { ActivityBody, Organization } from "./parse";
+export type { ActivityBody, Organization, SignalToken } from "./parse";
+export {
+  AppSyncSignalConnector,
+  MemorySignalConnection,
+  MemorySignalConnector,
+  SignalConnectionError,
+} from "./signals";
+export type {
+  AppSyncSignalConnectorOptions,
+  OpenSocket,
+  Signal,
+  SignalAuthorization,
+  SignalConnection,
+  SignalConnector,
+  SignalHandlers,
+  SignalSocket,
+  SignalSubscriptionToken,
+  SocketListeners,
+} from "./signals";

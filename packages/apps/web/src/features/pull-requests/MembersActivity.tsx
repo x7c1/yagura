@@ -21,6 +21,7 @@ import {
   useStoredThenFetched,
   type StoredThenFetchedSource,
 } from "../../shared";
+import { useLiveUpdates } from "../live-updates";
 import type { Page } from "../pages";
 import { useSession, type SessionController } from "../session";
 import { DailyActivity } from "./DailyActivity";
@@ -84,7 +85,8 @@ function activitySource(
  * The last response stored in the browser cache is drawn at once, and the
  * API's answer replaces it behind it, with a note at the top of the first
  * card while it runs, and its failure above the cards. When nothing is
- * stored, each page says it is loading until the API answers.
+ * stored, each page says it is loading until the API answers. When the
+ * server signals new activity, the API is asked again the same way.
  */
 export function MembersActivity(props: {
   readonly organization: Organization;
@@ -97,7 +99,10 @@ export function MembersActivity(props: {
     () => activitySource(controller, id),
     [controller, id],
   );
-  const { value, updating, error, retry } = useStoredThenFetched(source);
+  const { value, updating, error, retry, refresh } =
+    useStoredThenFetched(source);
+  // New activity is fetched in place, as an update of what is drawn.
+  useLiveUpdates(refresh);
   const derived = useMemo(() => {
     if (value === undefined) {
       return undefined;

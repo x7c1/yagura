@@ -10,20 +10,37 @@ app.
 
 ## Build configuration
 
-The build reads two variables:
+The build reads these variables:
 
-| Variable                  | Value                                                                                       |
-| ------------------------- | ------------------------------------------------------------------------------------------- |
-| `VITE_GITHUB_CLIENT_ID`   | The GitHub App's client id                                                                  |
-| `VITE_YAGURA_SESSION_API` | Base URL of the Yagura API (the session API and the activity API), without a trailing slash |
+| Variable                           | Value                                                                                       |
+| ---------------------------------- | ------------------------------------------------------------------------------------------- |
+| `VITE_GITHUB_CLIENT_ID`            | The GitHub App's client id                                                                  |
+| `VITE_YAGURA_SESSION_API`          | Base URL of the Yagura API (the session API and the activity API), without a trailing slash |
+| `VITE_YAGURA_SIGNAL_HTTP_HOST`     | Optional. The HTTP host of the AppSync Events API that carries the signals, without scheme  |
+| `VITE_YAGURA_SIGNAL_REALTIME_HOST` | Optional. The realtime host of that AppSync Events API, without scheme                      |
 
-Both end up in the JavaScript the site serves, so they are public values,
-not secrets. The app refuses to start, and says which variable is missing,
-when either is empty.
+All of them end up in the JavaScript the site serves, so they are public
+values, not secrets. The app refuses to start, and says which variable is
+missing, when `VITE_GITHUB_CLIENT_ID` or `VITE_YAGURA_SESSION_API` is
+empty.
+
+The two signal hosts make an open page update by itself when the server
+records new activity (see the activity view's
+[live updates](../design/activity-view.md#live-updates) and the activity
+API's [signals](../design/activity-api.md#signals)). They are plain host
+names, such as `example.appsync-api.us-east-1.amazonaws.com` and
+`example.appsync-realtime-api.us-east-1.amazonaws.com`, or the custom
+domain the AppSync Events API is served at. A realtime host that carries
+a scheme or a path fails the build, since the Content Security Policy is
+written from it, and the app refuses to start when either host does. When
+either is empty, the app works as it does without them and is simply not
+live; when only one is set, it says so in the browser console.
 
 ```sh
 make deps
 VITE_GITHUB_CLIENT_ID=... VITE_YAGURA_SESSION_API=https://api.example.com \
+  VITE_YAGURA_SIGNAL_HTTP_HOST=events.example.com \
+  VITE_YAGURA_SIGNAL_REALTIME_HOST=events-realtime.example.com \
   pnpm --filter @yagura/web build
 ```
 
@@ -63,7 +80,8 @@ The page carries its Content Security Policy itself, in a
 after the charset declaration, ahead of every script. It limits what a
 script that got into the page, through a dependency or a flaw yet unknown,
 could load or where it could send the access token. For a build with
-`VITE_YAGURA_SESSION_API=https://api.yagura.module.codes` it reads:
+`VITE_YAGURA_SESSION_API=https://api.yagura.module.codes` and no signal
+hosts it reads:
 
 ```text
 default-src 'none'; script-src 'self' 'sha256-…'; style-src 'self';
@@ -78,11 +96,14 @@ font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'
 - `style-src` allows the app's own stylesheet. The app styles itself with
   CSS Modules and sets no inline styles.
 - `img-src` allows the avatars GitHub serves.
-- `connect-src` allows the origin of `VITE_YAGURA_SESSION_API` alone, so
-  each build allows the Yagura API it is built for: the session API and
-  the activity API, on the same host. The page calls no other API, GitHub's
-  included. A build without that variable allows no connection
-  (`connect-src 'none'`); the app refuses to start in that case anyway.
+- `connect-src` allows the origin of `VITE_YAGURA_SESSION_API`, so each
+  build allows the Yagura API it is built for: the session API and the
+  activity API, on the same host. Only a build with both signal hosts
+  also allows `wss://<VITE_YAGURA_SIGNAL_REALTIME_HOST>`, the realtime
+  endpoint the page connects to for live updates. The page calls no other
+  API, GitHub's included. A build with none of these variables allows no
+  connection (`connect-src 'none'`); the app refuses to start without
+  `VITE_YAGURA_SESSION_API` anyway.
 
 ### How it is built
 
@@ -99,7 +120,8 @@ policy, since it injects scripts and styles of its own and reloads over a
 WebSocket; leaving it without a policy keeps those relaxations out of any
 build. A build with `VITE_API_MOCK=1`, which is for development only, also
 allows `worker-src 'self'` for Mock Service Worker and `data:` images for
-the mocks' avatars.
+the mocks' avatars, and never the realtime host, since the page does not
+connect in that mode.
 
 Since the dev server carries no policy, a change that makes the page load
 or connect to something new (another host, an inline style, a `data:`
@@ -112,8 +134,8 @@ pnpm --filter @yagura/web build
 pnpm --filter @yagura/web exec vite preview
 ```
 
-The build reads `VITE_YAGURA_SESSION_API` and `VITE_GITHUB_CLIENT_ID` as
-the deployed one does; set them in the environment or in
+The build reads `VITE_YAGURA_SESSION_API`, `VITE_GITHUB_CLIENT_ID` and the
+signal hosts as the deployed one does; set them in the environment or in
 `packages/apps/web/.env.local`. A new source the page truly needs belongs
 in `content-security-policy.ts`, with its test.
 

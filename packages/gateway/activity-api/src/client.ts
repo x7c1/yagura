@@ -3,7 +3,9 @@ import { ActivityApiError } from "./error";
 import {
   parseOrganizationActivity,
   parseOrganizations,
+  parseSignalToken,
   type Organization,
+  type SignalToken,
 } from "./parse";
 
 export interface ActivityApiClientOptions {
@@ -71,7 +73,29 @@ export class ActivityApiClient {
     );
   }
 
+  /**
+   * `POST /activity/signal-token`: a token for connecting to the viewer's
+   * channel of signals, and subscribing to it.
+   */
+  async createSignalToken(accessToken: string): Promise<SignalToken> {
+    return this.#request(
+      "POST",
+      accessToken,
+      "/activity/signal-token",
+      parseSignalToken,
+    );
+  }
+
   async #get<T>(
+    accessToken: string,
+    path: string,
+    parse: (body: unknown) => T | undefined,
+  ): Promise<T> {
+    return this.#request("GET", accessToken, path, parse);
+  }
+
+  async #request<T>(
+    method: "GET" | "POST",
     accessToken: string,
     path: string,
     parse: (body: unknown) => T | undefined,
@@ -79,7 +103,7 @@ export class ActivityApiClient {
     let response: Response;
     try {
       response = await this.#fetch(this.#baseUrl + path, {
-        method: "GET",
+        method,
         credentials: "omit",
         headers: {
           Accept: "application/json",

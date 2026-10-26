@@ -14,8 +14,9 @@ how the app gets the access token that the requests below carry, is the
 
 ## Requests
 
-Every request is a `GET` and carries the session's access token, the one
-the session API issued, as a bearer token:
+Every request is a `GET`, except `POST /activity/signal-token`, and
+every request carries the session's access token, the one the session API
+issued, as a bearer token:
 
 ```http
 Authorization: Bearer ghu_...
@@ -128,6 +129,29 @@ number GitHub knows the account by; the app draws the account's avatar
 from it, at `https://avatars.githubusercontent.com/u/<id>`. Every other
 id is opaque: the app compares it and does not read it.
 
+### `POST /activity/signal-token`
+
+A token for the viewer's channel of [signals](#signals), with which the
+app connects to the realtime endpoint and subscribes to that channel. The
+request has no body.
+
+Response `200`:
+
+```json
+{
+  "token": "...",
+  "expiresAt": "2026-10-27T03:15:00.000Z",
+  "channel": "/viewers/1004"
+}
+```
+
+- `token` is opaque to the app, which passes it on as it is. It is good
+  for 15 minutes, until `expiresAt`, and only for connecting to the
+  realtime endpoint and subscribing to `channel`: it cannot publish, nor
+  subscribe to another viewer's channel.
+- `channel` is the viewer's own, `/viewers/<user id>`, where `<user id>`
+  is the number GitHub knows the viewer's account by.
+
 ## Visibility
 
 The server answers each viewer with only the rows from repositories that
@@ -140,6 +164,79 @@ removed from one, shows in the answers within about five minutes.
 `GET /activity/organizations` likewise lists only organizations the viewer
 can see, and `GET /activity` answers `403 forbidden` for an organization
 the viewer cannot use.
+
+## Signals
+
+The server tells each open page when there is new activity for its viewer,
+so that the page can fetch the activity again rather than wait for a
+reload. It sends these signals over
+[AWS AppSync Events](https://docs.aws.amazon.com/appsync/latest/eventapi/),
+a managed WebSocket pub/sub service, on a channel per viewer.
+
+When the server records activity in a repository, it publishes a signal to
+the channel of each viewer who can see that repository and whose access to
+it the server checked within the last five minutes (see
+[Visibility](#visibility)). A signal carries ids only, never what happened
+in the viewer's terms:
+
+```json
+{ "repositoryId": "...", "pullRequestId": "...", "kind": "pushed" }
+```
+
+`kind` is one of the `kind`s of `activities`. A push often records several
+events at once, and so sends several signals within a second or two.
+
+Nothing is kept: a signal published while the page is not connected and
+subscribed is lost. That is why the page fetches the activity again after
+it connects again, and when it becomes visible after being hidden (see the
+activity view's [live updates](activity-view.md#live-updates)).
+
+### Connecting
+
+The app is built with two hosts of the AppSync Events API, plain host
+names without a scheme (see [Deployment](../guides/deployment.md)): the
+HTTP host, which AppSync Events authorizes connections against, and the
+realtime host, which the page connects to. Without both, the app does not
+connect and is not live.
+
+The app relies on the following part of the
+[AppSync Events WebSocket protocol](https://docs.aws.amazon.com/appsync/latest/eventapi/event-api-websocket-protocol.html),
+with the API's Lambda authorization:
+
+- **The authorization object.** The connection and the subscription each
+  carry `{ "host": "<HTTP host>", "Authorization": "<signal token>" }`. The
+  service checks the token, and that the channel subscribed to is the
+  token's own.
+- **The connection.** The page opens a WebSocket to
+  `wss://<realtime host>/event/realtime`, offering two subprotocols:
+  `aws-appsync-event-ws`, and `header-` followed by the authorization
+  object as JSON in base64url, without padding. Once it is open, the page
+  sends `{ "type": "connection_init" }`.
+- **The acknowledgement.** The service answers
+  `{ "type": "connection_ack", "connectionTimeoutMs": 300000 }`, then
+  sends `{ "type": "ka" }` about every minute. When no `ka` arrives within
+  `connectionTimeoutMs` of the last one (or of the acknowledgement), the
+  page takes the connection as gone and closes it.
+- **The subscription.** On the acknowledgement, the page sends
+  `{ "type": "subscribe", "id": "<a random UUID>", "channel": "<channel>",
+"authorization": { ... } }`, with the channel the signal token came with
+  and the same authorization object. The service confirms it with
+  `{ "type": "subscribe_success", "id": "<id>" }`.
+- **The signals.** Each signal published to the channel arrives as
+  `{ "type": "data", "id": "<id>", "event": ... }`, where `event` is the
+  signal written as a string of JSON. The page also reads a list of such
+  strings there. A signal it cannot read, and a
+  `{ "type": "broadcast_error", "id": "<id>", ... }`, by which the service
+  says that it failed to deliver one, count as a signal without its ids.
+- **Errors.** A `connection_error`, a `subscribe_error` or an `error`
+  message, each with an `errors` list, ends the connection: the page
+  closes it and connects again with a new token, as it does when the
+  socket closes.
+
+A connection stays open for up to 24 hours, even after its signal token
+expires; a new token is needed only to connect or subscribe again. The
+page sends nothing but `connection_init` and `subscribe`: it never
+publishes, and closes the socket rather than unsubscribing first.
 
 ## Errors
 
@@ -158,9 +255,13 @@ Every error response is JSON, in the shape the session API uses:
 | 502    | `upstream_error`  | GitHub did not answer, or answered with an error, while the server checked with it  |
 | 500    | `internal_error`  | The server failed otherwise                                                         |
 
-The app treats `401 invalid_token` as an expired access token: it refreshes
+`POST /activity/signal-token` answers with these errors too, `403` and
+`400` aside. The app treats `401 invalid_token` as an expired access
+token: it refreshes
 the session once with `POST /session/refresh` and sends the request again
 with the new token. When the refresh answers `401`, the session has ended,
 and the app signs the viewer out as it does for any ended session (see the
 session API's design). The other errors are shown to the viewer in their
 own terms, with a way to retry; the screen names no status or error code.
+A failed signal token request is the exception: it is only tried again
+later, and never shown, since the page works without live updates.

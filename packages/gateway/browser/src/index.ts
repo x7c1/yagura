@@ -17,3 +17,5 @@ export { GlobalTimer, ManualTimer } from "./timer";
 export type { CancelTimer, Timer } from "./timer";
 export { BroadcastTabChannel, MemoryTabChannel } from "./tab-channel";
 export type { TabChannel } from "./tab-channel";
+export { DocumentVisibility, MemoryVisibility } from "./page-visibility";
+export type { PageVisibility } from "./page-visibility";

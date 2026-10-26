@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   BroadcastTabChannel,
+  DocumentVisibility,
   DomElementAttribute,
   ManualTimer,
   MemoryElementAttribute,
@@ -9,6 +10,7 @@ import {
   MemoryStorageChanges,
   MemoryStore,
   MemoryTabChannel,
+  MemoryVisibility,
   ResizeObserverWidths,
   WebStorageStore,
   WindowStorageChanges,
@@ -340,5 +342,47 @@ describe("MemoryStorageChanges", () => {
 
     expect(keys).toEqual(["yagura.theme", null]);
     expect(changes.listeners).toBe(0);
+  });
+});
+
+describe("DocumentVisibility", () => {
+  it("reads the document's visibility, and reports each change until unsubscribed", () => {
+    const document = Object.assign(new EventTarget(), {
+      visibilityState: "visible",
+    });
+    const visibility = new DocumentVisibility(document as unknown as Document);
+    const seen: boolean[] = [];
+    const unsubscribe = visibility.onChange(() =>
+      seen.push(visibility.visible),
+    );
+
+    document.visibilityState = "hidden";
+    document.dispatchEvent(new Event("visibilitychange"));
+    document.visibilityState = "visible";
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(seen).toEqual([false, true]);
+
+    unsubscribe();
+    document.dispatchEvent(new Event("visibilitychange"));
+    expect(seen).toEqual([false, true]);
+  });
+});
+
+describe("MemoryVisibility", () => {
+  it("starts visible, and reports each change until unsubscribed", () => {
+    const visibility = new MemoryVisibility();
+    const seen: boolean[] = [];
+    const unsubscribe = visibility.onChange(() =>
+      seen.push(visibility.visible),
+    );
+
+    expect(visibility.visible).toBe(true);
+    visibility.set(true);
+    visibility.set(false);
+    visibility.set(true);
+    expect(seen).toEqual([false, true]);
+
+    unsubscribe();
+    expect(visibility.listeners).toBe(0);
   });
 });
