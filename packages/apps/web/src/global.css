@@ -115,6 +115,14 @@
   --color-closed: light-dark(#cf222e, #f85149);
   --color-additions: light-dark(#1a7f37, #3fb950);
   --color-deletions: light-dark(#cf222e, #f85149);
+  /*
+   * The header's dot that shows whether the page is live: green while
+   * live, amber while connecting, grey while not. Each has at least 3:1
+   * contrast against the header, in both themes.
+   */
+  --color-live: light-dark(#1a7f37, #3fb950);
+  --color-connecting: light-dark(#9a6700, #d29922);
+  --color-not-live: light-dark(#59636e, #9198a1);
   --color-error: light-dark(#cf222e, #f85149);
   --color-error-bg: light-dark(#ffebe9, #25171c);
   --color-error-border: light-dark(#ff8182, #8e1519);

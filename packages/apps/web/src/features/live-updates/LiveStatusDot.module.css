@@ -1,0 +1,84 @@
+/* The dot and its explanation, which is placed against the dot. */
+.container {
+  position: relative;
+  display: inline-flex;
+  flex: none;
+}
+
+/*
+ * The dot's button, as quiet as the menu button beside it: no box, and at
+ * least 24px square around a dot of 10px, so that it can be tapped.
+ */
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 1.5rem;
+  min-height: 1.5rem;
+  padding: 0;
+  background: transparent;
+  border-color: transparent;
+}
+
+.button:hover,
+.button[aria-expanded="true"] {
+  background: var(--color-control-hover);
+}
+
+/*
+ * Filled while live, a ring otherwise, so that the states are told apart
+ * by shape as well as colour. It never blinks or pulses.
+ */
+.dot {
+  width: 10px;
+  height: 10px;
+  border: var(--border-width-strong) solid currentColor;
+  border-radius: var(--radius-pill);
+}
+
+.dot[data-status="live"] {
+  color: var(--color-live);
+  background: currentColor;
+}
+
+.dot[data-status="connecting"] {
+  color: var(--color-connecting);
+}
+
+.dot[data-status="not-live"] {
+  color: var(--color-not-live);
+}
+
+/*
+ * The explanation under the dot, on the surface colour with the cards'
+ * border and shadow, as the header's menu is. It ends at the dot's right
+ * edge, reaching left over the bar, and is never wider than the screen
+ * less the bar's padding.
+ */
+.tip {
+  position: absolute;
+  top: calc(100% + var(--space-1));
+  right: 0;
+  z-index: 1;
+  width: max-content;
+  max-width: min(16rem, calc(100vw - 2 * var(--space-4)));
+  padding: var(--space-1) var(--space-3);
+  color: var(--color-text);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-normal);
+  background: var(--color-surface);
+  border: var(--border-width) solid var(--color-border);
+  border-radius: var(--radius-md);
+  box-shadow: var(--shadow-card);
+}
+
+/*
+ * On a phone the dot is at the left end of the session's row, so the
+ * explanation starts at its left edge instead.
+ */
+@media (max-width: 40rem) {
+  .tip {
+    right: auto;
+    left: 0;
+  }
+}
