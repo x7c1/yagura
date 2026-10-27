@@ -5,7 +5,11 @@ import {
   type MockActivityFixtures,
 } from "@yagura/api-mocks";
 import { MemorySignalConnector } from "@yagura/activity-api";
-import { ManualTimer, MemoryVisibility } from "@yagura/browser";
+import {
+  ManualTimer,
+  MemoryNetworkEvents,
+  MemoryVisibility,
+} from "@yagura/browser";
 import {
   act,
   fireEvent,
@@ -19,7 +23,9 @@ import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
   burstMs,
+  connectingGraceMs,
   firstRetryMs,
+  longAbsenceMs,
   type LiveUpdatesOptions,
 } from "./features/live-updates";
 import {
@@ -57,10 +63,13 @@ function renderPage(test: ReturnType<typeof testController>, live: boolean) {
   const connector = new MemorySignalConnector();
   const timer = new ManualTimer();
   const visibility = new MemoryVisibility();
+  const network = new MemoryNetworkEvents();
   const liveUpdates: LiveUpdatesOptions = {
     connector,
     timer,
     visibility,
+    network,
+    now: () => timer.now,
     // The shortest wait, so that a test knows when the next try comes.
     random: () => 0,
   };
@@ -73,7 +82,7 @@ function renderPage(test: ReturnType<typeof testController>, live: boolean) {
       liveUpdates={live ? liveUpdates : undefined}
     />,
   );
-  return { ...test, connector, timer, visibility };
+  return { ...test, connector, timer, visibility, network };
 }
 
 /** Waits for the page's first load and its connection, and subscribes it. */
@@ -87,7 +96,7 @@ async function connected(page: ReturnType<typeof openPage>) {
     }
     return only;
   });
-  connection.subscribed();
+  act(() => connection.subscribed());
   page.mock.clearRequests();
   return connection;
 }
@@ -95,6 +104,30 @@ async function connected(page: ReturnType<typeof openPage>) {
 /** Runs the timers due within `ms`, as React sees them. */
 function advance(timer: ManualTimer, ms: number): void {
   act(() => timer.advance(ms));
+}
+
+/** The header's dot, which shows whether the page is live. */
+function liveDot(): HTMLElement {
+  return screen.getByRole("button", { name: /^Connection: / });
+}
+
+/** The status the header's dot shows, or `undefined` without a dot. */
+function liveStatus(): string | undefined {
+  return screen
+    .queryByRole("button", { name: /^Connection: / })
+    ?.getAttribute("aria-label")
+    ?.replace("Connection: ", "");
+}
+
+/** The `index`th connection the page made, once it is made. */
+async function connection(page: ReturnType<typeof openPage>, index: number) {
+  return waitFor(() => {
+    const found = page.connector.connections[index];
+    if (found === undefined) {
+      throw new Error(`Connection ${index} not made yet`);
+    }
+    return found;
+  });
 }
 
 function withNewPullRequest(
@@ -310,7 +343,7 @@ describe("live updates", () => {
     await fetchedTimes(page.mock, 1);
   });
 
-  it("waits longer after each failure to connect, and never shows it", async () => {
+  it("waits longer after each failure to connect, without an alert", async () => {
     const page = openPage();
     const connection = await connected(page);
 
@@ -330,7 +363,7 @@ describe("live updates", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("tries a failed token request again, without showing it", async () => {
+  it("tries a failed token request again, showing it only as not live", async () => {
     vi.spyOn(console, "warn").mockImplementation(() => {});
     const page = openPage();
     // Ahead of the API mock's handlers, which the page installed.
@@ -342,7 +375,7 @@ describe("live updates", () => {
       ),
     );
     await pullRequestTitles();
-    await waitFor(() => expect(page.timer.pending).toBeGreaterThan(0));
+    await waitFor(() => expect(liveStatus()).toBe("Not live"));
     expect(page.connector.connections).toHaveLength(0);
 
     advance(page.timer, firstRetryMs);
@@ -434,5 +467,187 @@ describe("live updates", () => {
     expect(page.mock.signalTokenRequests).toEqual([]);
     expect(page.connector.connections).toEqual([]);
     expect(page.visibility.listeners).toBe(0);
+  });
+
+  it("replaces the connection when the page is shown again after a long absence", async () => {
+    const page = openPage();
+    const first = await connected(page);
+
+    act(() => page.visibility.set(false));
+    advance(page.timer, longAbsenceMs);
+    act(() => page.visibility.set(true));
+
+    expect(first.closedByApp).toBe(true);
+    expect(liveStatus()).toBe("Connecting");
+    const second = await connection(page, 1);
+    act(() => second.subscribed());
+    expect(liveStatus()).toBe("Live");
+    expect(page.connector.open).toEqual([second]);
+    advance(page.timer, burstMs);
+    await fetchedTimes(page.mock, 1);
+  });
+
+  it("keeps the connection when the page is shown again after a short absence", async () => {
+    const page = openPage();
+    const only = await connected(page);
+
+    act(() => page.visibility.set(false));
+    advance(page.timer, longAbsenceMs - 1);
+    act(() => page.visibility.set(true));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(only.closed).toBe(false);
+    expect(page.connector.connections).toHaveLength(1);
+    expect(liveStatus()).toBe("Live");
+  });
+
+  it("connects at once when the browser is back online while waiting to retry", async () => {
+    const page = openPage();
+    const first = await connected(page);
+
+    first.drop();
+    act(() => page.network.report("online"));
+
+    await connection(page, 1);
+    expect(page.timer.pending).toBe(0);
+  });
+
+  it("does nothing when the browser is back online while connected", async () => {
+    const page = openPage();
+    const only = await connected(page);
+
+    act(() => page.network.report("online"));
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(only.closed).toBe(false);
+    expect(page.connector.connections).toHaveLength(1);
+    expect(page.mock.signalTokenRequests).toHaveLength(0);
+  });
+
+  it("stops listening to the network on sign-out", async () => {
+    const page = openPage();
+    await connected(page);
+
+    signOut();
+
+    await screen.findByRole("button", { name: "Sign in with GitHub" });
+    expect(page.network.listeners).toBe(0);
+  });
+});
+
+describe("the live status", () => {
+  it("follows the connection, showing nothing for the first moment", async () => {
+    const page = openPage();
+    await pullRequestTitles();
+    const first = await connection(page, 0);
+    expect(liveStatus()).toBeUndefined();
+
+    advance(page.timer, connectingGraceMs - 1);
+    expect(liveStatus()).toBeUndefined();
+    advance(page.timer, 1);
+    expect(liveStatus()).toBe("Connecting");
+    act(() => first.subscribed());
+    expect(liveStatus()).toBe("Live");
+
+    act(() => first.drop());
+    expect(liveStatus()).toBe("Not live");
+    advance(page.timer, firstRetryMs);
+    await waitFor(() => expect(liveStatus()).toBe("Connecting"));
+    const second = await connection(page, 1);
+    act(() => second.subscribed());
+    expect(liveStatus()).toBe("Live");
+  });
+
+  it("shows live at once when subscribed within the first moment", async () => {
+    const page = openPage();
+    const seen = new Set<string | undefined>();
+    const observer = new MutationObserver(() => seen.add(liveStatus()));
+    observer.observe(document.body, {
+      subtree: true,
+      childList: true,
+      attributes: true,
+    });
+
+    await connected(page);
+    advance(page.timer, connectingGraceMs);
+    observer.disconnect();
+
+    expect(liveStatus()).toBe("Live");
+    expect(seen).not.toContain("Connecting");
+  });
+
+  it("is not shown without the signal hosts", async () => {
+    openPage({ live: false });
+
+    await pullRequestTitles();
+
+    expect(liveStatus()).toBeUndefined();
+  });
+
+  it("is not shown signed out", async () => {
+    const page = openPage();
+    await connected(page);
+    expect(liveStatus()).toBe("Live");
+
+    signOut();
+
+    await screen.findByRole("button", { name: "Sign in with GitHub" });
+    expect(liveStatus()).toBeUndefined();
+  });
+
+  it("explains itself on hover and on focus, until left", async () => {
+    const page = openPage();
+    await connected(page);
+    const explanation = "Live. Updates appear within seconds.";
+
+    fireEvent.pointerEnter(liveDot(), { pointerType: "mouse" });
+    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(liveDot()).toHaveAttribute("aria-expanded", "true");
+    fireEvent.pointerLeave(liveDot(), { pointerType: "mouse" });
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+
+    // Escape closes what pointing opened, and leaves focus where it was.
+    fireEvent.pointerEnter(liveDot(), { pointerType: "mouse" });
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveDot()).not.toHaveFocus();
+    fireEvent.pointerLeave(liveDot(), { pointerType: "mouse" });
+
+    fireEvent.focus(liveDot());
+    expect(screen.getByText(explanation)).toBeInTheDocument();
+    fireEvent.blur(liveDot());
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+  });
+
+  it("explains itself on a tap, until a tap outside, Escape or a second tap", async () => {
+    const page = openPage();
+    const first = await connected(page);
+    act(() => first.drop());
+    const explanation = "Not live. Reload to update.";
+
+    // A touch has no hover; the tap opens it.
+    fireEvent.pointerEnter(liveDot(), { pointerType: "touch" });
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    fireEvent.click(liveDot());
+    expect(screen.getByText(explanation)).toBeInTheDocument();
+    fireEvent.pointerDown(screen.getByRole("main"));
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+
+    fireEvent.click(liveDot());
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveDot()).toHaveFocus();
+
+    fireEvent.click(liveDot());
+    expect(screen.getByText(explanation)).toBeInTheDocument();
+    fireEvent.click(liveDot());
+    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+  });
+
+  it("is not announced as it changes", async () => {
+    const page = openPage();
+    await connected(page);
+
+    expect(liveDot().closest("[aria-live], [role=status]")).toBeNull();
   });
 });

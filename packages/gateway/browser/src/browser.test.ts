@@ -7,12 +7,14 @@ import {
   MemoryElementAttribute,
   MemoryElementWidths,
   MemoryLocation,
+  MemoryNetworkEvents,
   MemoryStorageChanges,
   MemoryStore,
   MemoryTabChannel,
   MemoryVisibility,
   ResizeObserverWidths,
   WebStorageStore,
+  WindowNetworkEvents,
   WindowStorageChanges,
 } from ".";
 
@@ -384,5 +386,38 @@ describe("MemoryVisibility", () => {
 
     unsubscribe();
     expect(visibility.listeners).toBe(0);
+  });
+});
+
+describe("WindowNetworkEvents", () => {
+  it("reports each of the window's online events until unsubscribed", () => {
+    const window = new EventTarget();
+    const network = new WindowNetworkEvents(window as unknown as Window);
+    let seen = 0;
+    const unsubscribe = network.on("online", () => (seen += 1));
+
+    window.dispatchEvent(new Event("offline"));
+    window.dispatchEvent(new Event("online"));
+    expect(seen).toBe(1);
+
+    unsubscribe();
+    window.dispatchEvent(new Event("online"));
+    expect(seen).toBe(1);
+  });
+});
+
+describe("MemoryNetworkEvents", () => {
+  it("reports an event to its listeners until unsubscribed", () => {
+    const network = new MemoryNetworkEvents();
+    let seen = 0;
+    const unsubscribe = network.on("online", () => (seen += 1));
+
+    network.report("online");
+    expect(seen).toBe(1);
+
+    unsubscribe();
+    network.report("online");
+    expect(seen).toBe(1);
+    expect(network.listeners).toBe(0);
   });
 });

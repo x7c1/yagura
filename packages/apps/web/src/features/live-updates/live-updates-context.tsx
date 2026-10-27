@@ -10,6 +10,7 @@ import { useSession } from "../session";
 import {
   concerns,
   LiveUpdates,
+  type LiveStatus,
   type LiveUpdate,
   type LiveUpdatesOptions,
 } from "./live-updates";
@@ -23,11 +24,14 @@ const LiveUpdatesContext = createContext<SubscribeToUpdates | undefined>(
   undefined,
 );
 
+const LiveStatusContext = createContext<LiveStatus | undefined>(undefined);
+
 /**
  * Keeps the signed-in viewer's page live while it is mounted: one
  * connection to the viewer's channel of signals, closed when it unmounts,
  * as it does on signing out. Without `options`, as in a build without the
- * signal hosts, nothing connects and the page is not live.
+ * signal hosts, nothing connects, the page is not live, and no status is
+ * shown.
  */
 export function LiveUpdatesProvider(props: {
   readonly options: LiveUpdatesOptions | undefined;
@@ -42,6 +46,7 @@ export function LiveUpdatesProvider(props: {
     listeners.add(entry);
     return () => listeners.delete(entry);
   });
+  const [status, setStatus] = useState<LiveStatus | undefined>(undefined);
 
   useEffect(() => {
     if (options === undefined) {
@@ -58,6 +63,7 @@ export function LiveUpdatesProvider(props: {
           listener(update);
         }
       },
+      setStatus,
     );
     live.start();
     return () => live.stop();
@@ -65,7 +71,9 @@ export function LiveUpdatesProvider(props: {
 
   return (
     <LiveUpdatesContext.Provider value={subscribe}>
-      {props.children}
+      <LiveStatusContext.Provider value={status}>
+        {props.children}
+      </LiveStatusContext.Provider>
     </LiveUpdatesContext.Provider>
   );
 }
@@ -94,4 +102,13 @@ export function useLiveUpdates(
       }),
     [subscribe],
   );
+}
+
+/**
+ * Whether the page is live, to show: `undefined` while nothing is to be
+ * shown, as before connecting has taken long enough to show, or without
+ * live updates.
+ */
+export function useLiveStatus(): LiveStatus | undefined {
+  return useContext(LiveStatusContext);
 }

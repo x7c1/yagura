@@ -19,3 +19,5 @@ export { BroadcastTabChannel, MemoryTabChannel } from "./tab-channel";
 export type { TabChannel } from "./tab-channel";
 export { DocumentVisibility, MemoryVisibility } from "./page-visibility";
 export type { PageVisibility } from "./page-visibility";
+export { MemoryNetworkEvents, WindowNetworkEvents } from "./network-events";
+export type { NetworkEvent, NetworkEvents } from "./network-events";

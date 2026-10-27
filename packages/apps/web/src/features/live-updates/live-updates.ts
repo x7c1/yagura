@@ -1,5 +1,6 @@
 import type {
   CancelTimer,
+  NetworkEvents,
   PageVisibility,
   Timer,
   Unsubscribe,
@@ -24,6 +25,27 @@ export const firstRetryMs = 1_000;
 /** The longest wait before connecting again. */
 export const longestRetryMs = 60_000;
 
+/**
+ * How long connecting may take before the page shows that it is
+ * connecting: a connection normally subscribes within about a second, so
+ * that a page loaded on a working network never shows it.
+ */
+export const connectingGraceMs = 3_000;
+
+/**
+ * How long the page must have been hidden for its connection to be
+ * replaced when it is shown again: a phone may have cut a hidden tab's
+ * network without the socket ever reporting that it closed.
+ */
+export const longAbsenceMs = 60_000;
+
+/**
+ * Whether the page is live, as its header shows it: subscribed to the
+ * viewer's channel, connecting (from asking for a token until subscribed),
+ * or waiting to connect again after a failure or a dropped connection.
+ */
+export type LiveStatus = "live" | "connecting" | "not-live";
+
 /** Why the view should fetch again, gathered over a burst. */
 export interface LiveUpdate {
   /**
@@ -47,6 +69,13 @@ export interface LiveUpdatesOptions {
   /** Times the waits before connecting again, and gathers bursts. */
   readonly timer: Timer;
   readonly visibility: PageVisibility;
+  /** Tells when the browser is back online, to connect again at once. */
+  readonly network: NetworkEvents;
+  /**
+   * The current time in milliseconds, which measures how long the page was
+   * hidden. Defaults to `Date.now`.
+   */
+  readonly now?: () => number;
   /** A number in [0, 1) that spreads the waits. Defaults to `Math.random`. */
   readonly random?: () => number;
 }
@@ -57,7 +86,10 @@ export interface LiveUpdatesOptions {
  * docs/design/activity-view.md, "Live updates"): when a signal arrives, a
  * burst of them gathered into one; when the connection is back after it
  * dropped; and when the page is shown again after it was hidden,
- * connecting again at once if the connection is gone.
+ * connecting again at once if the connection is gone, or replacing it
+ * after a long absence. It also connects again at once when the browser
+ * comes back online while waiting to retry, and tells `onStatus` whether
+ * the page is live, holding back "connecting" for a moment at first.
  *
  * Each connection gets a fresh token from `requestToken`. A failed token
  * request or connection is tried again after a wait that grows with each
@@ -68,6 +100,7 @@ export class LiveUpdates {
   readonly #options: LiveUpdatesOptions;
   readonly #requestToken: () => Promise<SignalToken>;
   readonly #onUpdate: (update: LiveUpdate) => void;
+  readonly #onStatus: (status: LiveStatus | undefined) => void;
   #running = false;
   /** Counts starts and stops, so that a stale token request is dropped. */
   #generation = 0;
@@ -83,15 +116,29 @@ export class LiveUpdates {
   #anyOrganization = false;
   #imported = new Set<string>();
   #stopVisibility: Unsubscribe | undefined;
+  #stopOnline: Unsubscribe | undefined;
+  /** When the page was last hidden, while it still is. */
+  #hiddenAt: number | undefined;
+  /** Where the connection is, whether or not it is shown yet. */
+  #status: LiveStatus = "connecting";
+  /** Whether a status was shown since the start. */
+  #statusShown = false;
+  #cancelGrace: CancelTimer | undefined;
 
+  /**
+   * `onStatus` is told each status to show, or `undefined` for none: at
+   * the start, until a status is shown, and once stopped.
+   */
   constructor(
     options: LiveUpdatesOptions,
     requestToken: () => Promise<SignalToken>,
     onUpdate: (update: LiveUpdate) => void,
+    onStatus: (status: LiveStatus | undefined) => void = () => {},
   ) {
     this.#options = options;
     this.#requestToken = requestToken;
     this.#onUpdate = onUpdate;
+    this.#onStatus = onStatus;
   }
 
   /** Connects, and keeps connected until {@link stop}. */
@@ -103,11 +150,18 @@ export class LiveUpdates {
     this.#generation += 1;
     this.#tried = false;
     this.#failures = 0;
-    this.#stopVisibility = this.#options.visibility.onChange(() => {
-      if (this.#options.visibility.visible) {
-        this.#shown();
-      }
-    });
+    this.#hiddenAt = this.#options.visibility.visible ? undefined : this.#now();
+    this.#statusShown = false;
+    this.#stopVisibility = this.#options.visibility.onChange(() =>
+      this.#visibilityChanged(),
+    );
+    this.#stopOnline = this.#options.network.on("online", () =>
+      this.#connectNowIfWaiting(),
+    );
+    this.#cancelGrace = this.#options.timer.schedule(() => {
+      this.#cancelGrace = undefined;
+      this.#show();
+    }, connectingGraceMs);
     void this.#connect();
   }
 
@@ -120,6 +174,10 @@ export class LiveUpdates {
     this.#generation += 1;
     this.#stopVisibility?.();
     this.#stopVisibility = undefined;
+    this.#stopOnline?.();
+    this.#stopOnline = undefined;
+    this.#cancelGrace?.();
+    this.#cancelGrace = undefined;
     this.#cancelRetry?.();
     this.#cancelRetry = undefined;
     this.#cancelBurst?.();
@@ -129,16 +187,65 @@ export class LiveUpdates {
     this.#connection?.close();
     this.#connection = undefined;
     this.#connecting = false;
+    this.#status = "connecting";
+    this.#onStatus(undefined);
   }
 
-  /** The page is shown again: update, and connect at once if need be. */
-  #shown(): void {
+  #now(): number {
+    return (this.#options.now ?? Date.now)();
+  }
+
+  #visibilityChanged(): void {
+    const now = this.#now();
+    if (!this.#options.visibility.visible) {
+      this.#hiddenAt ??= now;
+      return;
+    }
+    const hiddenAt = this.#hiddenAt;
+    this.#hiddenAt = undefined;
+    this.#shown(hiddenAt !== undefined && now - hiddenAt >= longAbsenceMs);
+  }
+
+  /**
+   * The page is shown again: update, and connect at once if need be. After
+   * a long absence, the connection is replaced, as it may be gone without
+   * having said so.
+   */
+  #shown(longAbsence: boolean): void {
     this.#update();
+    if (longAbsence && this.#connection !== undefined) {
+      const connection = this.#connection;
+      this.#connection = undefined;
+      connection.close();
+      void this.#connect();
+      return;
+    }
+    this.#connectNowIfWaiting();
+  }
+
+  /** Connects at once, if waiting to connect again. */
+  #connectNowIfWaiting(): void {
     if (this.#cancelRetry !== undefined) {
       this.#cancelRetry();
       this.#cancelRetry = undefined;
       void this.#connect();
     }
+  }
+
+  /** Sets the status, and shows it unless connecting is held back. */
+  #setStatus(status: LiveStatus): void {
+    this.#status = status;
+    if (status !== "connecting" || this.#statusShown) {
+      this.#show();
+    }
+  }
+
+  /** Shows the status, from now on, as it changes. */
+  #show(): void {
+    this.#cancelGrace?.();
+    this.#cancelGrace = undefined;
+    this.#statusShown = true;
+    this.#onStatus(this.#status);
   }
 
   async #connect(): Promise<void> {
@@ -151,6 +258,7 @@ export class LiveUpdates {
     const missed = this.#tried;
     this.#tried = true;
     this.#connecting = true;
+    this.#setStatus("connecting");
     let token: SignalToken;
     try {
       token = await this.#requestToken();
@@ -169,6 +277,7 @@ export class LiveUpdates {
     const connection = this.#options.connector.connect(token, {
       onSubscribed: () => {
         this.#failures = 0;
+        this.#setStatus("live");
         if (missed) {
           this.#update();
         }
@@ -191,6 +300,7 @@ export class LiveUpdates {
     if (!this.#running) {
       return;
     }
+    this.#setStatus("not-live");
     const ceiling = Math.min(
       longestRetryMs,
       firstRetryMs * 2 ** this.#failures,

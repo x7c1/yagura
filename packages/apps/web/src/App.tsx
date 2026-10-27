@@ -20,6 +20,7 @@ import {
 } from "./features/session";
 import { ThemeProvider, type ThemeController } from "./features/theme";
 import {
+  LiveStatusDot,
   LiveUpdatesProvider,
   type LiveUpdatesOptions,
 } from "./features/live-updates";
@@ -158,7 +159,8 @@ function Screen(props: {
  * history tell the pages apart. The activity page fits the frame to the
  * window, when the window is tall enough, so that its list scrolls inside
  * its card while the rest stays in view; the members page scrolls as a
- * whole. While it is shown, the page is kept live for the viewer.
+ * whole. While it is shown, the page is kept live for the viewer, and the
+ * header shows whether it is.
  */
 function SignedInPage(props: {
   readonly page: Page;
@@ -181,53 +183,54 @@ function SignedInPage(props: {
   }, [props.page]);
 
   return (
-    <div
-      className={styles.frame}
-      data-fit={fitsWindow[props.page] ? "window" : undefined}
-    >
-      <header className={styles.header}>
-        <div className={styles.bar}>
-          {/*
-           * The app's name heads the page for assistive tech only; it is
-           * shown in the footer, out of the way of what the page is for.
-           */}
-          <h1 className={styles.visuallyHidden}>Yagura</h1>
-          <div className={styles.tabs}>
-            <PageTabs current={props.page} onNavigate={props.onNavigate} />
+    <LiveUpdatesProvider key={props.login} options={props.liveUpdates}>
+      <div
+        className={styles.frame}
+        data-fit={fitsWindow[props.page] ? "window" : undefined}
+      >
+        <header className={styles.header}>
+          <div className={styles.bar}>
+            {/*
+             * The app's name heads the page for assistive tech only; it is
+             * shown in the footer, out of the way of what the page is for.
+             */}
+            <h1 className={styles.visuallyHidden}>Yagura</h1>
+            <div className={styles.tabs}>
+              <PageTabs current={props.page} onNavigate={props.onNavigate} />
+            </div>
+            <div className={styles.session}>
+              <SessionStatus
+                liveStatus={<LiveStatusDot />}
+                organization={
+                  <span
+                    ref={setOrganizationSlot}
+                    className={styles.organizationSlot}
+                  />
+                }
+              />
+            </div>
           </div>
-          <div className={styles.session}>
-            <SessionStatus
-              organization={
-                <span
-                  ref={setOrganizationSlot}
-                  className={styles.organizationSlot}
-                />
-              }
-            />
-          </div>
-        </div>
-      </header>
-      <main className={styles.main}>
-        <LiveUpdatesProvider key={props.login} options={props.liveUpdates}>
+        </header>
+        <main className={styles.main}>
           <OrganizationMembers
             page={props.page}
             organizationSlot={organizationSlot}
           />
-        </LiveUpdatesProvider>
-      </main>
-      <footer className={styles.footer}>
-        <p>
-          Powered by{" "}
-          <a
-            href="https://github.com/x7c1/yagura"
-            target="_blank"
-            rel="noreferrer"
-            className={styles.footerLink}
-          >
-            Yagura
-          </a>
-        </p>
-      </footer>
-    </div>
+        </main>
+        <footer className={styles.footer}>
+          <p>
+            Powered by{" "}
+            <a
+              href="https://github.com/x7c1/yagura"
+              target="_blank"
+              rel="noreferrer"
+              className={styles.footerLink}
+            >
+              Yagura
+            </a>
+          </p>
+        </footer>
+      </div>
+    </LiveUpdatesProvider>
   );
 }

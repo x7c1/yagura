@@ -8,6 +8,7 @@ import {
   WebStorageStore,
   WindowLocation,
   WindowStorageChanges,
+  WindowNetworkEvents,
   type KeyValueStore,
 } from "@yagura/browser";
 import {
@@ -92,6 +93,7 @@ async function main(container: HTMLElement): Promise<void> {
             }),
             timer,
             visibility: new DocumentVisibility(document),
+            network: new WindowNetworkEvents(window),
           }
         }
         theme={

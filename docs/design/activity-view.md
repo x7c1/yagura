@@ -88,7 +88,9 @@ row: beside the "Merged PRs" heading, or across from the period. An
 update's failure shows above the cards (below).
 
 While signed in, the header shows a tab per page on the left, the current
-one marked, and on the right the organization's avatar and name, the
+one marked, and on the right a dot that shows whether the page is live
+(see [Whether the page is live](#whether-the-page-is-live)), the
+organization's avatar and name, the
 login after a slash ("my-org / octocat"), and a quiet "more" button (a
 vertical ellipsis, named "Menu") at the right end. With several
 organizations, the organization's name is its selector. The
@@ -518,26 +520,66 @@ arrives.
   24-hour limit on a connection, the service closing it), the page asks for
   a new token and connects again, after a wait that starts at about a
   second and doubles with each failure, up to about a minute, spread at
-  random so that tabs do not come back together. Once subscribed again, it
-  fetches once, for the signals it missed meanwhile.
+  random so that tabs do not come back together. When the browser reports
+  that it is back online while the page waits, it connects again at once,
+  without waiting the rest out. Once subscribed again, it fetches once,
+  for the signals it missed meanwhile.
 - **Being shown again.** When the tab becomes visible after it was hidden,
   the page fetches once, since a browser may have let its connection lapse
   or held back its timers, and connects again at once if the connection is
-  gone.
+  gone. After it was hidden for a minute or more, it also drops its
+  connection and connects again at once: a phone may cut a hidden tab's
+  network without the socket ever reporting that it closed, and the
+  connection would otherwise look up until its keep-alive timed out,
+  minutes later. After a shorter absence it keeps the connection.
 - **Ending.** Signing out, the session ending, or anything else that shows
   a view without a viewer closes the connection, and nothing connects
   until a viewer is signed in again.
 - **Failures.** A failed token request or connection is tried again with
-  the same growing wait, and only warned about in the console. The page
-  never shows whether it is connected: without the connection it works as
-  a page that is not live, which a reload brings up to date. A failed
-  fetch after a signal shows as any failed update does (see
+  the same growing wait, and warned about in the console. The page shows
+  it only as the header's dot (below) turning to "Not live", with no alert:
+  without the connection it works as a page that is not live, which a
+  reload brings up to date. A failed fetch after a signal shows as any
+  failed update does (see
   [Drawing from the cache first](#drawing-from-the-cache-first)).
 
 A build without the signal hosts (see
 [Deployment](../guides/deployment.md#build-configuration)), and the
 development mode with the API mock, do not connect, and the page is not
-live.
+live. Neither shows the header's dot, since neither ever connects.
+
+### Whether the page is live
+
+While signed in, a small dot in the header shows whether the page is live,
+so that a viewer, on a phone especially, can tell whether an open page
+will show new activity within seconds or needs a reload. It sits on the
+right, just before the organization's avatar and name; on a narrow screen,
+where the session takes a row of its own, it sits at the left end of that
+row. The sign-in screen has no dot.
+
+| State      | Dot           | Explanation                            | When                                                                                    |
+| ---------- | ------------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Live       | filled, green | "Live. Updates appear within seconds." | subscribed to the viewer's channel                                                      |
+| Connecting | ring, amber   | "Connecting…"                          | from asking for a signal token until subscribed, the first time and on connecting again |
+| Not live   | ring, grey    | "Not live. Reload to update."          | waiting to connect again after a failure or a dropped connection                        |
+
+The states are told apart by shape as well as colour, never by colour
+alone, and each colour has at least 3:1 contrast against the header in
+both themes. The dot does not blink or pulse.
+
+So that a load does not flicker, "Connecting" shows only when subscribing
+has not finished 3 seconds after connecting began; until then no dot is
+drawn. A connection normally subscribes within about a second, so a load
+on a working network goes straight to "Live". Once a dot is drawn, connecting
+again (after a drop, or after a long absence) shows "Connecting" at once.
+
+The dot shows only itself; its explanation is a short toggletip under it.
+Pointing at the dot or focusing it with the keyboard opens it, and it
+closes when the pointer or focus leaves. A tap or a click opens it, and a
+tap outside, Escape or a second tap on the dot closes it, Escape returning
+focus to the dot, as the header's menu button does. The dot's accessible
+name includes the state ("Connection: Live"), and a change of state is not
+announced on its own, which would be noise.
 
 The whole period is fetched again each time, not what changed since the
 last answer.
