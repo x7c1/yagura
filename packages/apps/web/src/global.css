@@ -100,15 +100,6 @@
   /* A draft, in GitHub's grey for drafts. */
   --color-draft: light-dark(#59636e, #9198a1);
   /*
-   * The chart's push circles, in the bars' blue: they are drawn as circles
-   * under the axis rather than bars, so the shape, not the colour, keeps
-   * them apart from the merges. The circle is filled, and its count written
-   * on it in `--color-on-push`, with at least 4.5:1 contrast in both themes
-   * (5.2:1 and 6.1:1); the fill has the bars' 3:1 against the card.
-   */
-  --color-push: var(--color-chart);
-  --color-on-push: light-dark(#ffffff, #0d1117);
-  /*
    * The activity chart's bars and counts, in a blue of their own apart
    * from the list's badges, and the strengths of its hours' heatmap in
    * that blue, weakest first: the weakest has 3:1 contrast

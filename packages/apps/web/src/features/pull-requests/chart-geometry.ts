@@ -73,7 +73,7 @@ const pushPadding = 3;
  * The space above the column layout's row of push circles, between it and
  * the last row of the hours' heatmap drawn above it.
  */
-const pushRowGap = 3 * textGap;
+const pushRowGap = textGap;
 
 /** The thickness of a row's bar. */
 const rowBarThickness = 14;
@@ -304,10 +304,11 @@ function columnsGeometry<T extends Counts>(
   // circle's focus ring.
   const pushY = pushRowGap + r;
   const pushRowHeight = pushY + r + focusRingReach;
-  // Room above the plot for the count of a bar that reaches its top.
+  // Room above the plot for the count of a bar that reaches its top, and
+  // no more: the section's heading is right above.
   const plot: Rect = {
     x: left,
-    y: textGap + textHeight + textGap,
+    y: textHeight + textGap,
     width: width - left,
     height: columnsPlotHeight,
   };
