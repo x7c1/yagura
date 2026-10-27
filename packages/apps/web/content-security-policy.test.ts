@@ -44,7 +44,7 @@ describe("the production Content Security Policy", () => {
         `script-src 'self' ${themeScriptHash()}`,
         "style-src 'self'",
         "img-src 'self' https://avatars.githubusercontent.com",
-        "connect-src https://api.github.com https://api.yagura.module.codes",
+        "connect-src https://api.yagura.module.codes",
         "font-src 'self'",
         "base-uri 'none'",
         "form-action 'none'",
@@ -63,25 +63,22 @@ describe("the production Content Security Policy", () => {
     expect(sources.filter((source) => /^[a-z-]+:$/.test(source))).toEqual([]);
   });
 
-  it("allows only the origin of the session API it is built for", () => {
+  it("allows only the origin of the Yagura API it is built for", () => {
     const policy = contentSecurityPolicy(indexHtml, {
       sessionApi: "https://session.example.test:8443/base/",
       apiMock: false,
     });
     expect(directives(policy).get("connect-src")).toEqual([
-      "https://api.github.com",
       "https://session.example.test:8443",
     ]);
   });
 
-  it("allows no session API when the build has none", () => {
+  it("allows no connection when the build has no Yagura API", () => {
     const policy = contentSecurityPolicy(indexHtml, {
       sessionApi: "",
       apiMock: false,
     });
-    expect(directives(policy).get("connect-src")).toEqual([
-      "https://api.github.com",
-    ]);
+    expect(directives(policy).get("connect-src")).toEqual(["'none'"]);
   });
 
   it("follows the theme script when the script changes", () => {

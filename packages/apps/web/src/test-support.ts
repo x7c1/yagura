@@ -10,9 +10,18 @@ import {
   type JsonStore,
   type KeyValueStore,
 } from "@yagura/browser";
-import type { PullRequest } from "@yagura/activity";
-import { ApiMock, mockPullRequests } from "@yagura/api-mocks";
-import { GitHubApiClient } from "@yagura/github-api";
+import {
+  countedEvents,
+  listPullRequests,
+  periodEndingAt,
+  requestRange,
+  type ListedPullRequest,
+} from "@yagura/activity";
+import {
+  ActivityApiClient,
+  parseOrganizationActivity,
+} from "@yagura/activity-api";
+import { ApiMock, mockActivityResponse } from "@yagura/api-mocks";
 import { SessionApiClient } from "@yagura/session-api";
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { expect } from "vitest";
@@ -33,7 +42,7 @@ export interface TestControllerOptions {
   readonly url?: string;
   /** Starts the mock session signed in, as if a refresh cookie were set. */
   readonly signedIn?: boolean;
-  /** The organizations the mock reports the GitHub App installed on. */
+  /** The logins of the organizations the mock lets the viewer use. */
   readonly organizations?: readonly string[];
   readonly storage?: KeyValueStore;
   /** Where the last viewer is remembered; defaults to an empty memory store. */
@@ -80,7 +89,7 @@ export function testController(options: TestControllerOptions = {}) {
   const tabs = options.tabs ?? new MemoryTabChannel();
   const controller = new SessionController({
     sessionApi: new SessionApiClient({ baseUrl: sessionApi }),
-    githubApi: new GitHubApiClient(),
+    activityApi: new ActivityApiClient({ baseUrl: sessionApi }),
     clientId: "Iv1.test",
     redirectUri,
     storage,
@@ -180,7 +189,7 @@ export function showsOrganization(name: string): boolean {
   });
   return selector === null
     ? within(banner).queryByText(name) !== null
-    : selector.value === name;
+    : selector.selectedOptions[0]?.textContent === name;
 }
 
 /** Waits until the header shows the organization `name`. */
@@ -201,18 +210,16 @@ export function organizationIdentity(name: string): HTMLElement {
 
 /**
  * Asserts that the view is not loading or updating anything: no
- * "Loading…", no "Updating…" note, and no "…" placeholder in the summary
- * table, which the Members page shows instead of a "Loading…" note.
+ * "Loading…" and no "Updating…" note.
  */
 function expectSettled(): void {
-  // Every note and placeholder ends in "…", so the plain text rules them out
-  // without the queries below, which walk every element.
+  // Every note ends in "…", so the plain text rules them out without the
+  // queries below, which walk every element.
   if (!document.body.textContent?.includes("…")) {
     return;
   }
   expect(screen.queryByText(/^Loading/)).not.toBeInTheDocument();
   expect(screen.queryByText("Updating…")).not.toBeInTheDocument();
-  expect(screen.queryAllByText("…")).toHaveLength(0);
 }
 
 /**
@@ -246,15 +253,15 @@ function shownPullRequestRows(): HTMLElement[] {
 
 /** The titles in the pull request list, once it is shown and settled. */
 export async function pullRequestTitles(): Promise<string[]> {
-  return titlesOf(await pullRequestRows());
+  return linkTitles(await pullRequestRows());
 }
 
 /** The titles in the pull request list as shown now, settled or not. */
 export function shownPullRequestTitles(): string[] {
-  return titlesOf(shownPullRequestRows());
+  return linkTitles(shownPullRequestRows());
 }
 
-function titlesOf(rows: readonly HTMLElement[]): string[] {
+function linkTitles(rows: readonly HTMLElement[]): string[] {
   // As for the rows, `hidden` skips computing the style of each link and
   // its ancestors.
   return rows.map(
@@ -285,21 +292,37 @@ export function shownMemberSummaryRows(): string[][] {
 }
 
 /**
- * The API mock's fixture pull requests at `now`, as the domain sees them,
- * for working out from the fixtures what the view should show. Their state
- * is left `open`: the measures go by the dates, not the state.
+ * The rows the pull request list holds at `now` for the API mock's
+ * fixtures, bots' pull requests included, worked out with the domain's own
+ * rules from what the mock answers, for comparing with what the view
+ * shows.
  */
-export function mockDomainPullRequests(now: Date): PullRequest[] {
-  return mockPullRequests(now).map((node) => ({
-    id: node.id,
-    title: node.title,
-    url: node.url,
-    repository: node.repository.nameWithOwner,
-    author: node.author.login,
-    state: "open",
-    createdAt: new Date(node.createdAt),
-    mergedAt: node.mergedAt === null ? null : new Date(node.mergedAt),
-    additions: node.additions,
-    deletions: node.deletions,
-  }));
+export function mockListedPullRequests(
+  mock: ApiMock,
+  now: Date,
+): ListedPullRequest[] {
+  const period = periodEndingAt(now);
+  const { from, to } = requestRange(period);
+  const activity = parseOrganizationActivity(
+    mockActivityResponse(mock.fixtures, from, to),
+  );
+  if (activity === undefined) {
+    throw new Error("The API mock's activity does not parse");
+  }
+  return listPullRequests(activity, countedEvents(activity, period));
+}
+
+/** The titles of `rows`, members' pull requests only unless `bots`. */
+export function titlesOf(
+  rows: readonly ListedPullRequest[],
+  { bots = false }: { readonly bots?: boolean } = {},
+): string[] {
+  return rows
+    .filter(({ byBot }) => bots || !byBot)
+    .map(({ pullRequest }) => pullRequest.title);
+}
+
+/** An empty store for the browser's preferences, such as the bots' toggle. */
+export function testPreferences(): KeyValueStore {
+  return new MemoryStore();
 }

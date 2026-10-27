@@ -12,7 +12,7 @@ export function viewerCachePrefix(login: string): string {
  * {@link viewerCachePrefix}, so that one viewer never reads another's
  * entries.
  *
- * The cache only saves requests, so it never fails: a failing store reads
+ * The cache only saves waiting, so it never fails: a failing store reads
  * as empty and ignores writes, with a warning in the console. Writes are
  * also ignored while `isCurrent` says the session is not confirmed as the
  * viewer: before the session is confirmed, so that an ended session never

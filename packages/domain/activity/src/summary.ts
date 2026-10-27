@@ -1,78 +1,108 @@
-import { wasMerged, wasOpened } from "./measures";
-import type { Period } from "./period";
-import type { PullRequest } from "./pull-request";
+import type { Member, OrganizationActivity } from "./activity";
+import { isPerson, type CountedEvent } from "./events";
+import type { ListedPullRequest } from "./list";
 
-/** The opened and merged counts and the lines of some pull requests. */
+/** The counts of one row of the summary table. */
 export interface ActivityCounts {
+  /** Pull requests the account opened in the period. */
   readonly opened: number;
+  /** Pull requests the account opened that were merged in the period. */
   readonly merged: number;
+  /** The account's pushes in the period; `null` for a bot, whose pushes are not counted. */
+  readonly pushed: number | null;
   readonly additions: number;
   readonly deletions: number;
 }
 
-/** One member's row in the summary table. */
+/** One account's row in the summary table. */
 export interface MemberSummary extends ActivityCounts {
-  readonly login: string;
+  readonly member: Member;
 }
 
-/** The summary table: a row per member, and the totals over them all. */
+/** The summary table: a row per account, and the totals over them all. */
 export interface ActivitySummary {
   readonly members: readonly MemberSummary[];
   readonly total: ActivityCounts;
 }
 
-const noActivity: ActivityCounts = {
-  opened: 0,
-  merged: 0,
-  additions: 0,
-  deletions: 0,
-};
-
 /**
- * Summarizes the pull requests (each once, as the list holds them) per
- * member, one row per login in the given order: how many the member opened
- * and merged in the period, and the lines of the member's pull requests. A
- * pull request opened and merged in the period counts toward both, but its
- * lines are added once, so that the table adds up to the list. A member
- * without pull requests gets a row of zeros. Authors are matched to logins
- * ignoring case, as GitHub does; pull requests by others are left out.
+ * Summarizes the period per account: a row per member who is a person, in
+ * the order of `activity.members`, with zeros for one without activity;
+ * then a row per bot that opened a pull request of the list, in login
+ * order. A row counts the pull requests the account opened: how many were
+ * opened and how many merged in the period, whoever merged them, and their
+ * lines, each pull request's once; and, for a person, their pushes to any
+ * pull request. The totals add up the rows, the bots' included, so that
+ * their merged count is the chart's.
+ *
+ * `listed` and `events` are the period's {@link listPullRequests} and
+ * {@link countedEvents}.
  */
 export function summarizeByMember(
-  logins: readonly string[],
-  pullRequests: readonly PullRequest[],
-  period: Period,
+  activity: OrganizationActivity,
+  listed: readonly ListedPullRequest[],
+  events: readonly CountedEvent[],
 ): ActivitySummary {
-  const byLogin = new Map<string, ActivityCounts>(
-    logins.map((login) => [login.toLowerCase(), noActivity]),
+  const people = activity.members.filter(isPerson);
+  const bots = activity.members
+    .filter(
+      (member) =>
+        !isPerson(member) &&
+        listed.some(({ author }) => author?.id === member.id),
+    )
+    .sort((a, b) => compare(a.login, b.login));
+  const rows = [...people, ...bots].map((member) =>
+    summarize(member, listed, events),
   );
-  for (const pr of pullRequests) {
-    const key = pr.author.toLowerCase();
-    const counts = byLogin.get(key);
-    if (counts !== undefined) {
-      byLogin.set(key, add(counts, countsOf(pr, period)));
+  const total = rows.reduce<ActivityCounts>(
+    (sum, row) => ({
+      opened: sum.opened + row.opened,
+      merged: sum.merged + row.merged,
+      pushed: (sum.pushed ?? 0) + (row.pushed ?? 0),
+      additions: sum.additions + row.additions,
+      deletions: sum.deletions + row.deletions,
+    }),
+    { opened: 0, merged: 0, pushed: 0, additions: 0, deletions: 0 },
+  );
+  return { members: rows, total };
+}
+
+function summarize(
+  member: Member,
+  listed: readonly ListedPullRequest[],
+  events: readonly CountedEvent[],
+): MemberSummary {
+  const authored = new Set(
+    listed
+      .filter(({ author }) => author?.id === member.id)
+      .map(({ pullRequest }) => pullRequest.id),
+  );
+  const count = (kind: CountedEvent["kind"]) =>
+    events.filter(
+      (event) => event.kind === kind && authored.has(event.pullRequest.id),
+    ).length;
+  let additions = 0;
+  let deletions = 0;
+  for (const { pullRequest } of listed) {
+    if (authored.has(pullRequest.id)) {
+      additions += pullRequest.additions;
+      deletions += pullRequest.deletions;
     }
   }
-  const members = logins.map((login) => ({
-    login,
-    ...(byLogin.get(login.toLowerCase()) ?? noActivity),
-  }));
-  return { members, total: members.reduce(add, noActivity) };
-}
-
-function countsOf(pr: PullRequest, period: Period): ActivityCounts {
   return {
-    opened: wasOpened(pr, period) ? 1 : 0,
-    merged: wasMerged(pr, period) ? 1 : 0,
-    additions: pr.additions,
-    deletions: pr.deletions,
+    member,
+    opened: count("opened"),
+    merged: count("merged"),
+    pushed: isPerson(member)
+      ? events.filter(
+          (event) => event.kind === "pushed" && event.actorId === member.id,
+        ).length
+      : null,
+    additions,
+    deletions,
   };
 }
 
-function add(a: ActivityCounts, b: ActivityCounts): ActivityCounts {
-  return {
-    opened: a.opened + b.opened,
-    merged: a.merged + b.merged,
-    additions: a.additions + b.additions,
-    deletions: a.deletions + b.deletions,
-  };
+function compare(a: string, b: string): number {
+  return a < b ? -1 : a > b ? 1 : 0;
 }

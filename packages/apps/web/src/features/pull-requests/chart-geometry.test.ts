@@ -5,12 +5,13 @@ import {
   dayLabelWidth,
   digitWidth,
   minColumnsWidth,
+  pushDiameter,
   yAxis,
   type DayGroup,
 } from "./chart-geometry";
 
-const days = (n: number, merged = 0) =>
-  Array.from({ length: n }, () => ({ merged }));
+const days = (n: number, merged = 0, pushed = 0) =>
+  Array.from({ length: n }, () => ({ merged, pushed }));
 
 describe("yAxis", () => {
   it("runs to 1 with nothing to show", () => {
@@ -92,7 +93,11 @@ describe("chartGeometry in columns", () => {
 
   it("scales the bars on one axis from zero, with their counts above", () => {
     const { plot, groups, ticks } = chartGeometry(
-      [{ merged: 4 }, { merged: 0 }, { merged: 1 }],
+      [
+        { merged: 4, pushed: 0 },
+        { merged: 0, pushed: 0 },
+        { merged: 1, pushed: 0 },
+      ],
       400,
     );
     const bottom = plot.y + plot.height;
@@ -168,7 +173,12 @@ describe("chartGeometry in rows", () => {
   it("scales the bars on one axis, with their counts within the width", () => {
     const width = 340;
     const { plot, groups, ticks } = chartGeometry(
-      [{ merged: 12 }, { merged: 0 }, { merged: 3 }, ...days(11)],
+      [
+        { merged: 12, pushed: 0 },
+        { merged: 0, pushed: 0 },
+        { merged: 3, pushed: 0 },
+        ...days(11),
+      ],
       width,
     );
 
@@ -191,5 +201,65 @@ describe("chartGeometry in rows", () => {
     // The longest bar's count, two digits, still fits.
     expect(first.bar.count.x + 2 * digitWidth).toBeLessThanOrEqual(width);
     expect(ticks[3]?.line.x1).toBe(plot.x + plot.width);
+  });
+});
+
+describe("the push circles", () => {
+  it("are all one size, with room for the largest count", () => {
+    expect(pushDiameter(days(14, 0, 3))).toBe(16);
+    expect(pushDiameter(days(14, 0, 120))).toBeGreaterThanOrEqual(
+      3 * digitWidth,
+    );
+    const { groups } = chartGeometry(
+      [...days(13, 1, 2), { merged: 0, pushed: 45 }],
+      1000,
+    );
+    expect(new Set(groups.map(({ push }) => push.r)).size).toBe(1);
+  });
+
+  it("sit in a row above the plot, centred over their days, labelled at its left", () => {
+    const { plot, groups, pushLabel } = chartGeometry(days(14, 4, 9), 1000);
+
+    for (const { bar, push } of groups) {
+      expect(push.cx).toBeCloseTo(bar.rect.x + bar.rect.width / 2);
+      expect(push.cy).toBe(groups[0]?.push.cy);
+      // Above the counts of the tallest bars, and inside the chart.
+      expect(push.cy + push.r).toBeLessThan(bar.count.y);
+      expect(push.cy - push.r).toBeGreaterThan(0);
+    }
+    expect(pushLabel).toMatchObject({ anchor: "end", y: groups[0]?.push.cy });
+    expect(pushLabel.x).toBeLessThanOrEqual(plot.x);
+    // The label, "Pushes", fits left of the plot.
+    expect(pushLabel.x).toBeGreaterThanOrEqual(44);
+  });
+
+  it("leave a gap between neighbouring days at the switch point", () => {
+    const fortnight = days(14, 1, 120);
+    const { groups } = chartGeometry(fortnight, minColumnsWidth(fortnight));
+
+    for (const [index, { push }] of groups.slice(0, -1).entries()) {
+      const next = (groups[index + 1] as DayGroup).push;
+      expect(next.cx - next.r - (push.cx + push.r)).toBeGreaterThan(0);
+    }
+  });
+
+  it("sit next to the dates where the days are rows, labelled above them", () => {
+    const { plot, groups, pushLabel } = chartGeometry(days(14, 2, 30), 340);
+
+    for (const { bar, push, label } of groups) {
+      expect(label?.x).toBeLessThan(push.cx - push.r);
+      expect(push.cx + push.r).toBeLessThan(bar.rect.x);
+      expect(push.cy).toBeCloseTo(bar.rect.y + bar.rect.height / 2);
+      expect(label?.y).toBeCloseTo(push.cy);
+    }
+    for (const [index, { push }] of groups.slice(0, -1).entries()) {
+      const next = (groups[index + 1] as DayGroup).push;
+      expect(next.cy - next.r).toBeGreaterThan(push.cy + push.r);
+    }
+    expect(pushLabel).toMatchObject({
+      x: groups[0]?.push.cx,
+      anchor: "middle",
+    });
+    expect(pushLabel.y).toBeLessThan(plot.y);
   });
 });

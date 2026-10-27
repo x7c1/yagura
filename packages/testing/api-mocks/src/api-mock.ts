@@ -1,41 +1,44 @@
 import { MemoryStore, type KeyValueStore } from "@yagura/browser";
-import { http, HttpResponse, type HttpHandler } from "msw";
+import { http, HttpResponse, type HttpHandler, type JsonBodyType } from "msw";
 import {
-  mockPullRequests,
-  searchMockPullRequests,
-  type MockPullRequestNode,
-} from "./pull-requests";
+  mockActivityFixtures,
+  mockActivityResponse,
+  mockLogin,
+  type MockActivityFixtures,
+} from "./activity";
 
-/** The GitHub login the mock session API answers with. */
-export const mockLogin = "mock-user";
-
-/** The organization the mock reports the GitHub App installed on. */
+/** The organization the mock lets the viewer use. */
 export const mockOrganization = "mock-org";
 
 /**
- * The organizations the development server's mock reports the GitHub App
- * installed on: more than one, so that the header's organization selector
- * shows. Each has the same members and pull requests.
+ * The organizations the development server's mock lets the viewer use:
+ * more than one, so that the header's organization selector shows. Each
+ * has the same members and activity.
  */
 export const mockDevelopmentOrganizations: readonly string[] = [
   mockOrganization,
   "mock-labs",
 ];
 
-/** The members of {@link mockOrganization}, sorted by login. */
-export const mockMemberLogins: readonly string[] = [
-  "mock-alice",
-  "mock-bob",
-  "mock-carol",
-  mockLogin,
-];
+/** The id the mock gives the organization `login`. */
+export function mockOrganizationId(login: string): string {
+  return `O_${login}`;
+}
 
-const githubApi = "https://api.github.com";
+/** The host GitHub serves accounts' avatars from, by their numeric id. */
+const githubAvatars = "https://avatars.githubusercontent.com";
+
+/** The longest range `GET /activity` answers: 31 days and an hour. */
+const maxRangeMs = (31 * 24 + 1) * 60 * 60 * 1000;
+
 const signedInKey = "yagura.api-mock.signed-in";
 const accessTokenLifetimeSeconds = 28800;
 
 export interface ApiMockOptions {
-  /** Base URL of the session API, without a trailing slash. */
+  /**
+   * Base URL of the Yagura API, without a trailing slash: the session API
+   * and the activity API are on the same host.
+   */
   readonly sessionApiBaseUrl: string;
   /**
    * Where the signed-in flag lives; it stands in for the refresh cookie.
@@ -46,13 +49,13 @@ export interface ApiMockOptions {
   /** Starts the mock session signed in, as if a refresh cookie were set. */
   readonly signedIn?: boolean;
   /**
-   * The organizations `GET /user/installations` reports the GitHub App
-   * installed on. Defaults to {@link mockOrganization} alone.
+   * The logins of the organizations `GET /activity/organizations` lists.
+   * Defaults to {@link mockOrganization} alone.
    */
   readonly organizations?: readonly string[];
   /**
-   * The time the fixture pull requests are placed relative to. Defaults to
-   * the mock's creation.
+   * The time the fixture activity is placed relative to. Defaults to the
+   * mock's creation.
    */
   readonly now?: Date;
 }
@@ -62,40 +65,35 @@ export interface RecordedRequest {
   readonly method: string;
   readonly url: string;
   readonly credentials: RequestCredentials;
+  /** The `Authorization` header, or `null` when the request had none. */
+  readonly authorization: string | null;
   /** The JSON body, or `undefined` when the request had none. */
   readonly body: unknown;
 }
 
 /**
  * MSW handlers for the session API (docs/design/session-api.md) and the
- * GitHub API endpoints the app calls, sharing enough state for the sign-in
- * flow to complete:
+ * activity API (docs/design/activity-api.md), sharing enough state for the
+ * sign-in flow to complete:
  *
  * - `POST /session` with any code signs the mock session in and issues an
  *   access token for {@link mockLogin}, answering with that login;
  * - `POST /session/refresh` issues a new access token, with the login, while
  *   signed in, and answers `401 invalid_session` otherwise;
  * - `DELETE /session` signs out;
- * - `GET /user/installations` answers an installation on each of the
- *   `organizations` option's organizations, by default {@link mockOrganization};
- * - `GET /orgs/{org}/members` answers {@link mockMemberLogins} for any of
- *   those organizations, and `404` for another;
- * - `POST /graphql` answers a pull request `search` with the members'
- *   fixture pull requests, spread over the 14 days before the `now` option
- *   (open, merged, one created before the period and merged in it, closed,
- *   across three repositories), filtered by the query's `author:`,
- *   `is:merged`, `created:` and `merged:` qualifiers (`>=` and `a..b`
- *   ranges), each with its id, state and times only, as the app's search
- *   asks for. It answers a `nodes(ids:)` lookup with the whole fixtures of
- *   those ids, and `null` with a `NOT_FOUND` error for an unknown one, as
- *   GitHub does. It tells the two apart by the `query` and `ids` variables
- *   and does not parse the GraphQL document. {@link holdGraphql} holds
- *   chosen answers back, so that tests can observe what is sent while
- *   another request is still waiting; {@link holdRequests} does the same
- *   for any request.
+ * - `GET /activity/organizations` lists the `organizations` option's
+ *   organizations, by default {@link mockOrganization}, in login order;
+ * - `GET /activity` answers the fixture activity (see `activity.ts`) in
+ *   the requested range for any of those organizations, `403 forbidden` for
+ *   another, and `400 invalid_request` for a missing or bad parameter or a
+ *   range longer than 31 days and an hour;
+ * - `GET https://avatars.githubusercontent.com/u/<id>` answers a placeholder
+ *   avatar for an account of the fixtures, so that the avatars the app
+ *   finds by account id load nothing from the network either.
  *
- * The GitHub endpoints answer `401` for a token the mock did not issue while
- * signed in, as GitHub does for a bad token, and fit on a single page.
+ * The activity API answers `401 invalid_token` for a token the mock did not
+ * issue while signed in. {@link holdRequests} holds chosen answers back, so
+ * that tests can observe what is drawn while a request is still waiting.
  */
 export class ApiMock {
   readonly handlers: readonly HttpHandler[];
@@ -103,14 +101,15 @@ export class ApiMock {
   readonly #issued = new Set<string>();
   readonly #requests: RecordedRequest[] = [];
   readonly #organizations: readonly string[];
-  readonly #pullRequests: MockPullRequestNode[];
-  readonly #holds: Hold[] = [];
+  #fixtures: MockActivityFixtures;
   readonly #requestHolds: RequestHold[] = [];
 
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
-    this.#organizations = options.organizations ?? [mockOrganization];
-    this.#pullRequests = mockPullRequests(options.now ?? new Date());
+    this.#organizations = [
+      ...(options.organizations ?? [mockOrganization]),
+    ].sort();
+    this.#fixtures = mockActivityFixtures(options.now ?? new Date());
     if (options.signedIn !== undefined) {
       this.signedIn = options.signedIn;
     }
@@ -136,76 +135,53 @@ export class ApiMock {
         this.signedIn = false;
         return new HttpResponse(null, { status: 204 });
       }),
-      http.get(`${githubApi}/user/installations`, async ({ request }) => {
+      http.get(`${base}/activity/organizations`, async ({ request }) => {
         await this.#record(request);
         if (!this.#authorized(request)) {
-          return badCredentials();
+          return error(401, "invalid_token");
         }
-        return HttpResponse.json({
-          total_count: this.#organizations.length,
-          installations: this.#organizations.map((login, index) => ({
-            id: index + 1,
-            account: {
-              login,
-              type: "Organization",
-              avatar_url: avatarUrl(login),
-            },
+        return noStore({
+          organizations: this.#organizations.map((login) => ({
+            id: mockOrganizationId(login),
+            login,
+            avatarUrl: avatarUrl(login),
           })),
         });
       }),
-      http.get(
-        `${githubApi}/orgs/:org/members`,
-        async ({ request, params }) => {
-          await this.#record(request);
-          if (!this.#authorized(request)) {
-            return badCredentials();
-          }
-          if (!this.#organizations.includes(String(params.org))) {
-            return HttpResponse.json({ message: "Not Found" }, { status: 404 });
-          }
-          return HttpResponse.json(
-            mockMemberLogins.map((login) => ({
-              login,
-              avatar_url: avatarUrl(login),
-            })),
-          );
-        },
-      ),
-      http.post(`${githubApi}/graphql`, async ({ request }) => {
-        const body = await this.#record(request);
+      http.get(`${base}/activity`, async ({ request }) => {
+        await this.#record(request);
         if (!this.#authorized(request)) {
-          return badCredentials();
+          return error(401, "invalid_token");
         }
-        const variables = isRecord(body) ? body.variables : undefined;
-        const query = isRecord(variables) ? variables.query : undefined;
-        const ids = isRecord(variables) ? variables.ids : undefined;
-        await this.#held(isRecord(variables) ? variables : {});
-        if (isStringArray(ids)) {
-          return this.#lookUpNodes(ids);
+        const params = new URL(request.url).searchParams;
+        const organization = params.get("organization");
+        const from = parseBound(params.get("from"));
+        const to = parseBound(params.get("to"));
+        if (
+          organization === null ||
+          from === undefined ||
+          to === undefined ||
+          to.getTime() < from.getTime() ||
+          to.getTime() - from.getTime() > maxRangeMs
+        ) {
+          return error(400, "invalid_request");
         }
-        if (typeof query !== "string") {
-          return HttpResponse.json({
-            data: null,
-            errors: [
-              { message: "The API mock answers only searches and lookups" },
-            ],
-          });
+        if (
+          !this.#organizations.some(
+            (login) => mockOrganizationId(login) === organization,
+          )
+        ) {
+          return error(403, "forbidden");
         }
-        return HttpResponse.json({
-          data: {
-            search: {
-              pageInfo: { hasNextPage: false, endCursor: null },
-              nodes: searchMockPullRequests(this.#pullRequests, query).map(
-                ({ __typename, id, state, createdAt, mergedAt }) => ({
-                  __typename,
-                  id,
-                  state,
-                  createdAt,
-                  mergedAt,
-                }),
-              ),
-            },
-          },
+        return noStore(mockActivityResponse(this.#fixtures, from, to));
+      }),
+      http.get(`${githubAvatars}/u/:id`, ({ params }) => {
+        const { members, bots } = this.#fixtures;
+        const account = [...members, ...bots].find(
+          ({ id }) => id === params["id"],
+        );
+        return new HttpResponse(avatarSvg(account?.login ?? "?"), {
+          headers: { "Content-Type": "image/svg+xml" },
         });
       }),
     ];
@@ -230,51 +206,28 @@ export class ApiMock {
     return this.#requests;
   }
 
-  /**
-   * The search queries of the GraphQL requests, in order. Lookups by id are
-   * not searches and are left out.
-   */
-  get searches(): readonly string[] {
-    return this.#graphqlVariables().flatMap(({ query }) =>
-      typeof query === "string" ? [query] : [],
+  /** The requests for an organization's activity, in order. */
+  get activityRequests(): readonly RecordedRequest[] {
+    return this.#requests.filter(
+      ({ method, url }) =>
+        method === "GET" && new URL(url).pathname === "/activity",
     );
   }
 
-  /** The ids of each GraphQL `nodes(ids:)` lookup, in order. */
-  get lookups(): readonly (readonly string[])[] {
-    return this.#graphqlVariables().flatMap(({ ids }) =>
-      isStringArray(ids) ? [ids] : [],
-    );
+  /** What the activity API serves, before it is narrowed to a range. */
+  get fixtures(): MockActivityFixtures {
+    return this.#fixtures;
   }
 
-  /**
-   * Adds a pull request to those the mock serves, as if it were opened
-   * after the mock was created.
-   */
-  addPullRequest(pullRequest: MockPullRequestNode): void {
-    this.#pullRequests.push(pullRequest);
-  }
-
-  /**
-   * Holds back the answer to every GraphQL request whose variables `match`
-   * accepts until the returned function is called. A held request is
-   * recorded when it arrives, so it shows in {@link requests} while held.
-   */
-  holdGraphql(
-    match: (variables: Readonly<Record<string, unknown>>) => boolean,
-  ): () => void {
-    let release!: () => void;
-    const released = new Promise<void>((resolve) => {
-      release = resolve;
-    });
-    this.#holds.push({ match, released });
-    return release;
+  /** Replaces what the activity API serves from now on. */
+  set fixtures(fixtures: MockActivityFixtures) {
+    this.#fixtures = fixtures;
   }
 
   /**
    * Holds back the answer to every request that `match` accepts, as it is
-   * recorded, until the returned function is called. For the GraphQL
-   * requests, {@link holdGraphql} matches on their variables.
+   * recorded, until the returned function is called. A held request shows
+   * in {@link requests} while held.
    */
   holdRequests(match: (request: RecordedRequest) => boolean): () => void {
     let release!: () => void;
@@ -295,43 +248,6 @@ export class ApiMock {
     return this.#requests.filter(
       (request) => request.method === method && request.url === url,
     );
-  }
-
-  #graphqlVariables(): Record<string, unknown>[] {
-    return this.requestsTo("POST", `${githubApi}/graphql`).flatMap(
-      ({ body }) =>
-        isRecord(body) && isRecord(body.variables) ? [body.variables] : [],
-    );
-  }
-
-  /** Waits for the release of each hold that `variables` match. */
-  async #held(variables: Readonly<Record<string, unknown>>): Promise<void> {
-    for (const { match, released } of this.#holds) {
-      if (match(variables)) {
-        await released;
-      }
-    }
-  }
-
-  #lookUpNodes(ids: readonly string[]): Response {
-    const nodes = ids.map(
-      (id) => this.#pullRequests.find((pr) => pr.id === id) ?? null,
-    );
-    const errors = ids.flatMap((id, index) =>
-      nodes[index] === null
-        ? [
-            {
-              type: "NOT_FOUND",
-              path: ["nodes", index],
-              message: `Could not resolve to a node with the global id of '${id}'.`,
-            },
-          ]
-        : [],
-    );
-    return HttpResponse.json({
-      data: { nodes },
-      ...(errors.length > 0 && { errors }),
-    });
   }
 
   /** Whether the request carries a token the mock issued while signed in. */
@@ -365,6 +281,7 @@ export class ApiMock {
       method: request.method,
       url: request.url,
       credentials: request.credentials,
+      authorization: request.headers.get("Authorization"),
       body,
     };
     this.#requests.push(recorded);
@@ -377,12 +294,6 @@ export class ApiMock {
   }
 }
 
-/** Answers held back by {@link ApiMock.holdGraphql}. */
-interface Hold {
-  readonly match: (variables: Readonly<Record<string, unknown>>) => boolean;
-  readonly released: Promise<void>;
-}
-
 /** Answers held back by {@link ApiMock.holdRequests}. */
 interface RequestHold {
   readonly match: (request: RecordedRequest) => boolean;
@@ -391,12 +302,6 @@ interface RequestHold {
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null;
-}
-
-function isStringArray(value: unknown): value is string[] {
-  return (
-    Array.isArray(value) && value.every((item) => typeof item === "string")
-  );
 }
 
 function isCreateSessionBody(body: unknown): boolean {
@@ -411,28 +316,51 @@ function isCreateSessionBody(body: unknown): boolean {
   );
 }
 
-function badCredentials(): Response {
-  return HttpResponse.json({ message: "Bad credentials" }, { status: 401 });
+/**
+ * A bound of the requested range, which must carry its zone (`Z` or an
+ * offset), or `undefined` when it is missing or unreadable.
+ */
+function parseBound(value: string | null): Date | undefined {
+  if (value === null || !/(Z|[+-]\d\d:\d\d)$/.test(value)) {
+    return undefined;
+  }
+  const time = new Date(value);
+  return Number.isNaN(time.getTime()) ? undefined : time;
 }
 
 /**
- * A placeholder avatar: a colored square with the login's initial, inline so
- * that mock mode loads nothing from the network.
+ * A placeholder avatar as a data URL, so that mock mode loads nothing from
+ * the network.
  */
 function avatarUrl(login: string): string {
+  return `data:image/svg+xml,${encodeURIComponent(avatarSvg(login))}`;
+}
+
+/** A placeholder avatar: a colored square with the login's initial. */
+function avatarSvg(login: string): string {
   const hue = [...login].reduce((sum, c) => sum + c.charCodeAt(0), 0) % 360;
   const initial = login
     .replace(/^mock-/, "")
     .charAt(0)
     .toUpperCase();
-  const svg =
+  return (
     `<svg xmlns="http://www.w3.org/2000/svg" width="40" height="40">` +
     `<rect width="40" height="40" fill="hsl(${hue} 50% 60%)"/>` +
     `<text x="20" y="26" font-family="sans-serif" font-size="18" ` +
-    `text-anchor="middle" fill="white">${initial}</text></svg>`;
-  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+    `text-anchor="middle" fill="white">${initial}</text></svg>`
+  );
+}
+
+/** A JSON answer of the activity API, which is never to be cached. */
+function noStore(body: JsonBodyType): Response {
+  return HttpResponse.json(body, {
+    headers: { "Cache-Control": "no-store" },
+  });
 }
 
 function error(status: number, code: string): Response {
-  return HttpResponse.json({ error: code }, { status });
+  return HttpResponse.json(
+    { error: code, error_description: `The API mock answers ${code}.` },
+    { status, headers: { "Cache-Control": "no-store" } },
+  );
 }

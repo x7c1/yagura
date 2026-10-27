@@ -32,8 +32,8 @@
   white-space: nowrap;
 }
 
-/* What a number cell shows while the pull requests load. */
-.table .placeholder {
+/* The dash of a bot's pushes, which are not counted. */
+.table .notCounted {
   color: var(--color-text-muted);
 }
 

@@ -1,49 +1,205 @@
+import { mockBotLogin, mockOrganization } from "@yagura/api-mocks";
+import { MemoryStore } from "@yagura/browser";
 import {
-  mockMemberLogins,
-  mockOrganization,
-  mockPullRequestTitles,
-} from "@yagura/api-mocks";
-import { dayKeyOf, periodEndingAt, type PullRequest } from "@yagura/activity";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+  dayKeyOf,
+  type ListedPullRequest,
+  type PullRequest,
+} from "@yagura/activity";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "../../App";
 import {
+  mockListedPullRequests,
   pullRequestRows,
   pullRequestTitles,
   server,
+  sessionApi,
   showPage,
   testController,
   testTheme,
   testWidths,
+  testPreferences,
+  titlesOf,
 } from "../../test-support";
+import { showBotsKey } from "./DailyActivity";
 import { PullRequestList } from "./PullRequestList";
 
-const graphqlUrl = "https://api.github.com/graphql";
+const activityUrl = `${sessionApi}/activity`;
+
+/** 15:30 local time, so that the fixtures of the last hours fall on today. */
+const now = new Date(2026, 9, 12, 15, 30);
+
+/**
+ * Renders the app signed in at {@link now}, with `preferences`. `handlers`
+ * take precedence over the API mock's.
+ */
+function open(
+  preferences = testPreferences(),
+  ...handlers: Parameters<typeof server.use>
+) {
+  const test = testController({ signedIn: true, clock: () => now });
+  server.use(...handlers);
+  render(
+    <App
+      session={test.controller}
+      widths={testWidths()}
+      theme={testTheme()}
+      preferences={preferences}
+    />,
+  );
+  return test;
+}
+
+/** The cells of the list's row titled `title`, as their text. */
+async function rowCells(title: string): Promise<string[]> {
+  const rows = await pullRequestRows();
+  const row = rows.find((candidate) =>
+    within(candidate).queryByRole("link", { name: title }),
+  );
+  if (row === undefined) {
+    throw new Error(`No row titled ${title}`);
+  }
+  return within(row)
+    .getAllByRole("cell")
+    .map((cell) => cell.textContent ?? "");
+}
+
+/** A row of the list, for rendering the list on its own. */
+function listed(
+  id: string,
+  at: Date,
+  overrides: Partial<ListedPullRequest> = {},
+): ListedPullRequest {
+  const pullRequest: PullRequest = {
+    id,
+    repository: { id: "r1", ownerLogin: mockOrganization, name: "web" },
+    number: Number(id),
+    title: `Pull request ${id}`,
+    state: "open",
+    draft: false,
+    additions: 1,
+    deletions: 1,
+    authorId: "1001",
+    createdAt: at,
+  };
+  return {
+    pullRequest,
+    author: { id: "1001", login: "mock-alice", type: "User" },
+    state: "open",
+    latest: { kind: "opened", at },
+    pushes: 0,
+    byBot: false,
+    ...overrides,
+  };
+}
 
 describe("MembersActivity", () => {
-  it("lists the members' pull requests of the period, newest first", async () => {
-    const { controller, mock } = testController({ signedIn: true });
+  it("lists the pull requests opened, merged or pushed to in the period, newest first, without bots'", async () => {
+    const { mock } = open();
 
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    const titles = await pullRequestTitles();
 
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
-    // Opened and merged in the period: found by both searches, listed once.
-    expect(
-      screen.getAllByRole("link", { name: "Fix the sign-out redirect" }),
-    ).toHaveLength(1);
-    expect(mock.searches).toHaveLength(2 * mockMemberLogins.length);
+    expect(titles).toEqual(titlesOf(mockListedPullRequests(mock, now)));
+    // Pushed to by its author in the period, then closed: listed.
+    expect(titles).toContain("Try another GraphQL client");
+    // Opened before the period, pushed to and merged in it: listed.
+    expect(titles).toContain("Paginate the members endpoint");
+    // Opened and merged before the period: not listed.
+    expect(titles).not.toContain("Split the session module");
+    // Bots' pull requests are hidden by default.
+    expect(titles.filter((title) => title.startsWith("Bump"))).toEqual([]);
     // The chart's axis shows the days, so the activity page names no period.
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
 
-  it("fits both tables to their cards, in no container that scrolls sideways", async () => {
-    const { controller } = testController({ signedIn: true });
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+  it("shows a pull request's details and links to it", async () => {
+    open();
+
+    expect(await rowCells("Fix the sign-out redirect")).toEqual([
+      "Fix the sign-out redirect",
+      "mock-org/web#2",
+      "mock-alice",
+      "merged",
+      "1 push",
+      "+18 −4",
+      expect.stringMatching(/^Merged \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
+    ]);
+    const link = screen.getByRole("link", {
+      name: "Fix the sign-out redirect",
+    });
+    expect(link).toHaveAttribute(
+      "href",
+      "https://github.com/mock-org/web/pull/2",
     );
+    expect(link).toHaveAttribute("target", "_blank");
+  });
+
+  it("marks an open draft as a draft, dated by its latest push, with the members' pushes to it", async () => {
+    open();
+
+    const [, , , state, pushes, , date] = await rowCells(
+      "Draw the activity chart",
+    );
+
+    expect(state).toBe("draft");
+    // Four pushes in the period, the last an hour before now.
+    expect(pushes).toBe("4 pushes");
+    expect(date).toBe("Pushed 2026-10-12 14:30");
+  });
+
+  it("dates a pull request merged without pushes by its merge, with no pushes", async () => {
+    open();
+
+    const cells = await rowCells("Name the chart for screen readers");
+    expect(cells.at(-1)).toBe("Merged 2026-10-03 10:25");
+    expect(cells[4]).toBe("0 pushes");
+  });
+
+  it("hides bots' pull requests behind a button that counts them, and remembers the choice", async () => {
+    const preferences = new MemoryStore();
+    const { mock } = open(preferences);
+    await pullRequestTitles();
+    const bots = mockListedPullRequests(mock, now).filter(({ byBot }) => byBot);
+    expect(bots).toHaveLength(3);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show 3 bot pull requests" }),
+    );
+
+    expect(await pullRequestTitles()).toEqual(
+      titlesOf(mockListedPullRequests(mock, now), { bots: true }),
+    );
+    expect(preferences.get(showBotsKey)).toBe("true");
+    const [, , author] = await rowCells("Bump vite from 8.3.4 to 8.3.5");
+    // The bot alone, marked as one.
+    expect(author).toBe(`${mockBotLogin}bot`);
+    // The label says what the button does next, with no pressed state
+    // beside it to contradict it.
+    expect(
+      screen.getByRole("button", { name: "Hide 3 bot pull requests" }),
+    ).not.toHaveAttribute("aria-pressed");
+
+    // Another load in this browser shows them too.
+    cleanup();
+    open(preferences);
+    expect(await pullRequestTitles()).toContain(
+      "Bump vite from 8.3.4 to 8.3.5",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Hide 3 bot pull requests" }),
+    );
+    expect(preferences.get(showBotsKey)).toBeUndefined();
+  });
+
+  it("fits both tables to their cards, in no container that scrolls sideways", async () => {
+    open();
     /** Whether `element` scrolls sideways, by `overflow` or `overflow-x`. */
     const scrollsSideways = (element: Element) => {
       const style = getComputedStyle(element);
@@ -81,11 +237,7 @@ describe("MembersActivity", () => {
   });
 
   it("writes each pull request's number under its repository, and the title alone in its cell", async () => {
-    const { controller } = testController({ signedIn: true });
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    open();
 
     for (const row of await pullRequestRows()) {
       const link = within(row).getByRole("link");
@@ -93,18 +245,13 @@ describe("MembersActivity", () => {
       expect(number).not.toBeNull();
       const [title, repository] = row.querySelectorAll("td");
       expect(title?.textContent).toBe(link.textContent);
-      const name = repository?.firstChild?.textContent ?? "";
-      expect(name).toMatch(/^[^#]+\/[^#]+$/);
-      expect(repository?.textContent).toBe(`${name}#${number?.[1]}`);
+      expect(repository?.textContent).toMatch(/^[^#]+\/[^#]+#\d+$/);
       expect(repository?.lastElementChild?.textContent).toBe(`#${number?.[1]}`);
     }
   });
 
   it("names the list's table roles, which its narrow layout's display would drop", async () => {
-    const { controller } = testController({ signedIn: true });
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    open();
     await pullRequestTitles();
 
     const table = screen.getByRole("table", { name: "Pull requests" });
@@ -119,46 +266,12 @@ describe("MembersActivity", () => {
     expect(new Set(rows)).toEqual(new Set(["row"]));
     expect(new Set(roles("th"))).toEqual(new Set(["columnheader"]));
     const cells = roles("td");
-    expect(cells).toHaveLength((rows.length - 1) * 6);
+    expect(cells).toHaveLength((rows.length - 1) * 7);
     expect(new Set(cells)).toEqual(new Set(["cell"]));
   });
 
-  it("writes the repository's name alone for an address with no number", () => {
-    const pr: PullRequest = {
-      id: "1",
-      state: "open",
-      createdAt: new Date(2026, 9, 8, 11, 0),
-      mergedAt: null,
-      title: "No number",
-      url: `https://github.com/${mockOrganization}/web`,
-      repository: `${mockOrganization}/web`,
-      author: "mock-alice",
-      additions: 1,
-      deletions: 1,
-    };
-
-    render(
-      <PullRequestList
-        pullRequests={[pr]}
-        period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
-        members={[]}
-      />,
-    );
-
-    const table = screen.getByRole("table", { name: "Pull requests" });
-    const [row] = within(table).getAllByRole("row").slice(1);
-    const [title, repository] = row?.querySelectorAll("td") ?? [];
-    expect(title?.textContent).toBe("No number");
-    expect(repository?.textContent).toBe(`${mockOrganization}/web`);
-    expect(repository?.children).toHaveLength(0);
-  });
-
   it("heads the chart's card \"Merged PRs\" and leaves the list's card without a heading", async () => {
-    const { controller } = testController({ signedIn: true });
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    open();
     await pullRequestTitles();
 
     // The page's one card heading, over the chart: the list below it is the
@@ -178,17 +291,10 @@ describe("MembersActivity", () => {
       .closest("section") as HTMLElement;
     expect(listCard).not.toBe(chartCard);
     expect(within(listCard).queryByRole("heading")).not.toBeInTheDocument();
-    expect(
-      screen.queryByRole("heading", { name: "Per day" }),
-    ).not.toBeInTheDocument();
   });
 
   it("names the period at the top of the members' card, which has no heading", async () => {
-    const { controller } = testController({ signedIn: true });
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    open();
     await pullRequestTitles();
     showPage("Members");
 
@@ -196,49 +302,26 @@ describe("MembersActivity", () => {
       .getByRole("table", { name: "Members" })
       .closest("section") as HTMLElement;
     expect(
-      within(card).getByText(
-        /^Last 14 days · [A-Z][a-z]{2} \d{1,2} – [A-Z][a-z]{2} \d{1,2}$/,
-      ),
+      within(card).getByText("Last 14 days · Sep 29 – Oct 12"),
     ).toBeInTheDocument();
     expect(within(card).queryByRole("heading")).not.toBeInTheDocument();
   });
 
-  it("shows a pull request's details and links to it", async () => {
-    const { controller } = testController({ signedIn: true });
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
-
-    const [, row] = await pullRequestRows();
-    const cells = within(row as HTMLElement).getAllByRole("cell");
-    expect(cells.map((cell) => cell.textContent)).toEqual([
-      "Fix the sign-out redirect",
-      "mock-org/web#2",
-      "mock-alice",
-      "merged",
-      "+18 −4",
-      expect.stringMatching(/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
-    ]);
-    const link = within(row as HTMLElement).getByRole("link");
-    expect(link).toHaveAttribute(
-      "href",
-      "https://github.com/mock-org/web/pull/2",
-    );
-    expect(link).toHaveAttribute("target", "_blank");
-  });
-
   it('heads the last column "Date" and marks each date with its instant', async () => {
-    const { controller } = testController({ signedIn: true });
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    open();
 
     const rows = await pullRequestRows();
     const table = screen.getByRole("table", { name: "Pull requests" });
     const headings = within(table).getAllByRole("columnheader");
-    expect(headings.at(-1)).toHaveTextContent(/^Date$/);
+    expect(headings.map((heading) => heading.textContent)).toEqual([
+      "Title",
+      "Repository",
+      "Author",
+      "State",
+      "Pushes",
+      "Lines",
+      "Date",
+    ]);
     for (const row of rows) {
       const time = row.querySelector("td:last-child > time");
       const dateTime = time?.getAttribute("dateTime") ?? "";
@@ -247,11 +330,7 @@ describe("MembersActivity", () => {
   });
 
   it("bands the rows by day, alternating where the day changes", async () => {
-    const { controller } = testController({ signedIn: true });
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
+    open();
 
     const rows = await pullRequestRows();
     const days = rows.map((row) =>
@@ -273,97 +352,77 @@ describe("MembersActivity", () => {
     }
   });
 
-  it("bands a pull request by the date it shows, its merge if later", () => {
-    // Two pull requests opened on Oct 8: one of them was merged on Oct 10,
-    // so it shows that day and starts its band.
-    const opened = (id: string, mergedAt: Date | null): PullRequest => ({
-      id,
-      state: mergedAt === null ? "open" : "merged",
-      createdAt: new Date(2026, 9, 8, 11, 0),
-      mergedAt,
-      title: id,
-      url: `https://github.com/${mockOrganization}/web/pull/${id}`,
-      repository: `${mockOrganization}/web`,
-      author: "mock-alice",
-      additions: 1,
-      deletions: 1,
-    });
-
+  it("bands a pull request by the date it shows", () => {
     render(
       <PullRequestList
         pullRequests={[
-          opened("merged later", new Date(2026, 9, 10, 9, 30)),
-          opened("still open", null),
+          listed("1", new Date(2026, 9, 10, 9, 30), {
+            latest: { kind: "pushed", at: new Date(2026, 9, 10, 9, 30) },
+          }),
+          listed("2", new Date(2026, 9, 8, 11, 0)),
         ]}
-        period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
-        members={[]}
       />,
     );
 
     const table = screen.getByRole("table", { name: "Pull requests" });
     const rows = within(table).getAllByRole("row").slice(1);
-    expect(rows.map((row) => row.querySelector("time")?.textContent)).toEqual([
-      "2026-10-10 09:30",
-      "2026-10-08 11:00",
-    ]);
+    expect(
+      rows.map((row) => row.querySelector("td:last-child")?.textContent),
+    ).toEqual(["Pushed 2026-10-10 09:30", "Opened 2026-10-08 11:00"]);
     expect(rows.map((row) => row.dataset["band"])).toEqual(["0", "1"]);
   });
 
-  it("shows a member author's avatar, and any other author's login alone", () => {
-    const by = (id: string, author: string): PullRequest => ({
-      id,
-      state: "open",
-      createdAt: new Date(2026, 9, 8, 11, 0),
-      mergedAt: null,
-      title: id,
-      url: `https://github.com/${mockOrganization}/web/pull/${id}`,
-      repository: `${mockOrganization}/web`,
-      author,
-      additions: 1,
-      deletions: 1,
-    });
-
+  it("shows each author's avatar, found by the account's id, a bot's too", () => {
     render(
       <PullRequestList
-        pullRequests={[by("1", "mock-alice"), by("2", "outsider")]}
-        period={periodEndingAt(new Date(2026, 9, 12, 15, 30))}
-        members={[{ login: "mock-alice", avatarUrl: "https://avatars/alice" }]}
+        pullRequests={[
+          listed("1", new Date(2026, 9, 10, 9, 30)),
+          listed("2", new Date(2026, 9, 8, 11, 0), {
+            author: { id: "49699333", login: mockBotLogin, type: "Bot" },
+            byBot: true,
+          }),
+        ]}
       />,
     );
 
     const table = screen.getByRole("table", { name: "Pull requests" });
-    const authors = within(table)
+    const avatars = within(table)
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.querySelectorAll("td")[2] as HTMLElement);
-    expect(authors.map((cell) => cell.textContent)).toEqual([
-      "mock-alice",
-      "outsider",
+      .map((row) => row.querySelectorAll("td")[2]?.querySelector("img"));
+    expect(avatars.map((avatar) => avatar?.getAttribute("src"))).toEqual([
+      "https://avatars.githubusercontent.com/u/1001?v=4",
+      "https://avatars.githubusercontent.com/u/49699333?v=4",
     ]);
-    expect(authors[0]?.querySelector("img")).toHaveAttribute(
-      "src",
-      "https://avatars/alice",
+    // Decorative: the login beside it names the author.
+    expect(avatars[0]).toHaveAttribute("alt", "");
+  });
+
+  it("names an author the response does not name as unknown", () => {
+    render(
+      <PullRequestList
+        pullRequests={[
+          listed("1", new Date(2026, 9, 8, 11, 0), { author: undefined }),
+        ]}
+      />,
     );
-    expect(authors[1]?.querySelector("img")).toBeNull();
+
+    const table = screen.getByRole("table", { name: "Pull requests" });
+    const [row] = within(table).getAllByRole("row").slice(1);
+    expect(row?.querySelectorAll("td")[2]?.textContent).toBe("unknown");
+    expect(row?.querySelectorAll("td")[2]?.querySelector("img")).toBeNull();
   });
 
   it("says so when the members have no pull requests in the period", async () => {
-    const { controller } = testController({ signedIn: true });
-    server.use(
-      http.post(graphqlUrl, () =>
+    open(
+      testPreferences(),
+      http.get(activityUrl, () =>
         HttpResponse.json({
-          data: {
-            search: {
-              pageInfo: { hasNextPage: false, endCursor: null },
-              nodes: [],
-            },
-          },
+          members: [{ id: "1001", login: "mock-alice", type: "User" }],
+          pullRequests: [],
+          activities: [],
         }),
       ),
-    );
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
     );
 
     expect(
@@ -373,31 +432,32 @@ describe("MembersActivity", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows an error when a search fails, and retries", async () => {
-    const { controller } = testController({ signedIn: true });
-    server.use(
-      http.post(
-        graphqlUrl,
-        () => HttpResponse.json({ message: "Server Error" }, { status: 502 }),
+  it("shows an error when the activity request fails, and retries", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+    const { mock } = open(
+      testPreferences(),
+      http.get(
+        activityUrl,
+        () =>
+          HttpResponse.json(
+            { error: "upstream_error", error_description: "GitHub failed." },
+            { status: 502 },
+          ),
         { once: true },
       ),
     );
 
-    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
-
-    render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
-    );
-
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent(
-      `Could not load the pull requests of ${mockOrganization}'s members because GitHub or Yagura is not working right now. Retry in a moment, or reload the page if it keeps failing.`,
+      `Could not load the activity of ${mockOrganization}'s members because GitHub or Yagura is not working right now. Retry in a moment, or reload the page if it keeps failing.`,
     );
-    expect(alert).not.toHaveTextContent(/responded|POST \/graphql|\b502\b/);
+    expect(alert).not.toHaveTextContent(/responded|GET \/|\b502\b|upstream/);
     warn.mockRestore();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
 
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual(
+      titlesOf(mockListedPullRequests(mock, now)),
+    );
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });

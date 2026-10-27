@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { dayKeyOf, periodDayKeys, startOfDay, startOfNextDay } from "./days";
+import { dayKeyOf, periodDayKeys, startOfDay } from "./days";
 import { periodEndingAt } from "./period";
 
 // The test script runs in America/New_York, so that local days differ from
@@ -12,27 +12,14 @@ describe("dayKeyOf", () => {
   });
 });
 
-describe("startOfDay and startOfNextDay", () => {
-  it("are the local midnights around the day", () => {
+describe("startOfDay", () => {
+  it("is the local midnight at the start of the day", () => {
     expect(startOfDay("2026-10-12")).toEqual(
       new Date("2026-10-12T00:00:00-04:00"),
     );
-    expect(startOfNextDay("2026-10-12")).toEqual(
-      new Date("2026-10-13T00:00:00-04:00"),
-    );
   });
 
-  it("follow a daylight saving change", () => {
-    // Daylight saving time ends on November 1, 2026: a 25-hour day.
-    expect(startOfNextDay("2026-11-01")).toEqual(
-      new Date("2026-11-02T00:00:00-05:00"),
-    );
-    expect(startOfNextDay("2026-12-31")).toEqual(
-      new Date("2027-01-01T00:00:00-05:00"),
-    );
-  });
-
-  it("reject what is not a day key", () => {
+  it("rejects what is not a day key", () => {
     expect(() => startOfDay("2026-10-12T00:00")).toThrow();
   });
 });

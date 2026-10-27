@@ -17,6 +17,7 @@ import {
   testController,
   testTheme,
   testWidths,
+  testPreferences,
 } from "./test-support";
 
 /** That `alert` says `title`, then `text`, and nothing else. */
@@ -34,7 +35,12 @@ describe("App", () => {
     const { controller, mock } = testController();
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(
@@ -44,7 +50,9 @@ describe("App", () => {
       screen.getByRole("heading", { level: 1, name: "Yagura" }),
     ).toBeVisible();
     expect(screen.getByText(description)).toBeInTheDocument();
-    expect(screen.getByText(/stores nothing/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only what you can already see on GitHub/),
+    ).toBeInTheDocument();
     // The screen is for signing in alone, with no page frame around it.
     expect(screen.queryByRole("banner")).not.toBeInTheDocument();
     expect(screen.queryByRole("navigation")).not.toBeInTheDocument();
@@ -62,14 +70,21 @@ describe("App", () => {
     );
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(screen.getByRole("heading", { name: "Yagura" })).toBeVisible();
     expect(screen.getByText(description)).toBeInTheDocument();
     expect(screen.getByRole("status")).toHaveTextContent("Loading…");
     // The note stays under it, so that the panel keeps its size.
-    expect(screen.getByText(/stores nothing/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/only what you can already see on GitHub/),
+    ).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: "Sign in with GitHub" }),
     ).not.toBeInTheDocument();
@@ -86,7 +101,12 @@ describe("App", () => {
     const { controller, mock } = testController({ signedIn: true });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     expect(controller.accessToken).toBe("ghu_mock_1");
@@ -118,7 +138,12 @@ describe("App", () => {
     saveHandoff(storage, { state: "s1", codeVerifier: "verifier" });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(screen.getByRole("status")).toHaveTextContent("Signing in…");
@@ -144,7 +169,12 @@ describe("App", () => {
     location.assign(mockAuthorize(authorizeUrl));
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
@@ -159,7 +189,12 @@ describe("App", () => {
     });
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
@@ -191,7 +226,12 @@ describe("App", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
 
     expectFailure(
@@ -228,7 +268,12 @@ describe("App", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
 
       render(
-        <App session={controller} widths={testWidths()} theme={testTheme()} />,
+        <App
+          session={controller}
+          widths={testWidths()}
+          theme={testTheme()}
+          preferences={testPreferences()}
+        />,
       );
 
       expectFailure(
@@ -252,7 +297,12 @@ describe("Signing out", () => {
   it("shows the sign-in screen before DELETE /session answers", async () => {
     const { controller, mock } = testController({ signedIn: true });
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     const release = mock.holdRequests(
@@ -280,7 +330,12 @@ describe("Signing out", () => {
   it("says on the sign-in screen when DELETE /session fails", async () => {
     const { controller } = testController({ signedIn: true });
     render(
-      <App session={controller} widths={testWidths()} theme={testTheme()} />,
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
     server.use(
@@ -321,6 +376,7 @@ describe("Signing out", () => {
         session={signingIn.controller}
         widths={testWidths()}
         theme={testTheme()}
+        preferences={testPreferences()}
       />,
     );
     const signInFailure = (await screen.findByRole("alert")).textContent;
@@ -333,6 +389,7 @@ describe("Signing out", () => {
         session={signingOut.controller}
         widths={testWidths()}
         theme={testTheme()}
+        preferences={testPreferences()}
       />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
@@ -363,6 +420,7 @@ describe("Signing out", () => {
         session={second.controller}
         widths={testWidths()}
         theme={testTheme()}
+        preferences={testPreferences()}
       />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();

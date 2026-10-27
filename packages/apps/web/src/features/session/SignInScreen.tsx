@@ -156,13 +156,13 @@ export function SignInFrame(props: { readonly children: ReactNode }) {
         </p>
         <div className={styles.action}>{props.children}</div>
         {/*
-         * What signing in gives the app, from the README's promises: no more
-         * than the visitor can see, read in their own browser, and nothing
-         * kept on the server.
+         * What signing in gives the app, from the README's promises: what
+         * the server keeps, and that it shows no more than the visitor can
+         * see on GitHub.
          */}
         <p className={styles.note}>
-          Yagura only reads what you can already see on GitHub, right in your
-          browser. The server stores nothing.
+          Yagura keeps the pull request activity of the organizations that use
+          it, and shows you only what you can already see on GitHub.
         </p>
       </div>
     </main>

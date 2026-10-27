@@ -1,89 +1,83 @@
 import { dayKeyOf, periodDayKeys } from "./days";
-import {
-  measures,
-  measureTime,
-  wasMerged,
-  wasOpened,
-  type Measure,
-} from "./measures";
+import type { CountedEvent } from "./events";
 import type { Period } from "./period";
-import type { PullRequest } from "./pull-request";
 
-/** How many pull requests were opened and merged on one day. */
+/** How many pull requests were merged, and how many pushes made, on one day. */
 export interface DayCounts {
   /** The day, as a {@link dayKeyOf} key. */
   readonly day: string;
-  readonly opened: number;
   readonly merged: number;
+  /** The members' pushes. */
+  readonly pushed: number;
+}
+
+/** The hours of a day, 0 to 23, that the counts per hour are kept for. */
+export const hoursPerDay = 24;
+
+/**
+ * How many pull requests were merged, and how many pushes made, in each
+ * hour of one day: the element at index `h` counts those of the local hour
+ * from `h`:00 to `h + 1`:00.
+ */
+export interface DayHourCounts {
+  /** The day, as a {@link dayKeyOf} key. */
+  readonly day: string;
+  readonly merged: readonly number[];
+  readonly pushed: readonly number[];
 }
 
 /**
- * The opened and merged counts of each day of the period, oldest first. Every
- * day is present, a day with nothing as zeros. A pull request counts as
- * opened on the local day it was created and as merged on the local day it
- * was merged, as long as that falls within the period; one opened on one day
- * and merged on another counts on each day for its own measure.
+ * The merged and pushed counts of each day of the period, oldest first.
+ * Every day is present, a day with nothing as zeros. Each of the
+ * {@link countedEvents} counts on the local day it happened.
  */
 export function countByDay(
-  pullRequests: readonly PullRequest[],
+  events: readonly CountedEvent[],
   period: Period,
 ): DayCounts[] {
-  const counts = new Map(
-    periodDayKeys(period).map((day) => [day, { opened: 0, merged: 0 }]),
-  );
-  for (const pr of pullRequests) {
-    for (const measure of measures) {
-      const day = dayOf(pr, period, measure);
-      const entry = day === null ? undefined : counts.get(day);
-      if (entry !== undefined) {
-        entry[measure] += 1;
-      }
-    }
-  }
-  return [...counts].map(([day, { opened, merged }]) => ({
+  return countByHour(events, period).map(({ day, merged, pushed }) => ({
     day,
-    opened,
-    merged,
+    merged: sum(merged),
+    pushed: sum(pushed),
   }));
 }
 
 /**
- * The pull requests, in the order given, that {@link countByDay} counts for
- * `measure` on `day` (a {@link dayKeyOf} key).
+ * The merged and pushed counts of each local hour of each day of the
+ * period, oldest day first, every hour of every day present, an hour with
+ * nothing as zero, so that a day's hours add up to that day's counts in
+ * {@link countByDay}. On a day a daylight saving change shortens, the
+ * skipped hour stays empty; on one it lengthens, the repeated hour counts
+ * both.
  */
-export function pullRequestsOn(
-  pullRequests: readonly PullRequest[],
+export function countByHour(
+  events: readonly CountedEvent[],
   period: Period,
-  day: string,
-  measure: Measure,
-): PullRequest[] {
-  return pullRequests.filter((pr) => dayOf(pr, period, measure) === day);
+): DayHourCounts[] {
+  const counts = new Map(
+    periodDayKeys(period).map((day) => [
+      day,
+      {
+        merged: new Array<number>(hoursPerDay).fill(0),
+        pushed: new Array<number>(hoursPerDay).fill(0),
+      },
+    ]),
+  );
+  for (const event of events) {
+    const entry = counts.get(dayKeyOf(event.at));
+    if (entry !== undefined && event.kind !== "opened") {
+      const hours = entry[event.kind];
+      const hour = event.at.getHours();
+      hours[hour] = (hours[hour] ?? 0) + 1;
+    }
+  }
+  return [...counts].map(([day, { merged, pushed }]) => ({
+    day,
+    merged,
+    pushed,
+  }));
 }
 
-/**
- * The local day the pull request counts for `measure` on, or `null` when it
- * does not count for it in the period.
- */
-function dayOf(
-  pr: PullRequest,
-  period: Period,
-  measure: Measure,
-): string | null {
-  const time = countedTime(pr, period, measure);
-  return time === null ? null : dayKeyOf(time);
-}
-
-/**
- * The time at which the pull request counts for `measure` in the period,
- * which gives both the day it counts on and its hour within that day, or
- * `null` when it does not count for `measure` there.
- */
-export function countedTime(
-  pr: PullRequest,
-  period: Period,
-  measure: Measure,
-): Date | null {
-  const counts =
-    measure === "opened" ? wasOpened(pr, period) : wasMerged(pr, period);
-  return counts ? measureTime(pr, measure) : null;
+function sum(values: readonly number[]): number {
+  return values.reduce((total, value) => total + value, 0);
 }

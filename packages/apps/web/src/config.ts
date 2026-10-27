@@ -1,7 +1,10 @@
 /** Build-time configuration from Vite env variables. */
 export interface Config {
   readonly githubClientId: string;
-  /** Base URL of the session API, without a trailing slash. */
+  /**
+   * Base URL of the Yagura API, without a trailing slash: the session API
+   * and the activity API are on the same host.
+   */
   readonly sessionApiBaseUrl: string;
   /** Serve the APIs from Mock Service Worker (`VITE_API_MOCK=1`). */
   readonly apiMock: boolean;

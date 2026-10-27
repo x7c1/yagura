@@ -78,6 +78,10 @@
  * repository's name and the author's login (which wraps on its own), so
  * that the table fits the card's width.
  */
+.table .pushes {
+  text-align: right;
+}
+
 .table .title {
   white-space: normal;
   min-width: var(--wrap-column-min-width);
@@ -139,6 +143,18 @@
   color: var(--color-closed);
 }
 
+.draft {
+  color: var(--color-draft);
+}
+
+/*
+ * The word after a pull request's pushes, which the column heading says
+ * where it is drawn.
+ */
+.unit {
+  display: none;
+}
+
 /* The rows of every other day, so that the days stand apart. */
 .tinted {
   background: var(--color-band);
@@ -162,7 +178,7 @@
  * On a narrow screen, where the columns would leave the title only a few
  * words a line, each pull request is a block instead: its title on the
  * first line, its repository and author on the next, and its state,
- * lines and date on the last, the date at the right end. The column
+ * pushes, lines and date on the last, the date at the right end. The column
  * headings, which nothing lines up under, are only read out.
  */
 @media (width < 50rem) {
@@ -223,6 +239,7 @@
   }
 
   .table .state,
+  .table .pushes,
   .table .lines,
   .table .date {
     order: 2;
@@ -231,6 +248,10 @@
 
   .table .date {
     margin-left: auto;
+  }
+
+  .table .unit {
+    display: inline;
   }
 
   /* The number follows the repository's name on its line. */

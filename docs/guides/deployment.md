@@ -2,18 +2,20 @@
 
 The web app is a static site. This repository builds and checks it but does
 not publish it: the deployment that serves the app builds a chosen commit
-and uploads the output to its host. Its session API runs on a sibling host
-of the app's domain (see [Session API](../design/session-api.md)); this
-guide covers only the web app.
+and uploads the output to its host. Its API runs on a sibling host of the
+app's domain and serves both the session (see
+[Session API](../design/session-api.md)) and the activity (see
+[Activity API](../design/activity-api.md)); this guide covers only the web
+app.
 
 ## Build configuration
 
 The build reads two variables:
 
-| Variable                  | Value                                                 |
-| ------------------------- | ----------------------------------------------------- |
-| `VITE_GITHUB_CLIENT_ID`   | The GitHub App's client id                            |
-| `VITE_YAGURA_SESSION_API` | Base URL of the session API, without a trailing slash |
+| Variable                  | Value                                                                                       |
+| ------------------------- | ------------------------------------------------------------------------------------------- |
+| `VITE_GITHUB_CLIENT_ID`   | The GitHub App's client id                                                                  |
+| `VITE_YAGURA_SESSION_API` | Base URL of the Yagura API (the session API and the activity API), without a trailing slash |
 
 Both end up in the JavaScript the site serves, so they are public values,
 not secrets. The app refuses to start, and says which variable is missing,
@@ -66,7 +68,7 @@ could load or where it could send the access token. For a build with
 ```text
 default-src 'none'; script-src 'self' 'sha256-…'; style-src 'self';
 img-src 'self' https://avatars.githubusercontent.com;
-connect-src https://api.github.com https://api.yagura.module.codes;
+connect-src https://api.yagura.module.codes;
 font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'
 ```
 
@@ -76,10 +78,11 @@ font-src 'self'; base-uri 'none'; form-action 'none'; object-src 'none'
 - `style-src` allows the app's own stylesheet. The app styles itself with
   CSS Modules and sets no inline styles.
 - `img-src` allows the avatars GitHub serves.
-- `connect-src` allows the GitHub API and the origin of
-  `VITE_YAGURA_SESSION_API`, so each build allows the session API it is
-  built for. A build without that variable allows no session API; the app
-  refuses to start in that case anyway.
+- `connect-src` allows the origin of `VITE_YAGURA_SESSION_API` alone, so
+  each build allows the Yagura API it is built for: the session API and
+  the activity API, on the same host. The page calls no other API, GitHub's
+  included. A build without that variable allows no connection
+  (`connect-src 'none'`); the app refuses to start in that case anyway.
 
 ### How it is built
 

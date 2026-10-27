@@ -1,5 +1,4 @@
 import type { ActivityCounts, ActivitySummary } from "@yagura/activity";
-import type { Member } from "@yagura/github-api";
 import type { ReactNode } from "react";
 import { tableStyles } from "../../shared";
 import { MemberLogin } from "./MemberLogin";
@@ -7,22 +6,13 @@ import styles from "./MemberSummaryTable.module.css";
 
 /**
  * The summary table: a row per member in the order of `summary`, with the
- * member's avatar from `members`, and a totals row closing it. Without a
- * `summary` (the pull requests are still loading), a row per member in the
- * order of `members`, with placeholders for the numbers.
+ * member's avatar, then a row per bot, marked as one, whose pushes are not counted and show as a
+ * dash, and a totals row closing it.
  */
 export function MemberSummaryTable(props: {
-  readonly members: readonly Member[];
-  readonly summary?: ActivitySummary;
+  readonly summary: ActivitySummary;
 }) {
-  const { members, summary } = props;
-  const avatars = new Map(
-    members.map(({ login, avatarUrl }) => [login, avatarUrl]),
-  );
-  const rows: readonly { login: string; counts?: ActivityCounts }[] =
-    summary === undefined
-      ? members.map(({ login }) => ({ login }))
-      : summary.members.map((row) => ({ login: row.login, counts: row }));
+  const { summary } = props;
   return (
     <table
       aria-label="Members"
@@ -38,6 +28,9 @@ export function MemberSummaryTable(props: {
             Merged
           </th>
           <th scope="col" className={styles.numeric}>
+            Pushed
+          </th>
+          <th scope="col" className={styles.numeric}>
             Additions
           </th>
           <th scope="col" className={styles.numeric}>
@@ -46,59 +39,57 @@ export function MemberSummaryTable(props: {
         </tr>
       </thead>
       <tbody>
-        {rows.map(({ login, counts }) => (
+        {summary.members.map(({ member, ...counts }) => (
           <CountsRow
-            key={login}
-            label={<MemberLogin login={login} avatarUrl={avatars.get(login)} />}
+            key={member.id}
+            label={
+              <MemberLogin
+                id={member.id}
+                login={member.login}
+                bot={member.type === "Bot"}
+              />
+            }
             counts={counts}
           />
         ))}
       </tbody>
       <tfoot>
-        <CountsRow label="Total" counts={summary?.total} />
+        <CountsRow label="Total" counts={summary.total} />
       </tfoot>
     </table>
   );
 }
 
-/** What a number cell shows while the pull requests load. */
-const countPlaceholder = "…";
+/** What the Pushed cell of a bot's row shows: its pushes are not counted. */
+const notCounted = "—";
 
-/** A row of counts, or of placeholders when `counts` is not known yet. */
+/** A row of counts. */
 function CountsRow(props: {
   readonly label: ReactNode;
-  readonly counts: ActivityCounts | undefined;
+  readonly counts: ActivityCounts;
 }) {
   const { label, counts } = props;
   return (
     <tr>
       <th scope="row">{label}</th>
-      <NumberCell value={counts?.opened} />
-      <NumberCell value={counts?.merged} />
+      <NumberCell value={counts.opened} />
+      <NumberCell value={counts.merged} />
       <NumberCell
-        value={counts && `+${counts.additions}`}
-        tone={tableStyles.additions}
+        value={counts.pushed ?? notCounted}
+        tone={counts.pushed === null ? styles.notCounted : undefined}
       />
-      <NumberCell
-        value={counts && `−${counts.deletions}`}
-        tone={tableStyles.deletions}
-      />
+      <NumberCell value={`+${counts.additions}`} tone={tableStyles.additions} />
+      <NumberCell value={`−${counts.deletions}`} tone={tableStyles.deletions} />
     </tr>
   );
 }
 
-/**
- * A number in tabular figures, coloured by `tone` if given, or the
- * placeholder when `value` is not known yet.
- */
+/** A number in tabular figures, coloured by `tone` if given. */
 function NumberCell(props: {
-  readonly value: ReactNode | undefined;
+  readonly value: ReactNode;
   readonly tone?: string;
 }) {
   const { value, tone } = props;
-  const classes = [
-    styles.numeric,
-    value === undefined ? styles.placeholder : tone,
-  ].filter(Boolean);
-  return <td className={classes.join(" ")}>{value ?? countPlaceholder}</td>;
+  const classes = [styles.numeric, tone].filter(Boolean);
+  return <td className={classes.join(" ")}>{value}</td>;
 }

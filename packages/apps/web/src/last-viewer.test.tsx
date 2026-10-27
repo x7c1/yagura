@@ -1,7 +1,7 @@
 import {
   mockLogin,
   mockOrganization,
-  mockPullRequestTitles,
+  mockOrganizationId,
   type ApiMock,
 } from "@yagura/api-mocks";
 import { MemoryJsonStore, MemoryStore } from "@yagura/browser";
@@ -14,6 +14,7 @@ import {
   findOrganization,
   menuButton,
   memberSummaryRows,
+  mockListedPullRequests,
   pullRequestTitles,
   server,
   sessionApi,
@@ -25,11 +26,13 @@ import {
   testController,
   testTheme,
   testWidths,
+  testPreferences,
+  titlesOf,
 } from "./test-support";
 
 const minute = 60 * 1000;
 const refreshUrl = `${sessionApi}/session/refresh`;
-const installationsUrl = "https://api.github.com/user/installations";
+const organizationsUrl = `${sessionApi}/activity/organizations`;
 const lastViewerKey = "yagura.last-viewer";
 
 /** 15:30 local time, so that the fixtures of the last hours fall on today. */
@@ -88,6 +91,7 @@ function page(options: { readonly organizations?: readonly string[] } = {}) {
           session={test.controller}
           widths={testWidths()}
           theme={testTheme()}
+          preferences={testPreferences()}
         />,
       );
     },
@@ -100,6 +104,11 @@ function page(options: { readonly organizations?: readonly string[] } = {}) {
       return pullRequestTitles();
     },
   };
+}
+
+/** The titles the list shows for the mock's activity at the first load. */
+function expectedTitles(mock: ApiMock): string[] {
+  return titlesOf(mockListedPullRequests(mock, firstLoad));
 }
 
 /** A snapshot of every entry of the cache, to compare before and after. */
@@ -135,16 +144,16 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     const { cachedRows, set } = await reopenWithRefreshHeld(view);
 
     expect(set).not.toHaveBeenCalled();
-    expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(shownPullRequestTitles()).toEqual(expectedTitles(view.mock));
     showPage("Members");
     expect(shownMemberSummaryRows()).toEqual(cachedRows);
     showPage("Activity");
     expect(menuButton()).toBeVisible();
     expect(view.mock.requestsTo("POST", refreshUrl)).toHaveLength(1);
-    // Nothing is sent to GitHub before the token arrives.
+    // Nothing is asked of the activity API before the token arrives.
     expect(
       view.mock.requests.filter(({ url }) =>
-        url.startsWith("https://api.github.com/"),
+        new URL(url).pathname.startsWith("/activity"),
       ),
     ).toEqual([]);
   });
@@ -156,10 +165,10 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     view.releaseRefresh();
 
     await vi.waitFor(() => {
-      expect(view.mock.searches.length).toBeGreaterThan(0);
+      expect(view.mock.activityRequests.length).toBeGreaterThan(0);
     });
-    expect(shownPullRequestTitles()).toEqual(mockPullRequestTitles);
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(shownPullRequestTitles()).toEqual(expectedTitles(view.mock));
+    expect(await pullRequestTitles()).toEqual(expectedTitles(view.mock));
     showPage("Members");
     expect(await memberSummaryRows()).toEqual(cachedRows);
     // The fetch that follows the confirmation stores what it fetched.
@@ -201,13 +210,21 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     await view.load();
     // Another account was the last to sign in on this browser.
     const other = viewerCachePrefix("someone-else");
-    await view.cache.set(`${other}installations`, {
+    await view.cache.set(`${other}organizations`, {
       storedAt: firstLoad.getTime(),
-      items: [{ login: "else-org" }],
+      response: {
+        organizations: [
+          { id: "O_else", login: "else-org", avatarUrl: "data:," },
+        ],
+      },
     });
-    await view.cache.set(`${other}members/else-org`, {
+    await view.cache.set(`${other}organization-activity/O_else`, {
       storedAt: firstLoad.getTime(),
-      items: [{ login: "else-member", avatarUrl: "" }],
+      response: {
+        members: [{ id: "9", login: "else-member", type: "User" }],
+        pullRequests: [],
+        activities: [],
+      },
     });
     view.lastViewer.set(lastViewerKey, "someone-else");
 
@@ -217,11 +234,11 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     view.releaseRefresh();
 
     await findOrganization(mockOrganization);
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual(expectedTitles(view.mock));
     expect(showsOrganization("else-org")).toBe(false);
     expect(screen.queryByText("someone-else")).not.toBeInTheDocument();
     expect(
-      view.mock.requests.filter(({ url }) => url.includes("else-org")),
+      view.mock.requests.filter(({ url }) => url.includes("O_else")),
     ).toEqual([]);
     expect(view.lastViewer.get(lastViewerKey)).toBe(mockLogin);
   });
@@ -261,7 +278,6 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
   it("clears the viewer's cache and forgets them on sign-out before the confirmation", async () => {
     const view = page();
     await view.load();
-    // Past the short life, so that the view's fetches wait for the token.
     view.advanceTo(10 * minute);
 
     view.open({ holdRefresh: true });
@@ -298,7 +314,7 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     const view = page({ organizations: [mockOrganization, "second-org"] });
     await view.load();
     fireEvent.change(screen.getByRole("combobox"), {
-      target: { value: "second-org" },
+      target: { value: mockOrganizationId("second-org") },
     });
     await findOrganization("second-org");
     await pullRequestTitles();
@@ -309,17 +325,17 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
     await pullRequestTitles();
     expect(showsOrganization("second-org")).toBe(true);
 
-    // Past the list's short life, the fetched list lacks it.
+    // The fetched list lacks it.
     view.advanceTo(10 * minute);
     view.open(
       {},
-      http.get(installationsUrl, () =>
+      http.get(organizationsUrl, () =>
         HttpResponse.json({
-          total_count: 1,
-          installations: [
+          organizations: [
             {
-              id: 1,
-              account: { login: mockOrganization, type: "Organization" },
+              id: mockOrganizationId(mockOrganization),
+              login: mockOrganization,
+              avatarUrl: "data:,",
             },
           ],
         }),
@@ -343,6 +359,6 @@ describe("Drawing the last viewer's cache before the session is confirmed", () =
 
     view.releaseRefresh();
 
-    expect(await pullRequestTitles()).toEqual(mockPullRequestTitles);
+    expect(await pullRequestTitles()).toEqual(expectedTitles(view.mock));
   });
 });

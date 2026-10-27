@@ -1,24 +1,31 @@
+import type { Narrowing } from "@yagura/activity";
 import { formatDay, formatHour } from "./format";
 
 /**
- * What is chosen in the chart: the pull requests merged on a day, as a bar
- * chooses them, or those merged within one hour of that day, as a cell of
- * the hours' heatmap does.
+ * What the list is narrowed to, for example "Merged on Oct 3" for a bar,
+ * "Pushed on Oct 3" for a push circle, or "Merged or pushed on Oct 3,
+ * 14:00–15:00" for a cell of the hours' heatmap.
  */
-export interface ChartSelection {
-  /** The day, as a `dayKeyOf` key. */
-  readonly day: string;
-  /** The local hour, 0 to 23, chosen in the heatmap; `null` for a bar. */
-  readonly hour: number | null;
+export function describeSelection(narrowing: Narrowing): string {
+  const day = formatDay(narrowing.day);
+  switch (narrowing.kind) {
+    case "merged":
+      return `Merged on ${day}`;
+    case "pushed":
+      return `Pushed on ${day}`;
+    case "hour": {
+      const { hour } = narrowing;
+      return `Merged or pushed on ${day}, ${formatHour(hour)}–${formatHour(hour + 1)}`;
+    }
+  }
 }
 
-/**
- * What the list is narrowed to, for example "Merged on Oct 3", or "Merged
- * on Oct 3, 14:00–15:00" for an hour.
- */
-export function describeSelection({ day, hour }: ChartSelection): string {
-  const on = `Merged on ${formatDay(day)}`;
-  return hour === null
-    ? on
-    : `${on}, ${formatHour(hour)}–${formatHour(hour + 1)}`;
+/** What tells one narrowing of the list from another, or from none. */
+export function selectionKey(narrowing: Narrowing | null): string {
+  if (narrowing === null) {
+    return "all";
+  }
+  return narrowing.kind === "hour"
+    ? `${narrowing.day}:${narrowing.hour}`
+    : `${narrowing.day}:${narrowing.kind}`;
 }

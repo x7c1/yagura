@@ -1,5 +1,5 @@
 {
-  "name": "@yagura/github-api",
+  "name": "@yagura/activity-api",
   "private": true,
   "type": "module",
   "exports": {

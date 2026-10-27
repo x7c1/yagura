@@ -1,167 +1,176 @@
 import {
+  countedEvents,
+  isPerson,
+  listPullRequests,
   periodEndingAt,
+  requestRange,
   summarizeByMember,
-  type ActivitySummary,
+  type OrganizationActivity,
   type Period,
 } from "@yagura/activity";
-import type { Member } from "@yagura/github-api";
-import { useMemo, useState } from "react";
-import { Failure, sectionStyles, useStoredThenFetched } from "../../shared";
-import type { Page } from "../pages";
-import { useSession } from "../session";
-import { DailyActivity } from "./DailyActivity";
 import {
-  fetchMembersPullRequests,
-  storedMembersPullRequests,
-} from "./fetch-pull-requests";
+  encodeOrganizationActivity,
+  parseOrganizationActivity,
+  type Organization,
+} from "@yagura/activity-api";
+import { useMemo } from "react";
+import {
+  Failure,
+  sectionStyles,
+  storedThenFetched,
+  useStoredThenFetched,
+  type StoredThenFetchedSource,
+} from "../../shared";
+import type { Page } from "../pages";
+import { useSession, type SessionController } from "../session";
+import { DailyActivity } from "./DailyActivity";
 import { formatPeriod } from "./format";
 import styles from "./MembersActivity.module.css";
 import { MemberSummaryTable } from "./MemberSummaryTable";
 import { SectionHeading, UpdatingNote } from "./SectionHeading";
 
+/** The organization's activity, and the period it is drawn for. */
+interface PeriodActivity {
+  readonly period: Period;
+  readonly activity: OrganizationActivity;
+}
+
 /**
- * What the organization's members opened or merged lately, on `page`: a
- * chart per day and the list of pull requests (the activity), or a summary
- * table with a row per member under the period it covers (the members).
- * Both pages are drawn from one fetch, made here above them, so that
- * switching between them fetches nothing again.
+ * Where the organization's activity comes from: the last response stored
+ * for it in the browser cache, drawn for the period ending now, then the
+ * activity API, asked for the period ending now.
+ */
+function activitySource(
+  controller: SessionController,
+  organization: string,
+): StoredThenFetchedSource<PeriodActivity> {
+  const response = (period: Period) =>
+    storedThenFetched({
+      cache: () => controller.viewerCache(),
+      key: `organization-activity/${organization}`,
+      codec: {
+        encode: encodeOrganizationActivity,
+        decode: parseOrganizationActivity,
+      },
+      now: () => controller.now(),
+      fetch: () =>
+        controller.withAccessToken((token) =>
+          controller.activityApi.getActivity(token, {
+            organization,
+            ...requestRange(period),
+          }),
+        ),
+    });
+  return {
+    stored: async () => {
+      const period = periodEndingAt(controller.now());
+      const activity = await response(period).stored();
+      return activity && { period, activity };
+    },
+    fetch: async () => {
+      const period = periodEndingAt(controller.now());
+      return { period, activity: await response(period).fetch() };
+    },
+  };
+}
+
+/**
+ * What the organization's members did lately, on `page`: a chart per day
+ * and the list of pull requests (the activity), or a summary table with a
+ * row per member under the period it covers (the members). Both pages are
+ * drawn from one response, asked for here above them, so that switching
+ * between them asks for nothing again.
  *
- * What the browser cache holds is drawn at once, and the fetch brings it up
- * to date behind it, with a note at the top of the first card while it
- * runs, and its failure above the cards. When the cache holds nothing, the
- * table lists the members with placeholders, and the chart and the list say
- * they are loading, until the fetch answers.
+ * The last response stored in the browser cache is drawn at once, and the
+ * API's answer replaces it behind it, with a note at the top of the first
+ * card while it runs, and its failure above the cards. When nothing is
+ * stored, each page says it is loading until the API answers.
  */
 export function MembersActivity(props: {
-  readonly org: string;
-  readonly members: readonly Member[];
+  readonly organization: Organization;
   readonly page: Page;
 }) {
   const { controller } = useSession();
-  const { org, members, page } = props;
-  // A new member list with the same logins fetches nothing again.
-  const loginsKey = members.map(({ login }) => login).join("\n");
-  const source = useMemo(() => {
-    const logins = loginsKey.split("\n");
-    return {
-      stored: () =>
-        storedMembersPullRequests(
-          controller.viewerCache(),
-          logins,
-          controller.now(),
-        ),
-      fetch: () =>
-        fetchMembersPullRequests(
-          {
-            search: (query) =>
-              controller.withAccessToken((token) =>
-                controller.githubApi.searchPullRequestIds(token, query),
-              ),
-            getPullRequests: (ids) =>
-              controller.withAccessToken((token) =>
-                controller.githubApi.getPullRequests(token, ids),
-              ),
-          },
-          controller.viewerCache(),
-          logins,
-          controller.now(),
-        ),
-    };
-  }, [controller, loginsKey]);
+  const { organization, page } = props;
+  const { id, login } = organization;
+  const source = useMemo(
+    () => activitySource(controller, id),
+    [controller, id],
+  );
   const { value, updating, error, retry } = useStoredThenFetched(source);
-  // The period shown until a value with its own period is drawn.
-  const [loadingPeriod] = useState(() => periodEndingAt(controller.now()));
+  const derived = useMemo(() => {
+    if (value === undefined) {
+      return undefined;
+    }
+    const events = countedEvents(value.activity, value.period);
+    return { events, listed: listPullRequests(value.activity, events) };
+  }, [value]);
 
-  // Behind drawn pull requests the fetch was an update, as the organizations
-  // and the members word it.
+  // Behind drawn activity the fetch was an update, as the organizations
+  // word it.
   const failure = error !== undefined && (
     <Failure
-      subject={`the pull requests of ${org}'s members`}
+      subject={`the activity of ${login}'s members`}
       failure={error}
       stale={value !== undefined}
       retry={retry}
     />
   );
 
-  if (value === undefined) {
+  if (value === undefined || derived === undefined) {
     // Nothing is drawn yet: the failure takes the place of what is loading.
-    return (
+    if (failure) {
+      return <div className={sectionStyles.section}>{failure}</div>;
+    }
+    return page === "members" ? (
+      <section className={sectionStyles.section}>
+        <p className={sectionStyles.note}>Loading members…</p>
+      </section>
+    ) : (
       <>
-        {page === "members" && (
-          <PerMember
-            members={members}
-            period={loadingPeriod}
-            updating={false}
-          />
-        )}
-        {failure ? (
-          <div className={sectionStyles.section}>{failure}</div>
-        ) : (
-          page === "activity" && (
-            <>
-              <section className={sectionStyles.section}>
-                <SectionHeading aside={<UpdatingNote updating={false} />}>
-                  Merged PRs
-                </SectionHeading>
-                <p className={sectionStyles.note}>Loading…</p>
-              </section>
-              <section className={sectionStyles.section}>
-                <p className={sectionStyles.note}>Loading pull requests…</p>
-              </section>
-            </>
-          )
-        )}
+        <section className={sectionStyles.section}>
+          <SectionHeading aside={<UpdatingNote updating={false} />}>
+            Merged PRs
+          </SectionHeading>
+          <p className={sectionStyles.note}>Loading…</p>
+        </section>
+        <section className={sectionStyles.section}>
+          <p className={sectionStyles.note}>Loading pull requests…</p>
+        </section>
       </>
     );
   }
 
-  const { period, pullRequests } = value;
+  const { period, activity } = value;
+  const { events, listed } = derived;
   return (
     <>
       {failure}
-      {page === "members" ? (
-        <PerMember
-          members={members}
-          period={period}
-          updating={updating}
-          summary={summarizeByMember(
-            members.map(({ login }) => login),
-            pullRequests,
-            period,
-          )}
-        />
+      {!activity.members.some(isPerson) ? (
+        <div className={sectionStyles.section}>
+          <p className={sectionStyles.note}>
+            No members of {login} are visible to you.
+          </p>
+        </div>
+      ) : page === "members" ? (
+        <section className={sectionStyles.section}>
+          <div className={styles.topRow}>
+            <p className={styles.period}>{formatPeriod(period)}</p>
+            <UpdatingNote updating={updating} />
+          </div>
+          <MemberSummaryTable
+            summary={summarizeByMember(activity, listed, events)}
+          />
+        </section>
       ) : (
         <DailyActivity
-          org={org}
-          members={members}
-          pullRequests={pullRequests}
+          org={login}
+          events={events}
+          listed={listed}
           period={period}
           updating={updating}
         />
       )}
     </>
-  );
-}
-
-/**
- * The members page's body: the summary table in a card of its own, without
- * a heading, as the page's tab already names it and the table is all the
- * page holds. The card's top row holds the period the table covers at the
- * left, and at the right the room for the note that an update is running.
- */
-function PerMember(props: {
-  readonly members: readonly Member[];
-  readonly period: Period;
-  readonly updating: boolean;
-  readonly summary?: ActivitySummary;
-}) {
-  return (
-    <section className={sectionStyles.section}>
-      <div className={styles.topRow}>
-        <p className={styles.period}>{formatPeriod(props.period)}</p>
-        <UpdatingNote updating={props.updating} />
-      </div>
-      <MemberSummaryTable members={props.members} summary={props.summary} />
-    </section>
   );
 }
