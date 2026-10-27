@@ -96,7 +96,7 @@ documentation if there is any.
 
 ### Before merge (verified outside the check command)
 
-- [ ] Built with the development settings and deployed to the development
+- [x] Built with the development settings and deployed to the development
       site. With the organization's import record removed on the development
       server, a signed-in page shows the notice. When the import runs again,
       the open page drops the notice within seconds without reloading
