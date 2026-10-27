@@ -53,9 +53,18 @@ export function parseOrganizationActivity(
   const members = parseArray(body.members, parseMember);
   const pullRequests = parseArray(body.pullRequests, parsePullRequest);
   const activities = parseArray(body.activities, parseActivity);
-  return members && pullRequests && activities
-    ? { members, pullRequests, activities }
-    : undefined;
+  if (!members || !pullRequests || !activities) {
+    return undefined;
+  }
+  // Absent from an older server's answers, which then count as imported.
+  if (!("importedAt" in body)) {
+    return { members, pullRequests, activities };
+  }
+  const importedAt =
+    body.importedAt === null ? null : parseTime(body.importedAt);
+  return importedAt === undefined
+    ? undefined
+    : { members, pullRequests, activities, importedAt };
 }
 
 /** The body of `POST /activity/signal-token`. */
@@ -81,7 +90,11 @@ export function parseSignalToken(body: unknown): SignalToken | undefined {
 export function encodeOrganizationActivity(
   activity: OrganizationActivity,
 ): ActivityBody {
+  const { importedAt } = activity;
   return {
+    ...(importedAt !== undefined && {
+      importedAt: importedAt && importedAt.toISOString(),
+    }),
     members: activity.members.map(({ id, login, type }) => ({
       id,
       login,

@@ -1,4 +1,9 @@
-import { type ApiMock, type MockActivityFixtures } from "@yagura/api-mocks";
+import {
+  mockOrganization,
+  mockOrganizationId,
+  type ApiMock,
+  type MockActivityFixtures,
+} from "@yagura/api-mocks";
 import { MemorySignalConnector } from "@yagura/activity-api";
 import { ManualTimer, MemoryVisibility } from "@yagura/browser";
 import {
@@ -35,6 +40,7 @@ const now = new Date(2026, 9, 12, 15, 30);
 
 const signalTokenUrl = `${sessionApi}/activity/signal-token`;
 const newTitle = "Open a pull request while the page is open";
+const importingNotice = `Importing the last 14 days of ${mockOrganization}. This can take a few minutes.`;
 
 /**
  * The app, signed in, with live updates from a connector held in memory,
@@ -43,6 +49,11 @@ const newTitle = "Open a pull request while the page is open";
  */
 function openPage({ live = true }: { readonly live?: boolean } = {}) {
   const test = testController({ signedIn: true, clock: () => now });
+  return renderPage(test, live);
+}
+
+/** The app of `test`, rendered as {@link openPage} does. */
+function renderPage(test: ReturnType<typeof testController>, live: boolean) {
   const connector = new MemorySignalConnector();
   const timer = new ManualTimer();
   const visibility = new MemoryVisibility();
@@ -187,6 +198,53 @@ describe("live updates", () => {
     expect(screen.getByRole("table", { name: "Pull requests" })).toBe(table);
     fireEvent.click(screen.getByRole("button", { name: "Show all" }));
     expect(await pullRequestTitles()).toContain(newTitle);
+  });
+
+  it("fetches once when the organization on screen is imported, and drops the notice of its import", async () => {
+    const test = testController({ signedIn: true, clock: () => now });
+    test.mock.importing = [mockOrganization];
+    const page = renderPage(test, true);
+    const connection = await connected(page);
+    expect(screen.getByText(importingNotice)).toBeInTheDocument();
+    page.mock.importing = [];
+
+    connection.signal({
+      kind: "imported",
+      organizationId: mockOrganizationId(mockOrganization),
+    });
+    advance(page.timer, burstMs);
+    await fetchedTimes(page.mock, 1);
+
+    expect(screen.queryByText(importingNotice)).not.toBeInTheDocument();
+    advance(page.timer, burstMs);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+    expect(page.mock.activityRequests).toHaveLength(1);
+  });
+
+  it("fetches nothing when another organization is imported", async () => {
+    const page = openPage();
+    const connection = await connected(page);
+
+    connection.signal({ kind: "imported", organizationId: "O_another-org" });
+    advance(page.timer, burstMs);
+    await new Promise((resolve) => setTimeout(resolve, 20));
+
+    expect(page.mock.activityRequests).toHaveLength(0);
+  });
+
+  it("fetches once for activity in a burst with another organization's import", async () => {
+    const page = openPage();
+    const connection = await connected(page);
+
+    connection.signal({ kind: "imported", organizationId: "O_another-org" });
+    connection.signal({
+      repositoryId: "R_mock-org/web",
+      pullRequestId: "PR_mock_live",
+      kind: "pushed",
+    });
+    advance(page.timer, burstMs);
+
+    await fetchedTimes(page.mock, 1);
   });
 
   it("fetches once for a burst of signals", async () => {

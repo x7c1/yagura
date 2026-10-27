@@ -70,13 +70,16 @@ VITE_API_MOCK=1 make dev
 With `VITE_API_MOCK=1`, the app starts [Mock Service Worker](https://mswjs.io/)
 in the browser and answers the session API and the activity API from the
 handlers in `packages/testing/api-mocks`, the same ones the tests use: the
-session API (signed in as `mock-user`), `GET /activity/organizations` (two
-organizations, `mock-labs` and `mock-org`, so that the header shows the
+session API (signed in as `mock-user`), `GET /activity/organizations` (three
+organizations, `mock-labs`, `mock-new` and `mock-org`, so that the header shows the
 organization selector), and `GET /activity` (the same activity for each:
 a few members including the signed-in `mock-user`, and Dependabot as a
 bot; their pull requests over the 14 days before the page loaded, with
 drafts, pushes, merges of one another's pull requests, a closed one, and
-the bot's own pull requests, merged and open). It also answers
+the bot's own pull requests, merged and open). Every organization but
+`mock-new` is answered as imported; `mock-new` has `importedAt: null`, as one
+the server is still importing, so selecting it shows the notice of an
+import above its activity. It also answers
 `POST /activity/signal-token`, but has no realtime endpoint to connect to,
 so the page does not update live in this mode, even with the signal
 hosts set. Nothing is fetched from GitHub.

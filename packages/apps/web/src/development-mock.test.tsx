@@ -1,6 +1,10 @@
-import { mockDevelopmentOrganizations } from "@yagura/api-mocks";
+import {
+  mockDevelopmentOrganizations,
+  mockImportingOrganization,
+  mockOrganizationId,
+} from "@yagura/api-mocks";
 import { startBrowserApiMock } from "@yagura/api-mocks/browser";
-import { render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { App } from "./App";
 import {
@@ -85,5 +89,37 @@ describe("The development server's API mock", () => {
     showPage("Members");
     const summary = await memberSummaryRows();
     expect(summary.some((row) => row[3] === "—")).toBe(true);
+  });
+
+  it("serves an organization still being imported, so that the notice of an import shows", async () => {
+    const mock = await startBrowserApiMock({
+      sessionApiBaseUrl: sessionApi,
+      signedIn: true,
+    });
+    const { controller } = testController({ mock });
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+    const selector = await screen.findByRole("combobox", {
+      name: "Organization",
+    });
+    await pullRequestRows();
+    expect(screen.queryByText(/^Importing/)).not.toBeInTheDocument();
+    fireEvent.change(selector, {
+      target: { value: mockOrganizationId(mockImportingOrganization) },
+    });
+
+    expect(
+      await screen.findByText(
+        `Importing the last 14 days of ${mockImportingOrganization}. This can take a few minutes.`,
+      ),
+    ).toBeInTheDocument();
+    expect((await pullRequestRows()).length).toBeGreaterThan(0);
   });
 });

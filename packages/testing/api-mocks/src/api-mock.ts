@@ -12,13 +12,21 @@ import {
 export const mockOrganization = "mock-org";
 
 /**
+ * The organization of the development server's mock that the server is
+ * still importing, so that the view's notice of an import shows.
+ */
+export const mockImportingOrganization = "mock-new";
+
+/**
  * The organizations the development server's mock lets the viewer use:
  * more than one, so that the header's organization selector shows. Each
- * has the same members and activity.
+ * has the same members and activity; the server has finished importing
+ * each but {@link mockImportingOrganization}.
  */
 export const mockDevelopmentOrganizations: readonly string[] = [
   mockOrganization,
   "mock-labs",
+  mockImportingOrganization,
 ];
 
 /** The id the mock gives the organization `login`. */
@@ -62,8 +70,13 @@ export interface ApiMockOptions {
    */
   readonly organizations?: readonly string[];
   /**
-   * The time the fixture activity is placed relative to. Defaults to the
-   * mock's creation.
+   * The logins of the organizations the server has not finished importing,
+   * whose `importedAt` is `null`. Defaults to none.
+   */
+  readonly importing?: readonly string[];
+  /**
+   * The time the fixture activity is placed relative to, and the
+   * organizations' imports finished at. Defaults to the mock's creation.
    */
   readonly now?: Date;
 }
@@ -91,6 +104,9 @@ export interface RecordedRequest {
  * - `DELETE /session` signs out;
  * - `GET /activity/organizations` lists the `organizations` option's
  *   organizations, by default {@link mockOrganization}, in login order;
+ * - both of those answer `importedAt` for an organization: `null` for
+ *   those of the `importing` option, which {@link ApiMock.importing}
+ *   changes, and the mock's `now` for the others;
  * - `GET /activity` answers the fixture activity (see `activity.ts`) in
  *   the requested range for any of those organizations, `403 forbidden` for
  *   another, and `400 invalid_request` for a missing or bad parameter or a
@@ -112,6 +128,8 @@ export class ApiMock {
   readonly #issued = new Set<string>();
   readonly #requests: RecordedRequest[] = [];
   readonly #organizations: readonly string[];
+  #importing: ReadonlySet<string>;
+  readonly #importedAt: string;
   #fixtures: MockActivityFixtures;
   readonly #requestHolds: RequestHold[] = [];
   #signalTokens = 0;
@@ -121,7 +139,10 @@ export class ApiMock {
     this.#organizations = [
       ...(options.organizations ?? [mockOrganization]),
     ].sort();
-    this.#fixtures = mockActivityFixtures(options.now ?? new Date());
+    this.#importing = new Set(options.importing);
+    const now = options.now ?? new Date();
+    this.#importedAt = now.toISOString();
+    this.#fixtures = mockActivityFixtures(now);
     if (options.signedIn !== undefined) {
       this.signedIn = options.signedIn;
     }
@@ -157,6 +178,7 @@ export class ApiMock {
             id: mockOrganizationId(login),
             login,
             avatarUrl: avatarUrl(login),
+            importedAt: this.#importedAtOf(login),
           })),
         });
       }),
@@ -178,14 +200,16 @@ export class ApiMock {
         ) {
           return error(400, "invalid_request");
         }
-        if (
-          !this.#organizations.some(
-            (login) => mockOrganizationId(login) === organization,
-          )
-        ) {
+        const login = this.#organizations.find(
+          (login) => mockOrganizationId(login) === organization,
+        );
+        if (login === undefined) {
           return error(403, "forbidden");
         }
-        return noStore(mockActivityResponse(this.#fixtures, from, to));
+        return noStore({
+          importedAt: this.#importedAtOf(login),
+          ...mockActivityResponse(this.#fixtures, from, to),
+        });
       }),
       http.post(`${base}/activity/signal-token`, async ({ request }) => {
         await this.#record(request);
@@ -280,6 +304,21 @@ export class ApiMock {
     return this.#requests.filter(
       (request) => request.method === method && request.url === url,
     );
+  }
+
+  /** The logins of the organizations the server is still importing. */
+  get importing(): readonly string[] {
+    return [...this.#importing];
+  }
+
+  /** Changes which organizations are still being imported, from now on. */
+  set importing(logins: readonly string[]) {
+    this.#importing = new Set(logins);
+  }
+
+  /** The `importedAt` of the organization `login`. */
+  #importedAtOf(login: string): string | null {
+    return this.#importing.has(login) ? null : this.#importedAt;
   }
 
   /** Whether the request carries a token the mock issued while signed in. */

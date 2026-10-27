@@ -155,6 +155,27 @@ describe("AppSyncSignalConnector", () => {
     ]);
   });
 
+  it("delivers the signal that an organization's import has finished", () => {
+    const { socket, events } = setup();
+    subscribe(socket);
+
+    socket.receive({
+      type: "data",
+      id: subscriptionId,
+      event: [
+        JSON.stringify({ kind: "imported", organizationId: "O_1" }),
+        JSON.stringify({ kind: "imported", organizationId: 7 }),
+        JSON.stringify({ kind: "imported" }),
+      ],
+    });
+
+    expect(events.signals).toEqual([
+      { kind: "imported", organizationId: "O_1" },
+      { kind: "imported", organizationId: "7" },
+      undefined,
+    ]);
+  });
+
   it("tells of an unreadable signal, and of one the service failed to deliver, without the signal", () => {
     const { socket, events } = setup();
     subscribe(socket);

@@ -7,10 +7,17 @@ import {
   type ReactNode,
 } from "react";
 import { useSession } from "../session";
-import { LiveUpdates, type LiveUpdatesOptions } from "./live-updates";
+import {
+  concerns,
+  LiveUpdates,
+  type LiveUpdate,
+  type LiveUpdatesOptions,
+} from "./live-updates";
 
 /** Subscribes a listener to the updates; returns the unsubscribe. */
-type SubscribeToUpdates = (listener: () => void) => () => void;
+type SubscribeToUpdates = (
+  listener: (update: LiveUpdate) => void,
+) => () => void;
 
 const LiveUpdatesContext = createContext<SubscribeToUpdates | undefined>(
   undefined,
@@ -28,10 +35,10 @@ export function LiveUpdatesProvider(props: {
 }) {
   const { controller } = useSession();
   const { options } = props;
-  const [listeners] = useState(() => new Set<() => void>());
+  const [listeners] = useState(() => new Set<(update: LiveUpdate) => void>());
   const [subscribe] = useState((): SubscribeToUpdates => (listener) => {
     // Wrapped, so that subscribing the same function twice counts twice.
-    const entry = () => listener();
+    const entry = (update: LiveUpdate) => listener(update);
     listeners.add(entry);
     return () => listeners.delete(entry);
   });
@@ -46,9 +53,9 @@ export function LiveUpdatesProvider(props: {
         controller.withAccessToken((token) =>
           controller.activityApi.createSignalToken(token),
         ),
-      () => {
+      (update) => {
         for (const listener of [...listeners]) {
-          listener();
+          listener(update);
         }
       },
     );
@@ -64,15 +71,27 @@ export function LiveUpdatesProvider(props: {
 }
 
 /**
- * Calls `onUpdate` each time the page should fetch again because the
- * server has new activity for the viewer. Outside a
- * {@link LiveUpdatesProvider}, it is never called.
+ * Calls `onUpdate` each time the page showing the organization
+ * `organizationId` should fetch again: because the server has new
+ * activity for the viewer, or has finished importing that organization.
+ * Outside a {@link LiveUpdatesProvider}, it is never called.
  */
-export function useLiveUpdates(onUpdate: () => void): void {
+export function useLiveUpdates(
+  organizationId: string,
+  onUpdate: () => void,
+): void {
   const subscribe = useContext(LiveUpdatesContext);
-  const latest = useRef(onUpdate);
+  const latest = useRef({ organizationId, onUpdate });
   useEffect(() => {
-    latest.current = onUpdate;
-  }, [onUpdate]);
-  useEffect(() => subscribe?.(() => latest.current()), [subscribe]);
+    latest.current = { organizationId, onUpdate };
+  }, [organizationId, onUpdate]);
+  useEffect(
+    () =>
+      subscribe?.((update) => {
+        if (concerns(update, latest.current.organizationId)) {
+          latest.current.onUpdate();
+        }
+      }),
+    [subscribe],
+  );
 }

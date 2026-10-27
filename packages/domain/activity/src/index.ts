@@ -1,4 +1,4 @@
-export { activityKinds, pullRequestUrl } from "./activity";
+export { activityKinds, isImporting, pullRequestUrl } from "./activity";
 export type {
   AccountType,
   Activity,

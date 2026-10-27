@@ -1,5 +1,6 @@
 import {
   countedEvents,
+  isImporting,
   isPerson,
   listPullRequests,
   periodEndingAt,
@@ -86,7 +87,9 @@ function activitySource(
  * API's answer replaces it behind it, with a note at the top of the first
  * card while it runs, and its failure above the cards. When nothing is
  * stored, each page says it is loading until the API answers. When the
- * server signals new activity, the API is asked again the same way.
+ * server signals new activity, or the end of the organization's import,
+ * the API is asked again the same way. While the server is still
+ * importing the organization, a notice says so above what has arrived.
  */
 export function MembersActivity(props: {
   readonly organization: Organization;
@@ -102,7 +105,7 @@ export function MembersActivity(props: {
   const { value, updating, error, retry, refresh } =
     useStoredThenFetched(source);
   // New activity is fetched in place, as an update of what is drawn.
-  useLiveUpdates(refresh);
+  useLiveUpdates(id, refresh);
   const derived = useMemo(() => {
     if (value === undefined) {
       return undefined;
@@ -148,15 +151,27 @@ export function MembersActivity(props: {
 
   const { period, activity } = value;
   const { events, listed } = derived;
+  const importing = isImporting(activity);
+  const noMembers = !activity.members.some(isPerson);
   return (
     <>
       {failure}
-      {!activity.members.some(isPerson) ? (
+      {importing && (
         <div className={sectionStyles.section}>
           <p className={sectionStyles.note}>
-            No members of {login} are visible to you.
+            Importing the last 14 days of {login}. This can take a few minutes.
           </p>
         </div>
+      )}
+      {noMembers ? (
+        // While importing, the notice above says why there are none.
+        !importing && (
+          <div className={sectionStyles.section}>
+            <p className={sectionStyles.note}>
+              No members of {login} are visible to you.
+            </p>
+          </div>
+        )
       ) : page === "members" ? (
         <section className={sectionStyles.section}>
           <div className={styles.topRow}>

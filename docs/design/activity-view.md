@@ -387,6 +387,27 @@ that viewer can see there. Every request carries the session's access
 token; an expired one is refreshed and the request sent again (see the
 activity API's [errors](activity-api.md#errors)).
 
+### An organization being imported
+
+When the server starts serving an organization, as when the Yagura GitHub
+App was just installed on it, it takes a few minutes to import the
+organization's members and its last 14 days of activity. Until it has
+finished, `GET /activity` answers `importedAt: null` (see the
+[activity API](activity-api.md#get-activity)), and the view says so above
+the cards, in place of the note that no members are visible:
+
+> Importing the last 14 days of my-org. This can take a few minutes.
+
+Whatever has arrived already is still drawn below the notice, since the
+import fills the store one repository at a time. Once `importedAt` is set,
+the view is drawn as for any organization, and says "No members of my-org
+are visible to you." when the answer has no members. An answer without
+`importedAt`, from a server older than the field, is drawn as imported, so
+that the notice never stays for good. When the import finishes, the server
+signals the page, which fetches again (see [Live updates](#live-updates)),
+so the notice goes away by itself. The organization selector does not show
+whether an organization is being imported.
+
 ## The browser cache
 
 The browser keeps the last answer of each request in IndexedDB, so that a
@@ -403,7 +424,8 @@ expiry, a pull request in a private repository the user can no longer see
 would stay on screen when the page has not been opened for a while; the
 next answer replaces it anyway. A stored answer of the activity is drawn
 for the period ending now, so that what fell out of the period is not
-shown.
+shown. A stored answer whose `importedAt` was `null` shows the notice of
+an import too, until a fresh answer says otherwise.
 
 The cache is kept per signed-in login, so that two users of the same browser
 never see each other's answers, and the viewer's entries are deleted on
@@ -487,6 +509,11 @@ arrives.
   that arrives while one runs makes one more fetch follow it. New rows are
   not highlighted; the list keeps where it was scrolled to, and the
   chart keeps what is chosen in it.
+- **On an import.** An `imported` signal for the selected organization
+  fetches again as any signal does, so that the
+  [notice of an import](#an-organization-being-imported) goes away. One
+  for another organization fetches nothing. A signal the page cannot read
+  fetches, as one about activity does.
 - **Losing the connection.** When the connection drops (the network, the
   24-hour limit on a connection, the service closing it), the page asks for
   a new token and connects again, after a wait that starts at about a

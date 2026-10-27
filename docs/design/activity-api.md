@@ -47,14 +47,16 @@ Response `200`:
     {
       "id": "...",
       "login": "my-org",
-      "avatarUrl": "https://avatars.githubusercontent.com/..."
+      "avatarUrl": "https://avatars.githubusercontent.com/...",
+      "importedAt": "2026-10-27T03:00:00.000Z"
     }
   ]
 }
 ```
 
 An empty list means that the app is installed on none of the viewer's
-organizations.
+organizations. `importedAt` is as in [`GET /activity`](#get-activity), for
+each organization.
 
 ### `GET /activity`
 
@@ -76,6 +78,7 @@ Response `200`:
 
 ```json
 {
+  "importedAt": "2026-10-27T03:00:00.000Z",
   "members": [
     { "id": "...", "login": "octocat", "type": "User" },
     { "id": "...", "login": "dependabot[bot]", "type": "Bot" }
@@ -105,6 +108,16 @@ Response `200`:
 }
 ```
 
+- `importedAt` is when the server last finished importing the
+  organization's members and its last 14 days of activity from GitHub, or
+  `null` when it has not finished yet. When the server starts serving an
+  organization, as when the Yagura GitHub App was just installed on it,
+  the import takes a few minutes and fills the store one repository at a
+  time, so until then the answer holds only part of the activity, or none
+  of it, and possibly no members. `importedAt` only moves forward: once
+  set it stays set, and the server refreshes it every day. The app treats
+  an answer without `importedAt`, from a server older than the field, as
+  imported.
 - `members` are the organization's current members, in login order, each
   listed even when they have no activity in the range, followed by the
   bots that opened one of the returned pull requests. `type` is `User` for
@@ -171,8 +184,8 @@ the viewer cannot use.
 ## Signals
 
 The server tells each open page when there is new activity for its viewer,
-so that the page can fetch the activity again rather than wait for a
-reload. It sends these signals over
+or when an organization's import has finished, so that the page can fetch
+the activity again rather than wait for a reload. It sends these signals over
 [AWS AppSync Events](https://docs.aws.amazon.com/appsync/latest/eventapi/),
 a managed WebSocket pub/sub service, on a channel per viewer.
 
@@ -188,6 +201,19 @@ in the viewer's terms:
 
 `kind` is one of the `kind`s of `activities`. A push often records several
 events at once, and so sends several signals within a second or two.
+
+When the server finishes importing an organization (see `importedAt` in
+[`GET /activity`](#get-activity)), it publishes an `imported` signal to
+the channel of each viewer who can use that organization and whose access
+the server checked within the last five minutes:
+
+```json
+{ "kind": "imported", "organizationId": "..." }
+```
+
+`organizationId` is the `id` of the organization, as
+`GET /activity/organizations` lists it. A page showing that organization
+fetches its activity again; a page showing another one does not.
 
 Nothing is kept: a signal published while the page is not connected and
 subscribed is lost. That is why the page fetches the activity again after

@@ -11,12 +11,15 @@ export {
 export type { ActivityBody, Organization, SignalToken } from "./parse";
 export {
   AppSyncSignalConnector,
+  isImportedSignal,
   MemorySignalConnection,
   MemorySignalConnector,
   SignalConnectionError,
 } from "./signals";
 export type {
+  ActivitySignal,
   AppSyncSignalConnectorOptions,
+  ImportedSignal,
   OpenSocket,
   Signal,
   SignalAuthorization,

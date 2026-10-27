@@ -288,6 +288,35 @@ describe("Drawing from the cache first", () => {
     expect(updating()).not.toBeInTheDocument();
   });
 
+  it("keeps whether the organization was imported, and draws the notice of an import from it until the answer says otherwise", async () => {
+    const notice = `Importing the last 14 days of ${mockOrganization}. This can take a few minutes.`;
+    const view = page();
+    view.open();
+    view.mock.importing = [mockOrganization];
+    const stored = await pullRequestTitles();
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    expect(await view.cache.get(activityKey)).toMatchObject({
+      response: { importedAt: null },
+    });
+    view.mock.importing = [];
+    view.advanceTo(10 * minute);
+    const release = view.mock.holdRequests(
+      ({ url }) => new URL(url).pathname === "/activity",
+    );
+
+    view.open();
+    await screen.findByRole("table", { name: "Pull requests" });
+
+    expect(shownPullRequestTitles()).toEqual(stored);
+    expect(screen.getByText(notice)).toBeInTheDocument();
+    release();
+    await pullRequestTitles();
+    expect(screen.queryByText(notice)).not.toBeInTheDocument();
+    expect(await view.cache.get(activityKey)).toMatchObject({
+      response: { importedAt: firstLoad.toISOString() },
+    });
+  });
+
   it("draws nothing stored 7 days ago or more", async () => {
     const view = page();
     await view.load();
