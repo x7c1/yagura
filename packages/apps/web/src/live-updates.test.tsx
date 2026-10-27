@@ -137,7 +137,7 @@ describe("live updates", () => {
 
     expect(connection.token).toMatchObject({
       token: "mock-signal-token-1",
-      channel: "/viewers/1004",
+      channel: "/prod-yagura-viewers/1004",
     });
   });
 

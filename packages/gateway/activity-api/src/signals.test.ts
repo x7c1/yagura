@@ -12,7 +12,7 @@ import {
 
 const httpHost = "example.appsync-api.us-east-1.amazonaws.com";
 const realtimeHost = "example.appsync-realtime-api.us-east-1.amazonaws.com";
-const token = { token: "signal-token-1", channel: "/viewers/1004" };
+const token = { token: "signal-token-1", channel: "/prod-yagura-viewers/1004" };
 const subscriptionId = "subscription-1";
 
 /** A WebSocket held in memory, standing for the AppSync Events endpoint. */
@@ -121,7 +121,7 @@ describe("AppSyncSignalConnector", () => {
     expect(socket.sent[1]).toEqual({
       type: "subscribe",
       id: subscriptionId,
-      channel: "/viewers/1004",
+      channel: "/prod-yagura-viewers/1004",
       authorization: { host: httpHost, Authorization: "signal-token-1" },
     });
     expect(events.subscribed).toBe(0);

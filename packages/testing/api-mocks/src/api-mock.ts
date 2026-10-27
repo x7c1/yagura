@@ -196,7 +196,7 @@ export class ApiMock {
         return noStore({
           token: `mock-signal-token-${this.#signalTokens}`,
           expiresAt: new Date(Date.now() + signalTokenLifetimeMs).toISOString(),
-          channel: `/viewers/${mockViewerId}`,
+          channel: `/mock-yagura-viewers/${mockViewerId}`,
         });
       }),
       http.get(`${githubAvatars}/u/:id`, ({ params }) => {

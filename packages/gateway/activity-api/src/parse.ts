@@ -24,7 +24,10 @@ export interface Organization {
 export interface SignalToken {
   readonly token: string;
   readonly expiresAt: Date;
-  /** The viewer's channel, such as `/viewers/<user id>`. */
+  /**
+   * The viewer's channel, `/<namespace>/<user id>`. The namespace depends on
+   * the deployment, so it is used as returned and never built.
+   */
   readonly channel: string;
 }
 

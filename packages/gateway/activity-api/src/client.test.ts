@@ -122,7 +122,7 @@ describe("ActivityApiClient", () => {
       jsonResponse(200, {
         token: "opaque",
         expiresAt: "2026-10-27T03:15:00.000Z",
-        channel: "/viewers/1004",
+        channel: "/prod-yagura-viewers/1004",
       }),
     );
     const client = new ActivityApiClient({ baseUrl, fetch });
@@ -130,7 +130,7 @@ describe("ActivityApiClient", () => {
     await expect(client.createSignalToken("ghu_abc")).resolves.toEqual({
       token: "opaque",
       expiresAt: new Date("2026-10-27T03:15:00.000Z"),
-      channel: "/viewers/1004",
+      channel: "/prod-yagura-viewers/1004",
     });
     const [url, init] = fetch.mock.calls[0] ?? [];
     expect(url).toBe(`${baseUrl}/activity/signal-token`);

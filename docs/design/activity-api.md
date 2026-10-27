@@ -141,7 +141,7 @@ Response `200`:
 {
   "token": "...",
   "expiresAt": "2026-10-27T03:15:00.000Z",
-  "channel": "/viewers/1004"
+  "channel": "/prod-yagura-viewers/1004"
 }
 ```
 
@@ -149,8 +149,11 @@ Response `200`:
   for 15 minutes, until `expiresAt`, and only for connecting to the
   realtime endpoint and subscribing to `channel`: it cannot publish, nor
   subscribe to another viewer's channel.
-- `channel` is the viewer's own, `/viewers/<user id>`, where `<user id>`
-  is the number GitHub knows the viewer's account by.
+- `channel` is the viewer's own, `/<namespace>/<user id>`, where
+  `<user id>` is the number GitHub knows the viewer's account by. The
+  namespace depends on the deployment (`prod-yagura-viewers` in the
+  example), so the app subscribes to `channel` as returned and never builds
+  it.
 
 ## Visibility
 
