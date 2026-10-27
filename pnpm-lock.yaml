@@ -99,6 +99,9 @@ importers:
       '@yagura/activity':
         specifier: workspace:*
         version: link:../../domain/activity
+      '@yagura/browser':
+        specifier: workspace:*
+        version: link:../browser
     devDependencies:
       typescript:
         specifier: ^6.0.3

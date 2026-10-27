@@ -1,5 +1,6 @@
 import {
   BroadcastTabChannel,
+  DocumentVisibility,
   DomElementAttribute,
   GlobalTimer,
   IndexedDbStore,
@@ -9,7 +10,10 @@ import {
   WindowStorageChanges,
   type KeyValueStore,
 } from "@yagura/browser";
-import { ActivityApiClient } from "@yagura/activity-api";
+import {
+  ActivityApiClient,
+  AppSyncSignalConnector,
+} from "@yagura/activity-api";
 import { SessionApiClient } from "@yagura/session-api";
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
@@ -50,6 +54,8 @@ async function main(container: HTMLElement): Promise<void> {
   const localStore = new WebStorageStore(() => window.localStorage);
   const location = new WindowLocation(window);
   const authorize = await startApiMock(config, storage);
+  const timer = new GlobalTimer();
+  const { signalHosts } = config;
 
   const session = new SessionController({
     sessionApi: new SessionApiClient({ baseUrl: config.sessionApiBaseUrl }),
@@ -61,7 +67,7 @@ async function main(container: HTMLElement): Promise<void> {
     storage,
     lastViewer: localStore,
     location,
-    timer: new GlobalTimer(),
+    timer,
     cache: new IndexedDbStore(() => window.indexedDB),
     tabs: new BroadcastTabChannel(
       () => new window.BroadcastChannel("yagura.session"),
@@ -77,6 +83,17 @@ async function main(container: HTMLElement): Promise<void> {
           new ResizeObserverWidths((callback) => new ResizeObserver(callback))
         }
         preferences={localStore}
+        liveUpdates={
+          signalHosts && {
+            connector: new AppSyncSignalConnector({
+              httpHost: signalHosts.http,
+              realtimeHost: signalHosts.realtime,
+              timer,
+            }),
+            timer,
+            visibility: new DocumentVisibility(document),
+          }
+        }
         theme={
           new ThemeController({
             store: localStore,

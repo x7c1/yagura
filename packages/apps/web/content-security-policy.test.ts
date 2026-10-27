@@ -81,6 +81,44 @@ describe("the production Content Security Policy", () => {
     expect(directives(policy).get("connect-src")).toEqual(["'none'"]);
   });
 
+  it("allows no realtime host when the signal hosts are not both set", () => {
+    for (const hosts of [
+      {},
+      { signalRealtimeHost: "realtime.example.test" },
+      { signalHttpHost: "events.example.test" },
+    ]) {
+      const policy = contentSecurityPolicy(indexHtml, {
+        ...production,
+        ...hosts,
+      });
+      expect(directives(policy).get("connect-src")).toEqual([
+        "https://api.yagura.module.codes",
+      ]);
+    }
+  });
+
+  it("allows exactly the realtime host of the signals when it is set", () => {
+    const policy = contentSecurityPolicy(indexHtml, {
+      ...production,
+      signalHttpHost: "events.example.test",
+      signalRealtimeHost: "realtime.example.test",
+    });
+    expect(directives(policy).get("connect-src")).toEqual([
+      "https://api.yagura.module.codes",
+      "wss://realtime.example.test",
+    ]);
+  });
+
+  it("refuses a realtime host that is not a plain host name", () => {
+    expect(() =>
+      contentSecurityPolicy(indexHtml, {
+        ...production,
+        signalHttpHost: "events.example.test",
+        signalRealtimeHost: "wss://realtime.example.test/event",
+      }),
+    ).toThrow("VITE_YAGURA_SIGNAL_REALTIME_HOST");
+  });
+
   it("follows the theme script when the script changes", () => {
     const edited = indexHtml.replace("yagura.theme", "yagura.other");
     expect(contentSecurityPolicy(edited, production)).not.toBe(
@@ -99,6 +137,20 @@ describe("a build with VITE_API_MOCK=1", () => {
       "'self'",
       "https://avatars.githubusercontent.com",
       "data:",
+    ]);
+  });
+
+  it("allows no realtime host, as the page is not live in mock mode", () => {
+    const policy = directives(
+      contentSecurityPolicy(indexHtml, {
+        ...production,
+        apiMock: true,
+        signalHttpHost: "events.example.test",
+        signalRealtimeHost: "realtime.example.test",
+      }),
+    );
+    expect(policy.get("connect-src")).toEqual([
+      "https://api.yagura.module.codes",
     ]);
   });
 });

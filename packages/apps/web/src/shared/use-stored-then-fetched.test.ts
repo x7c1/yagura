@@ -1,4 +1,4 @@
-import { renderHook, waitFor } from "@testing-library/react";
+import { act, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import {
   useStoredThenFetched,
@@ -74,5 +74,65 @@ describe("useStoredThenFetched, drawing the stored value first", () => {
     result.current.retry();
     await waitFor(() => expect(result.current.value).toBe("fetched"));
     expect(result.current.error).toBeUndefined();
+  });
+});
+
+describe("useStoredThenFetched, refreshing", () => {
+  it("fetches again without reading the cache, keeping what is drawn as updating", async () => {
+    let reads = 0;
+    let fetches = 0;
+    let answer!: (value: string) => void;
+    const source: StoredThenFetchedSource<string> = {
+      stored: () => {
+        reads += 1;
+        return Promise.resolve("stored");
+      },
+      fetch: () => {
+        fetches += 1;
+        return fetches === 1
+          ? Promise.resolve("first")
+          : new Promise((resolve) => {
+              answer = resolve;
+            });
+      },
+    };
+
+    const { result } = renderHook(() => useStoredThenFetched(source));
+    await waitFor(() => expect(result.current.value).toBe("first"));
+    act(() => result.current.refresh());
+
+    await waitFor(() => expect(result.current.updating).toBe(true));
+    expect(result.current.value).toBe("first");
+    expect(reads).toBe(1);
+    act(() => answer("second"));
+    await waitFor(() => expect(result.current.value).toBe("second"));
+    expect(result.current.updating).toBe(false);
+  });
+
+  it("runs one more fetch after the running one, however many refreshes are asked for", async () => {
+    const answers: ((value: string) => void)[] = [];
+    const source: StoredThenFetchedSource<string> = {
+      stored: () => Promise.resolve(undefined),
+      fetch: () =>
+        new Promise((resolve) => {
+          answers.push(resolve);
+        }),
+    };
+
+    const { result } = renderHook(() => useStoredThenFetched(source));
+    await waitFor(() => expect(answers).toHaveLength(1));
+    act(() => {
+      result.current.refresh();
+      result.current.refresh();
+      result.current.refresh();
+    });
+    expect(answers).toHaveLength(1);
+
+    act(() => answers[0]?.("first"));
+    await waitFor(() => expect(answers).toHaveLength(2));
+    expect(result.current.value).toBe("first");
+    act(() => answers[1]?.("second"));
+    await waitFor(() => expect(result.current.value).toBe("second"));
+    expect(answers).toHaveLength(2);
   });
 });

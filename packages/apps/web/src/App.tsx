@@ -19,6 +19,10 @@ import {
   type SessionController,
 } from "./features/session";
 import { ThemeProvider, type ThemeController } from "./features/theme";
+import {
+  LiveUpdatesProvider,
+  type LiveUpdatesOptions,
+} from "./features/live-updates";
 
 export const callbackPath = "/callback";
 
@@ -33,6 +37,11 @@ export function App(props: {
    * list shows bots' pull requests (`localStorage` in the browser).
    */
   readonly preferences: KeyValueStore;
+  /**
+   * Where the signals that keep the page live come from; without it, as in
+   * a build without the signal hosts, the page is not live.
+   */
+  readonly liveUpdates?: LiveUpdatesOptions;
 }) {
   const { location } = props.session;
   const [pathname, setPathname] = useState(location.pathname);
@@ -103,7 +112,11 @@ export function App(props: {
             {onCallback ? (
               <CallbackHandler onDone={leaveCallback} />
             ) : (
-              <Screen page={page} onNavigate={navigate} />
+              <Screen
+                page={page}
+                onNavigate={navigate}
+                liveUpdates={props.liveUpdates}
+              />
             )}
           </PreferencesProvider>
         </ElementWidthsProvider>
@@ -128,6 +141,7 @@ const fitsWindow: Readonly<Record<Page, boolean>> = {
 function Screen(props: {
   readonly page: Page;
   readonly onNavigate: (page: Page) => void;
+  readonly liveUpdates: LiveUpdatesOptions | undefined;
 }) {
   const { state } = useSession();
   return state.status === "signed-in" ? (
@@ -144,12 +158,13 @@ function Screen(props: {
  * history tell the pages apart. The activity page fits the frame to the
  * window, when the window is tall enough, so that its list scrolls inside
  * its card while the rest stays in view; the members page scrolls as a
- * whole.
+ * whole. While it is shown, the page is kept live for the viewer.
  */
 function SignedInPage(props: {
   readonly page: Page;
   readonly onNavigate: (page: Page) => void;
   readonly login: string;
+  readonly liveUpdates: LiveUpdatesOptions | undefined;
 }) {
   // Where the organization is shown, beside the login in the header. The
   // members' view, which loads the organizations, draws it there.
@@ -193,11 +208,12 @@ function SignedInPage(props: {
         </div>
       </header>
       <main className={styles.main}>
-        <OrganizationMembers
-          key={props.login}
-          page={props.page}
-          organizationSlot={organizationSlot}
-        />
+        <LiveUpdatesProvider key={props.login} options={props.liveUpdates}>
+          <OrganizationMembers
+            page={props.page}
+            organizationSlot={organizationSlot}
+          />
+        </LiveUpdatesProvider>
       </main>
       <footer className={styles.footer}>
         <p>

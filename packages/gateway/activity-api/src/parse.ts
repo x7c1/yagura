@@ -16,6 +16,21 @@ export interface Organization {
   readonly avatarUrl: string;
 }
 
+/**
+ * A token for the viewer's channel of signals (`POST
+ * /activity/signal-token`): opaque to the app, good for connecting to the
+ * realtime endpoint and subscribing to `channel` until `expiresAt`.
+ */
+export interface SignalToken {
+  readonly token: string;
+  readonly expiresAt: Date;
+  /**
+   * The viewer's channel, `/<namespace>/<user id>`. The namespace depends on
+   * the deployment, so it is used as returned and never built.
+   */
+  readonly channel: string;
+}
+
 // The bodies of the activity API's responses (docs/design/activity-api.md),
 // read field by field: a body of any other shape reads as `undefined`.
 // Ids are kept as strings, whether the API writes them as strings or as
@@ -40,6 +55,22 @@ export function parseOrganizationActivity(
   const activities = parseArray(body.activities, parseActivity);
   return members && pullRequests && activities
     ? { members, pullRequests, activities }
+    : undefined;
+}
+
+/** The body of `POST /activity/signal-token`. */
+export function parseSignalToken(body: unknown): SignalToken | undefined {
+  if (!isRecord(body)) {
+    return undefined;
+  }
+  const { token, channel } = body;
+  const expiresAt = parseTime(body.expiresAt);
+  return typeof token === "string" &&
+    token !== "" &&
+    typeof channel === "string" &&
+    channel !== "" &&
+    expiresAt !== undefined
+    ? { token, expiresAt, channel }
     : undefined;
 }
 

@@ -12,11 +12,13 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [
       react(),
-      // Each build allows the session API it is built for. See
-      // docs/guides/deployment.md.
+      // Each build allows the session API, and the realtime host of the
+      // signals, it is built for. See docs/guides/deployment.md.
       contentSecurityPolicyPlugin({
         sessionApi: env.VITE_YAGURA_SESSION_API ?? "",
         apiMock: env.VITE_API_MOCK === "1",
+        signalHttpHost: env.VITE_YAGURA_SIGNAL_HTTP_HOST ?? "",
+        signalRealtimeHost: env.VITE_YAGURA_SIGNAL_REALTIME_HOST ?? "",
       }),
     ],
     server: {

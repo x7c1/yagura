@@ -117,6 +117,57 @@ describe("ActivityApiClient", () => {
     ]);
   });
 
+  it("asks for a signal token with the bearer token and no body, and reads it", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      jsonResponse(200, {
+        token: "opaque",
+        expiresAt: "2026-10-27T03:15:00.000Z",
+        channel: "/prod-yagura-viewers/1004",
+      }),
+    );
+    const client = new ActivityApiClient({ baseUrl, fetch });
+
+    await expect(client.createSignalToken("ghu_abc")).resolves.toEqual({
+      token: "opaque",
+      expiresAt: new Date("2026-10-27T03:15:00.000Z"),
+      channel: "/prod-yagura-viewers/1004",
+    });
+    const [url, init] = fetch.mock.calls[0] ?? [];
+    expect(url).toBe(`${baseUrl}/activity/signal-token`);
+    expect(init?.method).toBe("POST");
+    expect(init?.body).toBeUndefined();
+    expect(init?.credentials).toBe("omit");
+    expect(new Headers(init?.headers).get("Authorization")).toBe(
+      "Bearer ghu_abc",
+    );
+  });
+
+  it("marks a 401 to a signal token request as unauthorized", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      jsonResponse(401, { error: "invalid_token" }),
+    );
+    const client = new ActivityApiClient({ baseUrl, fetch });
+
+    const error = await client
+      .createSignalToken("ghu_old")
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(ActivityApiError);
+    expect((error as ActivityApiError).isUnauthorized).toBe(true);
+  });
+
+  it("maps a signal token of another shape to unexpected_response", async () => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () =>
+      jsonResponse(200, { token: "opaque", expiresAt: "soon" }),
+    );
+    const client = new ActivityApiClient({ baseUrl, fetch });
+
+    await expect(client.createSignalToken("ghu_abc")).rejects.toMatchObject({
+      status: 200,
+      code: "unexpected_response",
+    });
+  });
+
   it.each([
     [400, "invalid_request"],
     [401, "invalid_token"],

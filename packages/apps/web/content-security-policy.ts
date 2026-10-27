@@ -17,6 +17,16 @@ export interface PolicyOptions {
    * avatars.
    */
   readonly apiMock: boolean;
+  /**
+   * The AppSync Events API's realtime host
+   * (`VITE_YAGURA_SIGNAL_REALTIME_HOST`), which the page connects to for
+   * live updates, or empty. It is allowed only along with its HTTP host
+   * (`signalHttpHost`), and not in mock mode, since the page connects only
+   * when both are set, outside mock mode.
+   */
+  readonly signalRealtimeHost?: string;
+  /** The AppSync Events API's HTTP host (`VITE_YAGURA_SIGNAL_HTTP_HOST`). */
+  readonly signalHttpHost?: string;
 }
 
 /** The host GitHub serves user and organization avatars from. */
@@ -47,7 +57,8 @@ export function inlineScriptHashes(html: string): string[] {
 /**
  * The Content Security Policy for a build of `html`: the page may load its
  * own scripts and styles, the inline scripts `html` carries, GitHub's
- * avatars, and call the Yagura API, and nothing else.
+ * avatars, call the Yagura API and connect to the realtime host of the
+ * signals when it is set, and nothing else.
  */
 export function contentSecurityPolicy(
   html: string,
@@ -56,6 +67,20 @@ export function contentSecurityPolicy(
   const sessionApiOrigin = options.sessionApi
     ? new URL(options.sessionApi).origin
     : undefined;
+  const { signalRealtimeHost, signalHttpHost } = options;
+  if (
+    signalRealtimeHost &&
+    !/^[A-Za-z0-9.-]+(:\d+)?$/.test(signalRealtimeHost)
+  ) {
+    throw new Error(
+      `VITE_YAGURA_SIGNAL_REALTIME_HOST is not a plain host name: ${signalRealtimeHost}`,
+    );
+  }
+  const signals =
+    signalRealtimeHost && signalHttpHost && !options.apiMock
+      ? [`wss://${signalRealtimeHost}`]
+      : [];
+  const connect = [...(sessionApiOrigin ? [sessionApiOrigin] : []), ...signals];
   const directives: [string, ...string[]][] = [
     ["default-src", "'none'"],
     ["script-src", "'self'", ...inlineScriptHashes(html)],
@@ -64,7 +89,7 @@ export function contentSecurityPolicy(
     // for GitHub's avatar host themselves, so that mock mode loads nothing
     // from the network.
     ["img-src", "'self'", githubAvatars, ...(options.apiMock ? ["data:"] : [])],
-    ["connect-src", sessionApiOrigin ?? "'none'"],
+    ["connect-src", ...(connect.length > 0 ? connect : ["'none'"])],
     ["font-src", "'self'"],
     ...(options.apiMock ? [["worker-src", "'self'"] as [string, string]] : []),
     ["base-uri", "'none'"],

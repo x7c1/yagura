@@ -12,7 +12,8 @@
     "lint": "eslint ."
   },
   "dependencies": {
-    "@yagura/activity": "workspace:*"
+    "@yagura/activity": "workspace:*",
+    "@yagura/browser": "workspace:*"
   },
   "devDependencies": {
     "typescript": "^6.0.3",

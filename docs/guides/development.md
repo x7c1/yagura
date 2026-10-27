@@ -76,8 +76,10 @@ organization selector), and `GET /activity` (the same activity for each:
 a few members including the signed-in `mock-user`, and Dependabot as a
 bot; their pull requests over the 14 days before the page loaded, with
 drafts, pushes, merges of one another's pull requests, a closed one, and
-the bot's own pull requests, merged and open). Nothing is fetched from
-GitHub.
+the bot's own pull requests, merged and open). It also answers
+`POST /activity/signal-token`, but has no realtime endpoint to connect to,
+so the page does not update live in this mode, even with the signal
+hosts set. Nothing is fetched from GitHub.
 "Sign in with GitHub" skips the GitHub authorize page and returns straight
 to the callback with a mock code, so sign-in completes without leaving
 localhost and without a client id, and the page then shows `mock-labs`

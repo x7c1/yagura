@@ -4,6 +4,7 @@ import {
   mockActivityFixtures,
   mockActivityResponse,
   mockLogin,
+  mockMembers,
   type MockActivityFixtures,
 } from "./activity";
 
@@ -30,6 +31,13 @@ const githubAvatars = "https://avatars.githubusercontent.com";
 
 /** The longest range `GET /activity` answers: 31 days and an hour. */
 const maxRangeMs = (31 * 24 + 1) * 60 * 60 * 1000;
+
+/** How long a signal token is good for: 15 minutes. */
+const signalTokenLifetimeMs = 15 * 60 * 1000;
+
+/** The id of the viewer, {@link mockLogin}, among the members. */
+const mockViewerId =
+  mockMembers.find(({ login }) => login === mockLogin)?.id ?? "";
 
 const signedInKey = "yagura.api-mock.signed-in";
 const accessTokenLifetimeSeconds = 28800;
@@ -87,6 +95,9 @@ export interface RecordedRequest {
  *   the requested range for any of those organizations, `403 forbidden` for
  *   another, and `400 invalid_request` for a missing or bad parameter or a
  *   range longer than 31 days and an hour;
+ * - `POST /activity/signal-token` issues a signal token for the viewer's
+ *   channel. The mock has no realtime endpoint to use it with, so a page
+ *   served from it is not live;
  * - `GET https://avatars.githubusercontent.com/u/<id>` answers a placeholder
  *   avatar for an account of the fixtures, so that the avatars the app
  *   finds by account id load nothing from the network either.
@@ -103,6 +114,7 @@ export class ApiMock {
   readonly #organizations: readonly string[];
   #fixtures: MockActivityFixtures;
   readonly #requestHolds: RequestHold[] = [];
+  #signalTokens = 0;
 
   constructor(options: ApiMockOptions) {
     this.#store = options.store ?? new MemoryStore();
@@ -175,6 +187,18 @@ export class ApiMock {
         }
         return noStore(mockActivityResponse(this.#fixtures, from, to));
       }),
+      http.post(`${base}/activity/signal-token`, async ({ request }) => {
+        await this.#record(request);
+        if (!this.#authorized(request)) {
+          return error(401, "invalid_token");
+        }
+        this.#signalTokens += 1;
+        return noStore({
+          token: `mock-signal-token-${this.#signalTokens}`,
+          expiresAt: new Date(Date.now() + signalTokenLifetimeMs).toISOString(),
+          channel: `/mock-yagura-viewers/${mockViewerId}`,
+        });
+      }),
       http.get(`${githubAvatars}/u/:id`, ({ params }) => {
         const { members, bots } = this.#fixtures;
         const account = [...members, ...bots].find(
@@ -211,6 +235,14 @@ export class ApiMock {
     return this.#requests.filter(
       ({ method, url }) =>
         method === "GET" && new URL(url).pathname === "/activity",
+    );
+  }
+
+  /** The requests for a signal token, in order. */
+  get signalTokenRequests(): readonly RecordedRequest[] {
+    return this.#requests.filter(
+      ({ method, url }) =>
+        method === "POST" && new URL(url).pathname === "/activity/signal-token",
     );
   }
 

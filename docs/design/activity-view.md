@@ -374,8 +374,9 @@ Review counts and review latency are not shown.
 Everything the view shows comes from the [activity API](activity-api.md),
 served from the same host as the session API: the organizations from
 `GET /activity/organizations`, and the selected organization's members,
-pull requests and activity over the period from one `GET /activity`. The
-page calls no other API and never calls the GitHub API: the server
+pull requests and activity over the period from one `GET /activity`.
+Apart from the connection that keeps it [live](#live-updates), the page
+calls no other API, and it never calls the GitHub API: the server
 collects the activity from GitHub and returns to each viewer only what
 that viewer can see there. Every request carries the session's access
 token; an expired one is refreshed and the request sent again (see the
@@ -457,3 +458,54 @@ names no endpoint, status or error code.
 
 What is shown once the API has answered is the same as without the cache;
 the cache changes when things are drawn, not what is drawn.
+
+## Live updates
+
+An open page brings the activity up to date by itself within seconds of
+the server recording new activity, such as a pull request opened, pushed
+to or merged, without a reload. The server sends a signal to each viewer
+who can see the repository (see the activity API's
+[signals](activity-api.md#signals)), and the page fetches again when one
+arrives.
+
+- **Connecting.** Once the page has a signed-in viewer, it asks for a
+  signal token (`POST /activity/signal-token`), connects to the realtime
+  endpoint with it, and subscribes to the channel the token came with.
+  A tab holds one connection, whichever page it shows and whichever
+  organization is selected.
+- **On a signal.** The page fetches the selected organization's activity
+  over the period ending now again, the same way as on a load: what is
+  drawn stays, with the "Updating…" note, and the answer replaces it in
+  place and is stored in the browser cache. Signals that arrive within two
+  seconds of the first are gathered into one fetch, since a push often
+  sends several. Two fetches of the same view never run at once: a signal
+  that arrives while one runs makes one more fetch follow it. New rows are
+  not highlighted; the list keeps where it was scrolled to, and the
+  chart keeps what is chosen in it.
+- **Losing the connection.** When the connection drops (the network, the
+  24-hour limit on a connection, the service closing it), the page asks for
+  a new token and connects again, after a wait that starts at about a
+  second and doubles with each failure, up to about a minute, spread at
+  random so that tabs do not come back together. Once subscribed again, it
+  fetches once, for the signals it missed meanwhile.
+- **Being shown again.** When the tab becomes visible after it was hidden,
+  the page fetches once, since a browser may have let its connection lapse
+  or held back its timers, and connects again at once if the connection is
+  gone.
+- **Ending.** Signing out, the session ending, or anything else that shows
+  a view without a viewer closes the connection, and nothing connects
+  until a viewer is signed in again.
+- **Failures.** A failed token request or connection is tried again with
+  the same growing wait, and only warned about in the console. The page
+  never shows whether it is connected: without the connection it works as
+  a page that is not live, which a reload brings up to date. A failed
+  fetch after a signal shows as any failed update does (see
+  [Drawing from the cache first](#drawing-from-the-cache-first)).
+
+A build without the signal hosts (see
+[Deployment](../guides/deployment.md#build-configuration)), and the
+development mode with the API mock, do not connect, and the page is not
+live.
+
+The whole period is fetched again each time, not what changed since the
+last answer.
