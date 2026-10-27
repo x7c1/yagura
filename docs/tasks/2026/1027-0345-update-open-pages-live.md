@@ -105,7 +105,7 @@ endpoint the page simply stays non-live.
 
 ### Before merge (verified outside the check command)
 
-- [ ] Built with the development hosts and deployed to the development site,
+- [x] Built with the development hosts and deployed to the development site,
       a signed-in page updates within seconds when a pull request in an
       allowed organization is pushed to — needs a person: signing in to
       GitHub is not done on the person's behalf
