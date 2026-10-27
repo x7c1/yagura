@@ -23,9 +23,9 @@ import { describeSelection, selectionKey } from "./selection";
 export const showBotsKey = "yagura.show-bot-pull-requests";
 
 /**
- * The chart of the merged counts per day, with the members' pushes in a
- * row of circles above the bars and the heatmap of the hours of both under
- * them, and the list of pull requests below. The chart's card carries the
+ * The chart of the merged counts per day, with the heatmap of the hours of
+ * merges and the members' pushes under the bars and the pushes in a row of
+ * circles under that, and the list of pull requests below. The chart's card carries the
  * page's heading, "Merged PRs", which says what its bars count, and the
  * list's card has none of its own: it is the detail of the period the
  * chart covers. Choosing a bar narrows the list to the pull requests merged

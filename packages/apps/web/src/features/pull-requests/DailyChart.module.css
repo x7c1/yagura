@@ -1,5 +1,9 @@
 .figure {
-  margin: 0;
+  /*
+   * The chart's top keeps room for the count of a bar that reaches it, so
+   * the heading's gap above need not be as wide.
+   */
+  margin: calc(-1 * var(--space-1)) 0 0;
   /* The axes and their labels. */
   color: var(--color-text-muted);
 }
@@ -56,21 +60,22 @@
 }
 
 /*
- * A day's push circle, filled in the push colour apart from the bars'
- * blue, with its count written on it. The whole circle is the button.
+ * A day's push count, written as the bars' counts are. Its button is an
+ * unpainted circle around it, wide enough for the period's largest count:
+ * the circle takes the clicks, and its outline shows only when the count is
+ * chosen or focused.
  */
 .push {
   cursor: pointer;
 }
 
 .pushCircle {
-  fill: var(--color-push);
-  stroke: var(--color-push);
-  stroke-width: var(--border-width);
+  fill: transparent;
+  stroke: none;
 }
 
 .pushCount {
-  fill: var(--color-on-push);
+  fill: var(--color-chart);
   stroke: none;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);

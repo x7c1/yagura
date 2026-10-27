@@ -8,11 +8,14 @@ import styles from "./PullRequestList.module.css";
 /**
  * The pull requests, newest first, as they are given. The rows of each day
  * share a background, alternating from one day to the next, so that the
- * days stand apart. The table fits the width it is given: its title,
- * repository and author wrap, and on a narrow screen each pull request is
- * a block of lines rather than a row of columns. The author is shown with
- * their avatar, as in the summary table; a bot's pull request names the
- * bot alone as its author, marked as a bot.
+ * days stand apart. The table fits the width it is given: its title and
+ * repository wrap, and on a narrow screen each pull request is a block of
+ * lines rather than a row of columns. The author is shown with their
+ * avatar, as in the summary table, on a line of its own under the title at
+ * its right, rather than in a column: a column would widen and narrow with
+ * the longest login shown, and the table would jump when the bots' pull
+ * requests are shown or hidden. A bot's pull request names the bot alone
+ * as its author, marked as a bot.
  *
  * The table's elements name their roles, as the narrow layout displays
  * them as blocks and flex rows, which some browsers take to mean they are
@@ -38,16 +41,13 @@ export function PullRequestList(props: {
             <th scope="col" role="columnheader">
               Repository
             </th>
-            <th scope="col" role="columnheader">
-              Author
-            </th>
-            <th scope="col" role="columnheader">
+            <th scope="col" role="columnheader" className={styles.state}>
               State
             </th>
-            <th scope="col" role="columnheader">
+            <th scope="col" role="columnheader" className={styles.pushes}>
               Pushes
             </th>
-            <th scope="col" role="columnheader">
+            <th scope="col" role="columnheader" className={styles.lines}>
               Lines
             </th>
             <th scope="col" role="columnheader">
@@ -69,6 +69,18 @@ export function PullRequestList(props: {
                   <a href={pullRequestUrl(pr)} target="_blank" rel="noreferrer">
                     {pr.title}
                   </a>
+                  <div className={styles.author}>
+                    {author === undefined ? (
+                      <span className={styles.muted}>unknown</span>
+                    ) : (
+                      <MemberLogin
+                        id={author.id}
+                        login={author.login}
+                        bot={row.byBot}
+                        avatar="after"
+                      />
+                    )}
+                  </div>
                 </td>
                 <td
                   role="cell"
@@ -76,17 +88,6 @@ export function PullRequestList(props: {
                 >
                   {pr.repository.ownerLogin}/{pr.repository.name}
                   <span className={styles.number}>#{pr.number}</span>
-                </td>
-                <td role="cell" className={styles.author}>
-                  {author === undefined ? (
-                    <span className={styles.muted}>unknown</span>
-                  ) : (
-                    <MemberLogin
-                      id={author.id}
-                      login={author.login}
-                      bot={row.byBot}
-                    />
-                  )}
                 </td>
                 <td role="cell" className={styles.state}>
                   <span className={`${styles.badge} ${styles[state]}`}>

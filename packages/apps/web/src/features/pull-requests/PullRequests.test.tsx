@@ -71,6 +71,11 @@ async function rowCells(title: string): Promise<string[]> {
     .map((cell) => cell.textContent ?? "");
 }
 
+/** The line under a row's title that names its author. */
+function authorLine(row: Element | undefined): Element | null | undefined {
+  return row?.querySelector("td")?.lastElementChild;
+}
+
 /** A row of the list, for rendering the list on its own. */
 function listed(
   id: string,
@@ -123,9 +128,9 @@ describe("MembersActivity", () => {
     open();
 
     expect(await rowCells("Fix the sign-out redirect")).toEqual([
-      "Fix the sign-out redirect",
+      // The title, with its author on the line under it.
+      "Fix the sign-out redirectmock-alice",
       "mock-org/web#2",
-      "mock-alice",
       "merged",
       "1 push",
       "+18 −4",
@@ -144,7 +149,7 @@ describe("MembersActivity", () => {
   it("marks an open draft as a draft, dated by its latest push, with the members' pushes to it", async () => {
     open();
 
-    const [, , , state, pushes, , date] = await rowCells(
+    const [, , state, pushes, , date] = await rowCells(
       "Draw the activity chart",
     );
 
@@ -159,7 +164,7 @@ describe("MembersActivity", () => {
 
     const cells = await rowCells("Name the chart for screen readers");
     expect(cells.at(-1)).toBe("Merged 2026-10-03 10:25");
-    expect(cells[4]).toBe("0 pushes");
+    expect(cells[3]).toBe("0 pushes");
   });
 
   it("hides bots' pull requests behind a button that counts them, and remembers the choice", async () => {
@@ -177,9 +182,9 @@ describe("MembersActivity", () => {
       titlesOf(mockListedPullRequests(mock, now), { bots: true }),
     );
     expect(preferences.get(showBotsKey)).toBe("true");
-    const [, , author] = await rowCells("Bump vite from 8.3.4 to 8.3.5");
-    // The bot alone, marked as one.
-    expect(author).toBe(`${mockBotLogin}bot`);
+    const [title] = await rowCells("Bump vite from 8.3.4 to 8.3.5");
+    // The bot alone, marked as one before its login, under the title.
+    expect(title).toBe(`Bump vite from 8.3.4 to 8.3.5bot${mockBotLogin}`);
     // The label says what the button does next, with no pressed state
     // beside it to contradict it.
     expect(
@@ -236,7 +241,7 @@ describe("MembersActivity", () => {
     expect(sidewaysScrolling(members)).toEqual([]);
   });
 
-  it("writes each pull request's number under its repository, and the title alone in its cell", async () => {
+  it("writes each pull request's number under its repository, and the title and its author alone in its cell", async () => {
     open();
 
     for (const row of await pullRequestRows()) {
@@ -244,7 +249,9 @@ describe("MembersActivity", () => {
       const number = /\/pull\/(\d+)$/.exec(link.getAttribute("href") ?? "");
       expect(number).not.toBeNull();
       const [title, repository] = row.querySelectorAll("td");
-      expect(title?.textContent).toBe(link.textContent);
+      // The link, then the author's line.
+      expect(title?.firstElementChild).toBe(link);
+      expect(title?.children).toHaveLength(2);
       expect(repository?.textContent).toMatch(/^[^#]+\/[^#]+#\d+$/);
       expect(repository?.lastElementChild?.textContent).toBe(`#${number?.[1]}`);
     }
@@ -266,7 +273,7 @@ describe("MembersActivity", () => {
     expect(new Set(rows)).toEqual(new Set(["row"]));
     expect(new Set(roles("th"))).toEqual(new Set(["columnheader"]));
     const cells = roles("td");
-    expect(cells).toHaveLength((rows.length - 1) * 7);
+    expect(cells).toHaveLength((rows.length - 1) * 6);
     expect(new Set(cells)).toEqual(new Set(["cell"]));
   });
 
@@ -316,7 +323,6 @@ describe("MembersActivity", () => {
     expect(headings.map((heading) => heading.textContent)).toEqual([
       "Title",
       "Repository",
-      "Author",
       "State",
       "Pushes",
       "Lines",
@@ -389,13 +395,26 @@ describe("MembersActivity", () => {
     const avatars = within(table)
       .getAllByRole("row")
       .slice(1)
-      .map((row) => row.querySelectorAll("td")[2]?.querySelector("img"));
+      .map((row) => authorLine(row)?.querySelector("img"));
     expect(avatars.map((avatar) => avatar?.getAttribute("src"))).toEqual([
       "https://avatars.githubusercontent.com/u/1001?v=4",
       "https://avatars.githubusercontent.com/u/49699333?v=4",
     ]);
     // Decorative: the login beside it names the author.
     expect(avatars[0]).toHaveAttribute("alt", "");
+    // At the right of the line, the avatar last, a bot's mark first.
+    const lines = within(table)
+      .getAllByRole("row")
+      .slice(1)
+      .map((row) =>
+        [...(authorLine(row)?.firstElementChild?.children ?? [])].map(
+          (part) => part.tagName.toLowerCase() + ":" + (part.textContent ?? ""),
+        ),
+      );
+    expect(lines).toEqual([
+      ["span:mock-alice", "img:"],
+      ["span:bot", `span:${mockBotLogin}`, "img:"],
+    ]);
   });
 
   it("names an author the response does not name as unknown", () => {
@@ -409,8 +428,8 @@ describe("MembersActivity", () => {
 
     const table = screen.getByRole("table", { name: "Pull requests" });
     const [row] = within(table).getAllByRole("row").slice(1);
-    expect(row?.querySelectorAll("td")[2]?.textContent).toBe("unknown");
-    expect(row?.querySelectorAll("td")[2]?.querySelector("img")).toBeNull();
+    expect(authorLine(row)?.textContent).toBe("unknown");
+    expect(authorLine(row)?.querySelector("img")).toBeNull();
   });
 
   it("says so when the members have no pull requests in the period", async () => {

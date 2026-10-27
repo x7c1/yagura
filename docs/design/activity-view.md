@@ -61,16 +61,16 @@ day up to local midnight at the end of today.
 
 Two pages, one per question the view answers:
 
-- **Activity**, at `/`, answers what happened on which day, and when in
-  the day. It has a **chart** of the merged counts per day with a row of
-  **push circles** above it, a **heatmap** of the hours of both under it
-  in the same card, and below them a **list of pull requests**, newest
-  first: title, repository (with the pull request's number, "#123", on a
-  second line under the repository's name), author, state, pushes,
-  additions, deletions, a link to the pull request on GitHub, and a
-  **Date** column. The state is a badge coloured as GitHub draws it: open
-  green, draft grey, merged purple, closed red. It is the page that opens
-  first, after sign-in too.
+- **Activity**, at `/`, answers what happened on which day, and when in the
+  day. It has a **chart** of the merged counts per day, a **heatmap** of
+  the hours of pushes and merges under it, and a row of **push counts**
+  under that, in the same card, and below them a **list of pull
+  requests**, newest first: title (with its author on a line under it,
+  at the right), repository (with the pull request's number, "#123", on a
+  second line under the repository's name), state, pushes, additions, deletions, a link to the pull request on
+  GitHub, and a **Date** column. The state is a badge coloured as GitHub
+  draws it: open green, draft grey, merged purple, closed red. It is the
+  page that opens first, after sign-in too.
 - **Members**, at `/members`, answers who has been quiet. It has a
   **summary table** with a row per member: opened, merged, pushed,
   additions, deletions.
@@ -199,20 +199,20 @@ two), the days are rows, oldest at the top, with the date left of the bar,
 growing right on an axis below. Either way, all the bars share one axis
 that starts at zero, so that their lengths compare across days.
 
-Above the bars, one row, labelled "Pushes" at its left where the axis's
-labels are, holds a small circle for each day with that day's number of
-pushes by members written in it; a day without pushes leaves its place
-empty. The circles are filled in a push colour of their own, an orange
-apart from the bars' blue and the list's state badges, with the count in a
-colour that keeps 4.5:1 contrast on it in both themes. They are all one
-size, wide enough for the largest count, so that the counts, not the
-sizes, tell the days apart. Where the days are rows, each day's circle
-sits next to its date, between the date and the bar, and the "Pushes"
-label heads the circles above the first row. Pushes and merges are drawn
-differently on purpose: they are counted on different scales, and bars
-side by side or stacked would invite comparing heights that mean nothing.
-A circle's accessible name carries its count ("Oct 13, 5 pushes"), and the
-circles as a whole are named "Pushes per day".
+Under the heatmap, one row, labelled "Pushes" at its left where the axis's
+labels are, holds each day's number of pushes by members, right under that
+day's bar and column of cells, written in the bars' blue as their counts
+are; a day without pushes leaves its place empty. Each count is a button, a
+circle without paint around it that shows its outline only when the count
+is chosen or focused. The circles are all one size, wide enough for the
+largest count, so that clicking a count is as easy whatever its digits.
+Where the days are rows, each day's count sits next to its date, between
+the date and the bar, and the "Pushes" label heads the counts above the
+first row. Pushes and merges are drawn differently on purpose: they are
+counted on different scales, and bars side by side or stacked would invite
+comparing heights that mean nothing. A count's accessible name carries its
+count ("Oct 13, 5 pushes"), and the counts as a whole are named "Pushes per
+day".
 
 Under the bars, in the same card, the heatmap shows when in the day the
 work happened: whether it went on from morning to evening, or bunched into
@@ -259,7 +259,7 @@ hour of each day".
 Choosing a day's bar narrows the list to the pull requests merged on that
 day; a day with none cannot be chosen. A click on a bar's count chooses the
 bar too, since a bar for a small count can be too short to hit. Choosing a
-push circle narrows the list to the pull requests a member pushed to on
+push count narrows the list to the pull requests a member pushed to on
 that day. Choosing a cell of the heatmap narrows the list to the pull
 requests merged or pushed to by a member on that day within that hour, and
 an empty cell cannot be chosen. Choosing a bar, a circle or a cell
@@ -287,8 +287,13 @@ pull requests here.") above the button. There is no button when there is
 nothing to hide.
 
 The author is shown with their avatar, found by their account's id (see
-the [activity API](activity-api.md#get-activity)). A bot's pull request
-names only the bot as its author, marked "bot" after its login. A draft that is still open shows a "draft" badge in GitHub's
+the [activity API](activity-api.md#get-activity)), under the title at its
+right rather than in a column of their own: a column would widen and
+narrow with the longest login shown, and the table would jump when the
+bots' pull requests are shown or hidden. A bot's pull request
+names only the bot as its author, marked "bot": in the list, where the
+author is set at the right of its line, the mark comes before the login
+and the avatar after it, so that the avatars line up at the line's end. A draft that is still open shows a "draft" badge in GitHub's
 grey instead of "open". The Pushes column gives the number of members'
 pushes to the pull request in the period, or, while the chart narrows the
 list, in the chosen day or hour; on a narrow screen, where the column
@@ -300,7 +305,7 @@ push ("Pushed 2026-10-13 14:05") or its opening ("Opened 2026-10-13
 14:05"), whichever came last. While the chart narrows the list, the Date
 is instead the latest event the narrowing chose the row for, within the
 chosen day or hour: the merge for a bar, the day's last push by a member
-for a push circle, and the hour's last merge or push for a cell; the list
+for a push count, and the hour's last merge or push for a cell; the list
 is ordered by these dates. The time is in the viewer's time zone and
 24-hour form, on one line, every part padded so that the column lines
 up. The rows of each day share
@@ -311,13 +316,13 @@ as in the chart. The bands follow the dates shown, in a list narrowed by
 the chart too.
 
 Neither the list nor the summary table scrolls sideways, and the page
-never does: each fits its card's width. In the list, the title, the
-repository and the author wrap; the state, the pushes, the lines and the
+never does: each fits its card's width. In the list, the title and the
+repository wrap; the state, the pushes, the lines and the
 date keep to one line. In the summary table, a login wraps, after a hyphen where it
 has one, and the numbers keep to one line. Narrower than 50rem, where the
 list's columns would leave the title a few words a line, each pull request
-is a block instead of a row: its title, then its repository and author,
-then its state, pushes, lines and date, the date at the right end, with the day's
+is a block instead of a row: its title with its author under it at the
+right, then its repository, then its state, pushes, lines and date, the date at the right end, with the day's
 band behind it; the column headings are then read out but not drawn.
 
 The activity page fits the window when the window is tall and wide

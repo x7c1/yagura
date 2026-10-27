@@ -30,13 +30,14 @@ function onButtonKey(choose: () => void) {
 /**
  * A bar chart of the merged count of each day: a bar per day, with its
  * count written past its end. Its bars count merges, as they are what tell
- * how often changes landed. Above them, a row labelled "Pushes" holds a
- * circle per day with the members' pushes of that day, so that days spent
- * iterating on a pull request show too; a day without pushes has no
- * circle. Pushes are drawn apart from the bars, on no axis, as they are
+ * how often changes landed. A row labelled "Pushes" holds a circle per
+ * day with the members' pushes of that day, so that days spent iterating on
+ * a pull request show too; a day without pushes has no circle. Pushes are drawn apart from the bars, on no axis, as they are
  * counted on a scale of their own. The chart is drawn to the width it is
  * given: a column per day when the columns have room for their counts,
- * else a row per day, the push circle next to the date. Each bar or circle
+ * with the push circles in a row of their own under the heatmap, each
+ * under its day's column, else a row per day, the push circle next to the
+ * date. Each bar or circle
  * with a count is a button that chooses that day's merges or pushes;
  * choosing the chosen one again clears the choice.
  *
@@ -138,25 +139,31 @@ export function DailyChart(props: {
     );
   };
 
+  const chartClass =
+    chosenDay === null ? styles.chart : `${styles.chart} ${styles.chosen}`;
+
   const chart = (width: number) => {
     const geometry = chartGeometry(days, width);
-    const { height, ticks, groups, pushLabel } = geometry;
-    const bars = (
-      <svg
-        width={width}
-        height={height}
-        className={
-          chosenDay === null ? styles.chart : `${styles.chart} ${styles.chosen}`
-        }
-        role="group"
-        aria-label="Merged pull requests and pushes per day"
-      >
+    const { height, ticks, groups, pushLabel, pushRow } = geometry;
+    const pushes = (
+      <>
         <text {...placed(pushLabel)} className={styles.pushLabel}>
           Pushes
         </text>
         <g role="group" aria-label="Pushes per day">
           {groups.map((group) => push(group.day, group.push))}
         </g>
+      </>
+    );
+    const bars = (
+      <svg
+        width={width}
+        height={height}
+        className={chartClass}
+        role="group"
+        aria-label="Merged pull requests and pushes per day"
+      >
+        {pushRow === null && pushes}
         <g aria-hidden="true">
           {ticks.map(({ value, line, label }) => (
             <g key={value}>
@@ -216,6 +223,11 @@ export function DailyChart(props: {
           selected={selected}
           onSelect={onSelect}
         />
+        {pushRow !== null && (
+          <svg width={width} height={pushRow.height} className={chartClass}>
+            {pushes}
+          </svg>
+        )}
       </>
     );
   };

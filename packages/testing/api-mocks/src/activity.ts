@@ -210,7 +210,8 @@ const fixtures: readonly Fixture[] = [
     lines: [28, 5],
   },
   {
-    title: "Retry a search that timed out",
+    title:
+      "Retry a search that timed out with backoff, and give up after three attempts instead of waiting forever",
     repository: "mock-org/api",
     author: "mock-alice",
     created: on(7, "10:00"),
