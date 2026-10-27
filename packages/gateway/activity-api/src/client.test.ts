@@ -246,6 +246,38 @@ describe("ActivityApiClient", () => {
   });
 });
 
+describe("parseOrganizationActivity", () => {
+  it("reads when the organization was imported", () => {
+    const importedAt = "2026-10-27T03:00:00.000Z";
+
+    expect(
+      parseOrganizationActivity({ ...activityBody, importedAt })?.importedAt,
+    ).toEqual(new Date(importedAt));
+  });
+
+  it("reads an import that has not finished as null", () => {
+    const activity = parseOrganizationActivity({
+      ...activityBody,
+      importedAt: null,
+    });
+
+    expect(activity?.importedAt).toBeNull();
+  });
+
+  it("reads an answer without importedAt, as an older server's, as not saying", () => {
+    const activity = parseOrganizationActivity(activityBody);
+
+    expect(activity).toBeDefined();
+    expect(activity && "importedAt" in activity).toBe(false);
+  });
+
+  it("does not read an unreadable importedAt", () => {
+    expect(
+      parseOrganizationActivity({ ...activityBody, importedAt: "yesterday" }),
+    ).toBeUndefined();
+  });
+});
+
 describe("encodeOrganizationActivity", () => {
   it("writes the activity back as the API does, so that it reads back the same", () => {
     const activity = parseOrganizationActivity(activityBody);
@@ -263,5 +295,20 @@ describe("encodeOrganizationActivity", () => {
         { id: "49699333", login: "dependabot[bot]", type: "Bot" },
       ],
     });
+  });
+
+  it.each([
+    ["an import that has not finished", null],
+    ["a finished import", "2026-10-27T03:00:00.000Z"],
+  ])("keeps %s", (_, importedAt) => {
+    const activity = parseOrganizationActivity({ ...activityBody, importedAt });
+    if (activity === undefined) {
+      throw new Error("The fixture does not parse");
+    }
+
+    const encoded = encodeOrganizationActivity(activity);
+
+    expect(JSON.parse(JSON.stringify(encoded))).toMatchObject({ importedAt });
+    expect(parseOrganizationActivity(encoded)).toEqual(activity);
   });
 });

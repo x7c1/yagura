@@ -78,6 +78,21 @@ export interface OrganizationActivity {
   readonly pullRequests: readonly PullRequest[];
   /** In time order. */
   readonly activities: readonly Activity[];
+  /**
+   * When the server last finished importing the organization's members
+   * and its last 14 days of activity, or `null` while it has not finished,
+   * when the activity may be only part of it. Absent when the server does
+   * not say, as one older than the field does, which counts as imported.
+   */
+  readonly importedAt?: Date | null;
+}
+
+/**
+ * Whether the server is still importing the organization, so that the
+ * activity may be only part of it (see {@link OrganizationActivity.importedAt}).
+ */
+export function isImporting(activity: OrganizationActivity): boolean {
+  return activity.importedAt === null;
 }
 
 /** The pull request's page on GitHub. */

@@ -3,6 +3,7 @@ import {
   mockLogin,
   mockMemberLogins,
   mockOrganization,
+  mockActivityResponse,
   mockOrganizationId,
 } from "@yagura/api-mocks";
 import { fireEvent, render, screen, within } from "@testing-library/react";
@@ -13,8 +14,10 @@ import {
   findOrganization,
   membersPageUrl,
   memberSummaryRows,
+  pullRequestTitles,
   server,
   sessionApi,
+  showPage,
   showsOrganization,
   signOut,
   testController,
@@ -24,6 +27,9 @@ import {
 } from "../../test-support";
 
 const activityUrl = `${sessionApi}/activity`;
+
+/** The notice the view shows while the mock organization is imported. */
+const importingNotice = `Importing the last 14 days of ${mockOrganization}. This can take a few minutes.`;
 
 /** The logins of the summary table's rows, a bot's with its mark. */
 async function memberLogins(): Promise<string[]> {
@@ -241,6 +247,138 @@ describe("OrganizationMembers", () => {
         `No members of ${mockOrganization} are visible to you.`,
       ),
     ).toBeInTheDocument();
+  });
+
+  it("says that the organization is being imported, in place of saying that no members are visible", async () => {
+    const { controller } = testController({ signedIn: true });
+    server.use(
+      http.get(
+        activityUrl,
+        () =>
+          HttpResponse.json({
+            importedAt: null,
+            members: [],
+            pullRequests: [],
+            activities: [],
+          }),
+        { once: true },
+      ),
+    );
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+
+    expect(await screen.findByText(importingNotice)).toBeInTheDocument();
+    expect(screen.queryByText(/^No members of/)).not.toBeInTheDocument();
+  });
+
+  it("draws what has arrived below the notice of an import, on both pages", async () => {
+    const { controller, mock } = testController({ signedIn: true });
+    mock.importing = [mockOrganization];
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+
+    expect((await pullRequestTitles()).length).toBeGreaterThan(0);
+    const notice = screen.getByText(importingNotice);
+    expect(
+      notice.compareDocumentPosition(
+        screen.getByRole("table", { name: "Pull requests" }),
+      ) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+    showPage("Members");
+    expect((await memberLogins()).length).toBeGreaterThan(0);
+    expect(screen.getByText(importingNotice)).toBeInTheDocument();
+  });
+
+  it("says that no members are visible once the organization is imported", async () => {
+    const { controller } = testController({ signedIn: true });
+    server.use(
+      http.get(
+        activityUrl,
+        () =>
+          HttpResponse.json({
+            importedAt: "2026-10-27T03:00:00.000Z",
+            members: [],
+            pullRequests: [],
+            activities: [],
+          }),
+        { once: true },
+      ),
+    );
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+
+    expect(
+      await screen.findByText(
+        `No members of ${mockOrganization} are visible to you.`,
+      ),
+    ).toBeInTheDocument();
+    expect(screen.queryByText(importingNotice)).not.toBeInTheDocument();
+  });
+
+  it("shows no notice of an import for an imported organization", async () => {
+    const { controller } = testController({ signedIn: true });
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+
+    expect((await pullRequestTitles()).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Importing/)).not.toBeInTheDocument();
+  });
+
+  it("draws an answer without importedAt, as an older server's, as imported", async () => {
+    const { controller, mock } = testController({ signedIn: true });
+    // The mock's activity, as a server older than `importedAt` answers it.
+    server.use(
+      http.get(activityUrl, ({ request }) => {
+        const params = new URL(request.url).searchParams;
+        return HttpResponse.json(
+          mockActivityResponse(
+            mock.fixtures,
+            new Date(params.get("from") ?? ""),
+            new Date(params.get("to") ?? ""),
+          ),
+        );
+      }),
+    );
+
+    render(
+      <App
+        session={controller}
+        widths={testWidths()}
+        theme={testTheme()}
+        preferences={testPreferences()}
+      />,
+    );
+
+    expect((await pullRequestTitles()).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/^Importing/)).not.toBeInTheDocument();
   });
 
   it("switches between several organizations", async () => {

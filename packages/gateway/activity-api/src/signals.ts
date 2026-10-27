@@ -6,15 +6,33 @@ import type { CancelTimer, Timer } from "@yagura/browser";
 // what is published to it, so it speaks the protocol itself rather than
 // through an AppSync client library.
 
+/** What the server publishes to the viewer's channel: ids only. */
+export type Signal = ActivitySignal | ImportedSignal;
+
 /**
- * What the server publishes to the viewer's channel when it records
- * activity in a repository the viewer can see: ids only.
+ * What the server publishes when it records activity in a repository the
+ * viewer can see.
  */
-export interface Signal {
+export interface ActivitySignal {
   readonly repositoryId: string;
   readonly pullRequestId: string;
   /** The kind of activity, such as `pushed`. */
   readonly kind: string;
+}
+
+/**
+ * What the server publishes when it has finished importing an
+ * organization the viewer can use.
+ */
+export interface ImportedSignal {
+  readonly kind: "imported";
+  /** The organization's id, as `GET /activity/organizations` lists it. */
+  readonly organizationId: string;
+}
+
+/** Whether `signal` says that an organization's import has finished. */
+export function isImportedSignal(signal: Signal): signal is ImportedSignal {
+  return signal.kind === "imported" && "organizationId" in signal;
 }
 
 /** What a connection needs: the signal token and its channel. */
@@ -324,6 +342,12 @@ function readEvents(event: unknown): (Signal | undefined)[] {
 function parseSignal(value: unknown): Signal | undefined {
   if (!isRecord(value)) {
     return undefined;
+  }
+  if (value.kind === "imported") {
+    const organizationId = parseId(value.organizationId);
+    return organizationId === undefined
+      ? undefined
+      : { kind: "imported", organizationId };
   }
   const repositoryId = parseId(value.repositoryId);
   const pullRequestId = parseId(value.pullRequestId);
