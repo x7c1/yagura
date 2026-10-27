@@ -65,9 +65,9 @@ Two pages, one per question the view answers:
   day. It has a **chart** of the merged counts per day, a **heatmap** of
   the hours of pushes and merges under it, and a row of **push counts**
   under that, in the same card, and below them a **list of pull
-  requests**, newest first: title, repository (with the pull request's
-  number, "#123", on a second line under the repository's name), author,
-  state, pushes, additions, deletions, a link to the pull request on
+  requests**, newest first: title (with its author on a line under it,
+  at the right), repository (with the pull request's number, "#123", on a
+  second line under the repository's name), state, pushes, additions, deletions, a link to the pull request on
   GitHub, and a **Date** column. The state is a badge coloured as GitHub
   draws it: open green, draft grey, merged purple, closed red. It is the
   page that opens first, after sign-in too.
@@ -287,8 +287,13 @@ pull requests here.") above the button. There is no button when there is
 nothing to hide.
 
 The author is shown with their avatar, found by their account's id (see
-the [activity API](activity-api.md#get-activity)). A bot's pull request
-names only the bot as its author, marked "bot" after its login. A draft that is still open shows a "draft" badge in GitHub's
+the [activity API](activity-api.md#get-activity)), under the title at its
+right rather than in a column of their own: a column would widen and
+narrow with the longest login shown, and the table would jump when the
+bots' pull requests are shown or hidden. A bot's pull request
+names only the bot as its author, marked "bot": in the list, where the
+author is set at the right of its line, the mark comes before the login
+and the avatar after it, so that the avatars line up at the line's end. A draft that is still open shows a "draft" badge in GitHub's
 grey instead of "open". The Pushes column gives the number of members'
 pushes to the pull request in the period, or, while the chart narrows the
 list, in the chosen day or hour; on a narrow screen, where the column
@@ -311,13 +316,13 @@ as in the chart. The bands follow the dates shown, in a list narrowed by
 the chart too.
 
 Neither the list nor the summary table scrolls sideways, and the page
-never does: each fits its card's width. In the list, the title, the
-repository and the author wrap; the state, the pushes, the lines and the
+never does: each fits its card's width. In the list, the title and the
+repository wrap; the state, the pushes, the lines and the
 date keep to one line. In the summary table, a login wraps, after a hyphen where it
 has one, and the numbers keep to one line. Narrower than 50rem, where the
 list's columns would leave the title a few words a line, each pull request
-is a block instead of a row: its title, then its repository and author,
-then its state, pushes, lines and date, the date at the right end, with the day's
+is a block instead of a row: its title with its author under it at the
+right, then its repository, then its state, pushes, lines and date, the date at the right end, with the day's
 band behind it; the column headings are then read out but not drawn.
 
 The activity page fits the window when the window is tall and wide

@@ -529,7 +529,7 @@ describe("A narrowed list's Pushes and Date", () => {
     const cells = [...row.children].map(
       (cell) => cell.textContent?.trim() ?? "",
     );
-    return [cells[4] ?? "", cells[6] ?? ""];
+    return [cells[3] ?? "", cells[5] ?? ""];
   }
 
   const yesterday = expectedDays.find(

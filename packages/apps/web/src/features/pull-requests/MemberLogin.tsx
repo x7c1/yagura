@@ -13,24 +13,33 @@ export function avatarUrl(id: string): string | undefined {
 
 /**
  * A login with the account's avatar beside it, drawn the same in every
- * table, marked "bot" after it when it is a bot's, so that a bot is not
- * taken for a member.
+ * table, marked "bot" beside it when it is a bot's, so that a bot is not
+ * taken for a member. The avatar comes first and the mark after the login,
+ * or, where the login is set at the right of its line (`avatar: "after"`),
+ * the mark first and the avatar last, so that the avatars line up at the
+ * line's end.
  */
 export function MemberLogin(props: {
   /** The account's id, which its avatar is found by. */
   readonly id: string;
   readonly login: string;
   readonly bot?: boolean;
+  /** Where the avatar goes: before the login (the default) or after it. */
+  readonly avatar?: "before" | "after";
 }) {
-  const { id, login, bot = false } = props;
+  const { id, login, bot = false, avatar: place = "before" } = props;
   const avatar = avatarUrl(id);
+  const image = avatar !== undefined && (
+    <img className={styles.avatar} src={avatar} alt="" />
+  );
+  const mark = bot && <span className={styles.bot}>bot</span>;
   return (
     <span className={styles.login}>
-      {avatar !== undefined && (
-        <img className={styles.avatar} src={avatar} alt="" />
-      )}
+      {place === "before" && image}
+      {place === "after" && mark}
       <span className={styles.name}>{login}</span>
-      {bot && <span className={styles.bot}>bot</span>}
+      {place === "before" && mark}
+      {place === "after" && image}
     </span>
   );
 }
