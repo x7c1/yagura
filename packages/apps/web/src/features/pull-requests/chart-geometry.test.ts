@@ -217,15 +217,19 @@ describe("the push circles", () => {
     expect(new Set(groups.map(({ push }) => push.r)).size).toBe(1);
   });
 
-  it("sit in a row above the plot, centred over their days, labelled at its left", () => {
-    const { plot, groups, pushLabel } = chartGeometry(days(14, 4, 9), 1000);
+  it("sit in a row of their own, centred under their days, labelled at its left", () => {
+    const { plot, groups, pushLabel, pushRow } = chartGeometry(
+      days(14, 4, 9),
+      1000,
+    );
 
+    expect(pushRow).not.toBeNull();
     for (const { bar, push } of groups) {
       expect(push.cx).toBeCloseTo(bar.rect.x + bar.rect.width / 2);
       expect(push.cy).toBe(groups[0]?.push.cy);
-      // Above the counts of the tallest bars, and inside the chart.
-      expect(push.cy + push.r).toBeLessThan(bar.count.y);
+      // Inside the row, with room for a focus ring below.
       expect(push.cy - push.r).toBeGreaterThan(0);
+      expect(push.cy + push.r + 4).toBeLessThanOrEqual(pushRow?.height ?? 0);
     }
     expect(pushLabel).toMatchObject({ anchor: "end", y: groups[0]?.push.cy });
     expect(pushLabel.x).toBeLessThanOrEqual(plot.x);
@@ -244,7 +248,12 @@ describe("the push circles", () => {
   });
 
   it("sit next to the dates where the days are rows, labelled above them", () => {
-    const { plot, groups, pushLabel } = chartGeometry(days(14, 2, 30), 340);
+    const { plot, groups, pushLabel, pushRow } = chartGeometry(
+      days(14, 2, 30),
+      340,
+    );
+
+    expect(pushRow).toBeNull();
 
     for (const { bar, push, label } of groups) {
       expect(label?.x).toBeLessThan(push.cx - push.r);

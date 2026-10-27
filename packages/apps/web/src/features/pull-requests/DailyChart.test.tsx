@@ -418,7 +418,11 @@ describe("The push circles", () => {
       for (const [index, circle] of circles.entries()) {
         expect(circle).toHaveTextContent(String(pushDays()[index]?.pushed));
       }
-      expect(within(chartFigure()).getByText("Pushes")).toBeInTheDocument();
+      // The label heads the circles, in the drawing they are in.
+      const drawing = screen
+        .getByRole("group", { name: "Pushes per day" })
+        .closest("svg") as unknown as HTMLElement;
+      expect(within(drawing).getByText("Pushes")).toBeInTheDocument();
       // A day without pushes has no circle, though a bot pushed on Oct 7.
       expect(expectedDays.find(({ day }) => day === "2026-10-07")?.pushed).toBe(
         0,
@@ -430,7 +434,7 @@ describe("The push circles", () => {
   );
 
   it.each([1000, 340])(
-    "sit above the bars, or next to the dates, at %ipx",
+    "sit under the heatmap, each under its day's bar, or next to the dates, at %ipx",
     async (width) => {
       await renderChart(testWidths(width));
       const day = pushDays().find((d) => d.merged > 0);
@@ -450,8 +454,14 @@ describe("The push circles", () => {
       const barHeight = Number(bar.getAttribute("height"));
 
       if (width === 1000) {
+        // In a row of their own after the heatmap, lined up with the bars.
+        const heatmap = screen.getByRole("grid", { name: heatmapName });
+        expect(
+          heatmap.compareDocumentPosition(circle as Element) &
+            Node.DOCUMENT_POSITION_FOLLOWING,
+        ).toBeTruthy();
         expect(cx).toBeCloseTo(x + barWidth / 2);
-        expect(cy + r).toBeLessThan(y);
+        expect(cy - r).toBeGreaterThan(0);
       } else {
         expect(cx + r).toBeLessThan(x);
         expect(cy).toBeCloseTo(y + barHeight / 2);

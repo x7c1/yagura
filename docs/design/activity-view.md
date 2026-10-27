@@ -61,16 +61,16 @@ day up to local midnight at the end of today.
 
 Two pages, one per question the view answers:
 
-- **Activity**, at `/`, answers what happened on which day, and when in
-  the day. It has a **chart** of the merged counts per day with a row of
-  **push circles** above it, a **heatmap** of the hours of both under it
-  in the same card, and below them a **list of pull requests**, newest
-  first: title, repository (with the pull request's number, "#123", on a
-  second line under the repository's name), author, state, pushes,
-  additions, deletions, a link to the pull request on GitHub, and a
-  **Date** column. The state is a badge coloured as GitHub draws it: open
-  green, draft grey, merged purple, closed red. It is the page that opens
-  first, after sign-in too.
+- **Activity**, at `/`, answers what happened on which day, and when in the
+  day. It has a **chart** of the merged counts per day, a **heatmap** of
+  the hours of pushes and merges under it, and a row of **push circles**
+  under that, in the same card, and below them a **list of pull
+  requests**, newest first: title, repository (with the pull request's
+  number, "#123", on a second line under the repository's name), author,
+  state, pushes, additions, deletions, a link to the pull request on
+  GitHub, and a **Date** column. The state is a badge coloured as GitHub
+  draws it: open green, draft grey, merged purple, closed red. It is the
+  page that opens first, after sign-in too.
 - **Members**, at `/members`, answers who has been quiet. It has a
   **summary table** with a row per member: opened, merged, pushed,
   additions, deletions.
@@ -199,20 +199,20 @@ two), the days are rows, oldest at the top, with the date left of the bar,
 growing right on an axis below. Either way, all the bars share one axis
 that starts at zero, so that their lengths compare across days.
 
-Above the bars, one row, labelled "Pushes" at its left where the axis's
-labels are, holds a small circle for each day with that day's number of
-pushes by members written in it; a day without pushes leaves its place
-empty. The circles are filled in a push colour of their own, an orange
-apart from the bars' blue and the list's state badges, with the count in a
-colour that keeps 4.5:1 contrast on it in both themes. They are all one
-size, wide enough for the largest count, so that the counts, not the
-sizes, tell the days apart. Where the days are rows, each day's circle
-sits next to its date, between the date and the bar, and the "Pushes"
-label heads the circles above the first row. Pushes and merges are drawn
-differently on purpose: they are counted on different scales, and bars
-side by side or stacked would invite comparing heights that mean nothing.
-A circle's accessible name carries its count ("Oct 13, 5 pushes"), and the
-circles as a whole are named "Pushes per day".
+Under the heatmap, one row, labelled "Pushes" at its left where the axis's
+labels are, holds a small circle for each day, right under that day's bar
+and column of cells, with that day's number of pushes by members written in
+it; a day without pushes leaves its place empty. The circles are filled in
+the bars' blue, with the count in a colour that keeps 4.5:1 contrast on it
+in both themes: their shape and their row, not their colour, set them apart
+from the bars. They are all one size, wide enough for the largest count, so
+that the counts, not the sizes, tell the days apart. Where the days are
+rows, each day's circle sits next to its date, between the date and the
+bar, and the "Pushes" label heads the circles above the first row. Pushes
+and merges are drawn differently on purpose: they are counted on different
+scales, and bars side by side or stacked would invite comparing heights
+that mean nothing. A circle's accessible name carries its count ("Oct 13, 5
+pushes"), and the circles as a whole are named "Pushes per day".
 
 Under the bars, in the same card, the heatmap shows when in the day the
 work happened: whether it went on from morning to evening, or bunched into

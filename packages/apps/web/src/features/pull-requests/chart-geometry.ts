@@ -69,6 +69,12 @@ const minPushDiameter = 16;
 /** The room a push circle leaves around its count, on each side. */
 const pushPadding = 3;
 
+/**
+ * The space above the column layout's row of push circles, between it and
+ * the last row of the hours' heatmap drawn above it.
+ */
+const pushRowGap = 3 * textGap;
+
 /** The thickness of a row's bar. */
 const rowBarThickness = 14;
 
@@ -158,6 +164,14 @@ export interface ChartGeometry<T extends Counts = Counts> {
   /** The plot area, inside the axes, the bars start from its bottom or left. */
   readonly plot: Rect;
   readonly ticks: readonly Tick[];
+  /**
+   * Where the push circles go. In the column layout they are a row of their
+   * own, drawn under the hours' heatmap, and their circles and label are
+   * placed from the top left corner of that row, `pushRow.height` tall; in
+   * the row layout (`pushRow` null) they are in the chart, next to the
+   * dates.
+   */
+  readonly pushRow: { readonly height: number } | null;
   /** Where the push circles' label, "Pushes", goes. */
   readonly pushLabel: TextSpot;
   readonly groups: readonly DayGroup<T>[];
@@ -274,8 +288,8 @@ function tickValues(axis: { max: number; step: number }): number[] {
 
 /**
  * A column per day, its bar growing up from the axis, centred in it, and
- * its push circle above the plot, in a row of its own labelled at its
- * left. Every day is labelled below if the labels fit side by side, else
+ * its push circle centred under it in a row of its own, labelled at its
+ * left, which is drawn under the hours' heatmap. Every day is labelled below if the labels fit side by side, else
  * every other day (or fewer, as needed), counting back from the last one
  * so that today always has a label.
  */
@@ -286,12 +300,14 @@ function columnsGeometry<T extends Counts>(
   const axis = yAxis(maxCount(days));
   const left = columnsAxisWidth(axis.max);
   const r = pushDiameter(days) / 2;
-  // The push row at the top, a focus ring's reach clear of the edge, then
-  // room above the plot for the count of a bar that reaches its top.
-  const pushY = focusRingReach + r;
+  // The push row's circles, under the heatmap, with room under them for a
+  // circle's focus ring.
+  const pushY = pushRowGap + r;
+  const pushRowHeight = pushY + r + focusRingReach;
+  // Room above the plot for the count of a bar that reaches its top.
   const plot: Rect = {
     x: left,
-    y: pushY + r + textGap + textHeight + textGap,
+    y: textGap + textHeight + textGap,
     width: width - left,
     height: columnsPlotHeight,
   };
@@ -332,6 +348,7 @@ function columnsGeometry<T extends Counts>(
       },
       label: { x: plot.x - textGap, y: yOf(value), anchor: "end" },
     })),
+    pushRow: { height: pushRowHeight },
     pushLabel: { x: plot.x - textGap, y: pushY, anchor: "end" },
     groups: days.map((day, index) => {
       const center = plot.x + groupWidth * (index + 0.5);
@@ -408,6 +425,7 @@ function rowsGeometry<T extends Counts>(
         anchor: "middle",
       },
     })),
+    pushRow: null,
     pushLabel: { x: pushX, y: textHeight / 2, anchor: "middle" },
     groups: days.map((day, index) => {
       const top = plot.y + rowHeight * index + rowGap / 2;
