@@ -103,6 +103,6 @@ never shows whether it is connected.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `make dev` against a backend that has no signal hosts, or with
+- [x] With `make dev` against a backend that has no signal hosts, or with
       the API mock, the header shows no dot and nothing else in the header
       moves; the narrow layout keeps the names and the menu button in place
