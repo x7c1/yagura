@@ -101,7 +101,7 @@ Update `docs/guides/development.md` if anything it says about MSW changes
 
 ### Before merge (verified outside the check command)
 
-- [ ] Under the load above (4 parallel × 10 rounds of the web tests), the
+- [x] Under the load above (4 parallel × 10 rounds of the web tests), the
       branch has 0 failing runs, and `main` (MSW 2) is measured the same way
       on the same day for comparison; both counts are recorded in the PR
 - [x] With `VITE_API_MOCK=1 make dev`, the app signs in with the mock and
