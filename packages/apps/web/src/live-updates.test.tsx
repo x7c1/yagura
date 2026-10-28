@@ -29,6 +29,7 @@ import {
   type LiveUpdatesOptions,
 } from "./features/live-updates";
 import {
+  menuButton,
   pullRequestTitles,
   server,
   sessionApi,
@@ -117,6 +118,64 @@ function liveStatus(): string | undefined {
     .queryByRole("button", { name: /^Connection: / })
     ?.getAttribute("aria-label")
     ?.replace("Connection: ", "");
+}
+
+/**
+ * The state the header's dot is drawn in, which tells "starting" from
+ * "connecting" where their names do not, or `undefined` without a dot.
+ */
+function liveState(): string | undefined {
+  return (
+    screen
+      .queryByRole("button", { name: /^Connection: / })
+      ?.querySelector("[data-status]")
+      ?.getAttribute("data-status") ?? undefined
+  );
+}
+
+/** Waits until the header shows the session, with the menu that ends it. */
+async function sessionShown(): Promise<void> {
+  await waitFor(() => menuButton());
+}
+
+/**
+ * The states the header's dot is drawn in while the header shows the
+ * session, from the first, recorded on each change of the page until
+ * `stop` is called.
+ */
+function recordLiveStates(): {
+  readonly seen: Set<string | undefined>;
+  stop(): void;
+} {
+  const seen = new Set<string | undefined>();
+  const record = () => {
+    if (
+      screen.queryByRole("banner") !== null &&
+      within(screen.getByRole("banner")).queryByRole("button", {
+        name: "Menu",
+      }) !== null
+    ) {
+      seen.add(liveState());
+    }
+  };
+  const observer = new MutationObserver(record);
+  observer.observe(document.body, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+  });
+  record();
+  return { seen, stop: () => observer.disconnect() };
+}
+
+/** The explanation of the header's dot, which describes the dot. */
+function liveExplanation(): HTMLElement {
+  const id = liveDot().getAttribute("aria-describedby");
+  const found = id === null ? null : document.getElementById(id);
+  if (found === null) {
+    throw new Error("The dot has no description");
+  }
+  return found;
 }
 
 /** The `index`th connection the page made, once it is made. */
@@ -536,15 +595,19 @@ describe("live updates", () => {
 });
 
 describe("the live status", () => {
-  it("follows the connection, showing nothing for the first moment", async () => {
+  it("follows the connection, starting for the first moment", async () => {
     const page = openPage();
+    await sessionShown();
+    expect(liveState()).toBe("starting");
+    expect(liveStatus()).toBe("Connecting");
     await pullRequestTitles();
     const first = await connection(page, 0);
-    expect(liveStatus()).toBeUndefined();
+    expect(liveState()).toBe("starting");
 
     advance(page.timer, connectingGraceMs - 1);
-    expect(liveStatus()).toBeUndefined();
+    expect(liveState()).toBe("starting");
     advance(page.timer, 1);
+    expect(liveState()).toBe("connecting");
     expect(liveStatus()).toBe("Connecting");
     act(() => first.subscribed());
     expect(liveStatus()).toBe("Live");
@@ -552,36 +615,36 @@ describe("the live status", () => {
     act(() => first.drop());
     expect(liveStatus()).toBe("Not live");
     advance(page.timer, firstRetryMs);
-    await waitFor(() => expect(liveStatus()).toBe("Connecting"));
+    await waitFor(() => expect(liveState()).toBe("connecting"));
     const second = await connection(page, 1);
     act(() => second.subscribed());
     expect(liveStatus()).toBe("Live");
   });
 
-  it("shows live at once when subscribed within the first moment", async () => {
+  it("goes from starting to live when subscribed within the first moment", async () => {
+    const recording = recordLiveStates();
     const page = openPage();
-    const seen = new Set<string | undefined>();
-    const observer = new MutationObserver(() => seen.add(liveStatus()));
-    observer.observe(document.body, {
-      subtree: true,
-      childList: true,
-      attributes: true,
-    });
 
     await connected(page);
     advance(page.timer, connectingGraceMs);
-    observer.disconnect();
+    recording.stop();
+    const { seen } = recording;
 
     expect(liveStatus()).toBe("Live");
-    expect(seen).not.toContain("Connecting");
+    expect(seen).toContain("starting");
+    expect(seen).not.toContain("connecting");
+    expect(seen).not.toContain(undefined);
   });
 
-  it("is not shown without the signal hosts", async () => {
-    openPage({ live: false });
+  it("is not shown without the signal hosts, as with the API mock", async () => {
+    // The development mode with the API mock has no signal hosts either.
+    const page = openPage({ live: false });
+    expect(liveState()).toBeUndefined();
 
     await pullRequestTitles();
+    advance(page.timer, connectingGraceMs);
 
-    expect(liveStatus()).toBeUndefined();
+    expect(liveState()).toBeUndefined();
   });
 
   it("is not shown signed out", async () => {
@@ -592,31 +655,77 @@ describe("the live status", () => {
     signOut();
 
     await screen.findByRole("button", { name: "Sign in with GitHub" });
-    expect(liveStatus()).toBeUndefined();
+    expect(liveState()).toBeUndefined();
+  });
+
+  it("is not shown signed out from the start", async () => {
+    const test = testController({ signedIn: false, clock: () => now });
+    renderPage(test, true);
+
+    expect(liveState()).toBeUndefined();
+    await screen.findByRole("button", { name: "Sign in with GitHub" });
+    expect(liveState()).toBeUndefined();
+  });
+
+  it("is described by its explanation in each state", async () => {
+    const page = openPage();
+    await sessionShown();
+    expect(liveDot()).toHaveAccessibleDescription("Connecting…");
+    const first = await connection(page, 0);
+
+    advance(page.timer, connectingGraceMs);
+    expect(liveState()).toBe("connecting");
+    expect(liveDot()).toHaveAccessibleDescription("Connecting…");
+    act(() => first.subscribed());
+    expect(liveDot()).toHaveAccessibleDescription(
+      "Live. Updates appear within seconds.",
+    );
+    act(() => first.drop());
+    expect(liveDot()).toHaveAccessibleDescription(
+      "Not live. Reload to update.",
+    );
+    expect(liveExplanation()).not.toBeVisible();
   });
 
   it("explains itself on hover and on focus, until left", async () => {
     const page = openPage();
     await connected(page);
     const explanation = "Live. Updates appear within seconds.";
+    expect(liveExplanation()).toHaveTextContent(explanation);
+    expect(liveExplanation()).not.toBeVisible();
 
     fireEvent.pointerEnter(liveDot(), { pointerType: "mouse" });
-    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(liveExplanation()).toBeVisible();
     expect(liveDot()).toHaveAttribute("aria-expanded", "true");
     fireEvent.pointerLeave(liveDot(), { pointerType: "mouse" });
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
-
-    // Escape closes what pointing opened, and leaves focus where it was.
-    fireEvent.pointerEnter(liveDot(), { pointerType: "mouse" });
-    fireEvent.keyDown(document.body, { key: "Escape" });
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
-    expect(liveDot()).not.toHaveFocus();
-    fireEvent.pointerLeave(liveDot(), { pointerType: "mouse" });
+    expect(liveExplanation()).not.toBeVisible();
 
     fireEvent.focus(liveDot());
-    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(liveExplanation()).toBeVisible();
     fireEvent.blur(liveDot());
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveExplanation()).not.toBeVisible();
+  });
+
+  it("closes on Escape when opened by pointing or focus, leaving focus where it is", async () => {
+    const page = openPage();
+    await connected(page);
+    const elsewhere = menuButton();
+
+    // Opened by pointing while focus is elsewhere.
+    act(() => elsewhere.focus());
+    fireEvent.pointerEnter(liveDot(), { pointerType: "mouse" });
+    expect(liveExplanation()).toBeVisible();
+    fireEvent.keyDown(document.body, { key: "Escape" });
+    expect(liveExplanation()).not.toBeVisible();
+    expect(elsewhere).toHaveFocus();
+    fireEvent.pointerLeave(liveDot(), { pointerType: "mouse" });
+
+    // Opened by focus.
+    act(() => liveDot().focus());
+    expect(liveExplanation()).toBeVisible();
+    fireEvent.keyDown(liveDot(), { key: "Escape" });
+    expect(liveExplanation()).not.toBeVisible();
+    expect(liveDot()).toHaveFocus();
   });
 
   it("explains itself on a tap, until a tap outside, Escape or a second tap", async () => {
@@ -624,28 +733,32 @@ describe("the live status", () => {
     const first = await connected(page);
     act(() => first.drop());
     const explanation = "Not live. Reload to update.";
+    expect(liveExplanation()).toHaveTextContent(explanation);
 
     // A touch has no hover; the tap opens it.
     fireEvent.pointerEnter(liveDot(), { pointerType: "touch" });
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveExplanation()).not.toBeVisible();
     fireEvent.click(liveDot());
-    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(liveExplanation()).toBeVisible();
     fireEvent.pointerDown(screen.getByRole("main"));
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveExplanation()).not.toBeVisible();
 
+    // After a press, Escape returns focus to the dot.
     fireEvent.click(liveDot());
     fireEvent.keyDown(document.body, { key: "Escape" });
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveExplanation()).not.toBeVisible();
     expect(liveDot()).toHaveFocus();
 
     fireEvent.click(liveDot());
-    expect(screen.getByText(explanation)).toBeInTheDocument();
+    expect(liveExplanation()).toBeVisible();
     fireEvent.click(liveDot());
-    expect(screen.queryByText(explanation)).not.toBeInTheDocument();
+    expect(liveExplanation()).not.toBeVisible();
   });
 
   it("is not announced as it changes", async () => {
     const page = openPage();
+    await sessionShown();
+    expect(liveDot().closest("[aria-live], [role=status]")).toBeNull();
     await connected(page);
 
     expect(liveDot().closest("[aria-live], [role=status]")).toBeNull();
