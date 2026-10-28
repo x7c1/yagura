@@ -146,7 +146,10 @@ id is opaque: the app compares it and does not read it.
 
 A token for the viewer's channel of [signals](#signals), with which the
 app connects to the realtime endpoint and subscribes to that channel. The
-request has no body.
+request has no body. Before issuing the token, the server checks again
+what the viewer can see (see [Visibility](#visibility)), so this request
+can take as long as `GET /activity` the first time, and fails as it does
+when GitHub cannot be reached.
 
 Response `200`:
 
@@ -191,9 +194,9 @@ a managed WebSocket pub/sub service, on a channel per viewer.
 
 When the server records activity in a repository, it publishes a signal to
 the channel of each viewer who can see that repository and whose access to
-it the server checked within the last five minutes (see
-[Visibility](#visibility)). A signal carries ids only, never what happened
-in the viewer's terms:
+it the server checked within the last 24 hours, the longest a connection
+stays open (see [Visibility](#visibility)). A signal carries ids only, never
+what happened in the viewer's terms:
 
 ```json
 { "repositoryId": "...", "pullRequestId": "...", "kind": "pushed" }
@@ -205,7 +208,7 @@ events at once, and so sends several signals within a second or two.
 When the server finishes importing an organization (see `importedAt` in
 [`GET /activity`](#get-activity)), it publishes an `imported` signal to
 the channel of each viewer who can use that organization and whose access
-the server checked within the last five minutes:
+the server checked within the last 24 hours:
 
 ```json
 { "kind": "imported", "organizationId": "..." }
@@ -214,6 +217,13 @@ the server checked within the last five minutes:
 `organizationId` is the `id` of the organization, as
 `GET /activity/organizations` lists it. A page showing that organization
 fetches its activity again; a page showing another one does not.
+
+A viewer who has lost access to a repository can still receive its
+signals, ids and timing only, until the server checks that viewer's access
+again: the page fetches the activity on a signal, and that fetch checks
+access when the last check is more than five minutes old, or when a change
+of access has been reported since. A client that never fetches stops
+receiving them at most 24 hours after the last check.
 
 Nothing is kept: a signal published while the page is not connected and
 subscribed is lost. That is why the page fetches the activity again after
