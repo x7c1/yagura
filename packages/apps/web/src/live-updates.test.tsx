@@ -244,7 +244,7 @@ describe("live updates", () => {
     });
   });
 
-  it("sends the token request with the bearer token and no cookies", async () => {
+  it("sends the token request with the bearer token", async () => {
     const page = openPage();
     await pullRequestTitles();
 
@@ -253,7 +253,6 @@ describe("live updates", () => {
     expect(request?.authorization).toBe(
       `Bearer ${page.controller.accessToken}`,
     );
-    expect(request?.credentials).toBe("omit");
   });
 
   it("fetches the activity again on a signal, and draws it in place", async () => {

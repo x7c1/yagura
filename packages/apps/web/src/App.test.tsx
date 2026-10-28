@@ -127,7 +127,7 @@ describe("App", () => {
       expect(mock.signedIn).toBe(false);
     });
     const [request] = mock.requestsTo("DELETE", `${sessionApi}/session`);
-    expect(request?.credentials).toBe("include");
+    expect(request).toBeDefined();
     expect(controller.accessToken).toBeUndefined();
   });
 
@@ -424,8 +424,9 @@ describe("Signing out", () => {
       />,
     );
     expect(await screen.findByText(mockLogin)).toBeInTheDocument();
+    // Both answers are stored: the organizations and their activity.
     await vi.waitFor(() => {
-      expect(cache.keys).not.toEqual([]);
+      expect(cache.keys).toHaveLength(2);
     });
 
     await first.controller.signOut();

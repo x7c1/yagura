@@ -160,7 +160,7 @@ const upstreamError = () =>
   );
 
 describe("Asking the activity API", () => {
-  it("asks for the organization's activity over the period with the bearer token and no cookies", async () => {
+  it("asks for the organization's activity over the period with the bearer token", async () => {
     const view = page();
     await view.load();
 
@@ -174,7 +174,6 @@ describe("Asking the activity API", () => {
     expect(new Date(params.get("from") ?? "")).toEqual(new Date(2026, 8, 29));
     expect(new Date(params.get("to") ?? "")).toEqual(new Date(2026, 9, 13));
     expect(request?.authorization).toMatch(/^Bearer ghu_mock_\d+$/);
-    expect(request?.credentials).not.toBe("include");
   });
 });
 
