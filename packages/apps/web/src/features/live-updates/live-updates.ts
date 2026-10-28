@@ -43,8 +43,10 @@ export const longAbsenceMs = 60_000;
  * Whether the page is live, as its header shows it: subscribed to the
  * viewer's channel, connecting (from asking for a token until subscribed),
  * or waiting to connect again after a failure or a dropped connection.
+ * Before any of these is shown, it is starting: a placeholder for a
+ * status not known yet, so that the dot is drawn from the start.
  */
-export type LiveStatus = "live" | "connecting" | "not-live";
+export type LiveStatus = "starting" | "live" | "connecting" | "not-live";
 
 /** Why the view should fetch again, gathered over a burst. */
 export interface LiveUpdate {
@@ -89,7 +91,8 @@ export interface LiveUpdatesOptions {
  * connecting again at once if the connection is gone, or replacing it
  * after a long absence. It also connects again at once when the browser
  * comes back online while waiting to retry, and tells `onStatus` whether
- * the page is live, holding back "connecting" for a moment at first.
+ * the page is live, showing "starting" in place of "connecting" for a
+ * moment at first.
  *
  * Each connection gets a fresh token from `requestToken`. A failed token
  * request or connection is tried again after a wait that grows with each
@@ -120,14 +123,14 @@ export class LiveUpdates {
   /** When the page was last hidden, while it still is. */
   #hiddenAt: number | undefined;
   /** Where the connection is, whether or not it is shown yet. */
-  #status: LiveStatus = "connecting";
-  /** Whether a status was shown since the start. */
+  #status: Exclude<LiveStatus, "starting"> = "connecting";
+  /** Whether a status other than "starting" was shown since the start. */
   #statusShown = false;
   #cancelGrace: CancelTimer | undefined;
 
   /**
-   * `onStatus` is told each status to show, or `undefined` for none: at
-   * the start, until a status is shown, and once stopped.
+   * `onStatus` is told each status to show: "starting" at the start, until
+   * another status is shown, and `undefined` for none once stopped.
    */
   constructor(
     options: LiveUpdatesOptions,
@@ -158,6 +161,7 @@ export class LiveUpdates {
     this.#stopOnline = this.#options.network.on("online", () =>
       this.#connectNowIfWaiting(),
     );
+    this.#onStatus("starting");
     this.#cancelGrace = this.#options.timer.schedule(() => {
       this.#cancelGrace = undefined;
       this.#show();
@@ -232,8 +236,11 @@ export class LiveUpdates {
     }
   }
 
-  /** Sets the status, and shows it unless connecting is held back. */
-  #setStatus(status: LiveStatus): void {
+  /**
+   * Sets the status, and shows it unless it is "connecting" while
+   * "starting" is still shown, held back until the grace period ends.
+   */
+  #setStatus(status: Exclude<LiveStatus, "starting">): void {
     this.#status = status;
     if (status !== "connecting" || this.#statusShown) {
       this.#show();

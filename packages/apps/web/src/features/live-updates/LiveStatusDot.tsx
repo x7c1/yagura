@@ -3,13 +3,17 @@ import { useLiveStatus } from "./live-updates-context";
 import type { LiveStatus } from "./live-updates";
 import styles from "./LiveStatusDot.module.css";
 
+// Starting is a placeholder for a status not known yet, so it is named
+// and explained as connecting is.
 const statusLabels: Readonly<Record<LiveStatus, string>> = {
+  starting: "Connecting",
   live: "Live",
   connecting: "Connecting",
   "not-live": "Not live",
 };
 
 const explanations: Readonly<Record<LiveStatus, string>> = {
+  starting: "Connecting…",
   live: "Live. Updates appear within seconds.",
   connecting: "Connecting…",
   "not-live": "Not live. Reload to update.",
@@ -21,14 +25,17 @@ type OpenedBy = "pointer" | "focus" | "press";
 /**
  * A dot in the header that shows whether the page is live: filled green
  * while live, an amber ring while connecting, a grey ring while not live,
- * told apart by shape as well as colour. It draws nothing while there is
- * no status to show (see {@link useLiveStatus}).
+ * told apart by shape as well as colour; and filled pale grey while
+ * starting, before any of these is shown, so that the dot is drawn from
+ * the start and nothing beside it shifts when it changes. It draws nothing
+ * without live updates (see {@link useLiveStatus}).
  *
  * Its explanation is a toggletip: pointing at the dot or focusing it opens
  * it, and the pointer or focus leaving closes it; a press opens it, and a
- * press outside, Escape or a second press closes it, Escape after a
- * press returning focus to the dot. The dot's name includes the status,
- * and a change of status is not announced on its own.
+ * press outside or a second press closes it. Escape closes it however it
+ * was opened, returning focus to the dot only after a press. The dot's
+ * name includes the status, and the explanation, even while closed, is
+ * its description; a change of status is not announced on its own.
  */
 export function LiveStatusDot() {
   const status = useLiveStatus();
@@ -105,6 +112,7 @@ export function LiveStatusDot() {
         aria-label={`Connection: ${statusLabels[status]}`}
         aria-expanded={open}
         aria-controls={open ? tipId : undefined}
+        aria-describedby={tipId}
         className={styles.button}
         onFocus={() => {
           if (!refocusing.current && openedBy === undefined) {
@@ -116,11 +124,10 @@ export function LiveStatusDot() {
       >
         <span aria-hidden="true" className={styles.dot} data-status={status} />
       </button>
-      {open && (
-        <span id={tipId} className={styles.tip}>
-          {explanations[status]}
-        </span>
-      )}
+      {/* Kept while hidden, so that it describes the dot even closed. */}
+      <span id={tipId} className={styles.tip} hidden={!open}>
+        {explanations[status]}
+      </span>
     </span>
   );
 }

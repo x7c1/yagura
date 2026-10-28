@@ -557,29 +557,47 @@ right, just before the organization's avatar and name; on a narrow screen,
 where the session takes a row of its own, it sits at the left end of that
 row. The sign-in screen has no dot.
 
-| State      | Dot           | Explanation                            | When                                                                                    |
-| ---------- | ------------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
-| Live       | filled, green | "Live. Updates appear within seconds." | subscribed to the viewer's channel                                                      |
-| Connecting | ring, amber   | "Connecting…"                          | from asking for a signal token until subscribed, the first time and on connecting again |
-| Not live   | ring, grey    | "Not live. Reload to update."          | waiting to connect again after a failure or a dropped connection                        |
+| State      | Dot               | Explanation                            | When                                                                                    |
+| ---------- | ----------------- | -------------------------------------- | --------------------------------------------------------------------------------------- |
+| Starting   | filled, pale grey | "Connecting…"                          | while connecting, before any other state is shown: at most the first 3 seconds          |
+| Live       | filled, green     | "Live. Updates appear within seconds." | subscribed to the viewer's channel                                                      |
+| Connecting | ring, amber       | "Connecting…"                          | from asking for a signal token until subscribed, the first time and on connecting again |
+| Not live   | ring, grey        | "Not live. Reload to update."          | waiting to connect again after a failure or a dropped connection                        |
 
 The states are told apart by shape as well as colour, never by colour
 alone, and each colour has at least 3:1 contrast against the header in
-both themes. The dot does not blink or pulse.
+both themes. The one exception is "Starting", which shares Live's shape
+and differs from it only by its pale grey. That is acceptable because it is
+a placeholder for a state not known yet, it lasts only a moment, and its
+accessible name ("Connection: Connecting") and its explanation are
+Connecting's, not Live's. The dot does not blink or pulse.
 
 So that a load does not flicker, "Connecting" shows only when subscribing
-has not finished 3 seconds after connecting began; until then no dot is
-drawn. A connection normally subscribes within about a second, so a load
-on a working network goes straight to "Live". Once a dot is drawn, connecting
-again (after a drop, or after a long absence) shows "Connecting" at once.
+has not finished 3 seconds after connecting began; until then the dot is
+drawn as "Starting". A connection normally subscribes within about a
+second, so a load on a working network goes from the pale dot straight to
+"Live", the same shape changing colour. Once another state is shown,
+connecting again (after a drop, or after a long absence) shows
+"Connecting" at once.
+
+The dot is drawn from the moment the session is shown, so it never arrives
+later and the row it sits in never shifts: on a narrow screen especially,
+where it is at the left end of the session's row, a dot appearing a second
+after the load would push the organization's name and the login aside.
+Where there is no dot (signed out, a build without the signal hosts, and
+the API mock), none is drawn from the start either, and signing out
+removes it.
 
 The dot shows only itself; its explanation is a short toggletip under it.
 Pointing at the dot or focusing it with the keyboard opens it, and it
 closes when the pointer or focus leaves. A tap or a click opens it, and a
-tap outside, Escape or a second tap on the dot closes it, Escape returning
-focus to the dot, as the header's menu button does. The dot's accessible
-name includes the state ("Connection: Live"), and a change of state is not
-announced on its own, which would be noise.
+tap outside or a second tap on the dot closes it. Escape closes it however
+it was opened: after a tap or a click it returns focus to the dot, as the
+header's menu button does; opened by pointing or by focus, it leaves focus
+where it is. The dot's accessible name includes the state ("Connection:
+Live"), and the explanation is the dot's description, so that a screen
+reader reads its sentence too ("Reload to update."). A change of state is
+not announced on its own, which would be noise.
 
 The whole period is fetched again each time, not what changed since the
 last answer.

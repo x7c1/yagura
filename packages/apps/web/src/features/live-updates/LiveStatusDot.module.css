@@ -27,13 +27,20 @@
 
 /*
  * Filled while live, a ring otherwise, so that the states are told apart
- * by shape as well as colour. It never blinks or pulses.
+ * by shape as well as colour. Starting, drawn for a moment before any of
+ * them, is filled too, told from live by its pale grey. The dot never
+ * blinks or pulses.
  */
 .dot {
   width: 10px;
   height: 10px;
   border: var(--border-width-strong) solid currentColor;
   border-radius: var(--radius-pill);
+}
+
+.dot[data-status="starting"] {
+  color: var(--color-starting);
+  background: currentColor;
 }
 
 .dot[data-status="live"] {

@@ -29,9 +29,10 @@ const LiveStatusContext = createContext<LiveStatus | undefined>(undefined);
 /**
  * Keeps the signed-in viewer's page live while it is mounted: one
  * connection to the viewer's channel of signals, closed when it unmounts,
- * as it does on signing out. Without `options`, as in a build without the
- * signal hosts, nothing connects, the page is not live, and no status is
- * shown.
+ * as it does on signing out. With `options`, a status is shown from the
+ * first render, "starting" until connecting tells another. Without
+ * `options`, as in a build without the signal hosts, nothing connects, the
+ * page is not live, and no status is shown.
  */
 export function LiveUpdatesProvider(props: {
   readonly options: LiveUpdatesOptions | undefined;
@@ -46,7 +47,11 @@ export function LiveUpdatesProvider(props: {
     listeners.add(entry);
     return () => listeners.delete(entry);
   });
-  const [status, setStatus] = useState<LiveStatus | undefined>(undefined);
+  // "Starting" from the first render, so that the dot does not appear a
+  // render later and shift what is beside it.
+  const [status, setStatus] = useState<LiveStatus | undefined>(() =>
+    options === undefined ? undefined : "starting",
+  );
 
   useEffect(() => {
     if (options === undefined) {
@@ -105,9 +110,8 @@ export function useLiveUpdates(
 }
 
 /**
- * Whether the page is live, to show: `undefined` while nothing is to be
- * shown, as before connecting has taken long enough to show, or without
- * live updates.
+ * Whether the page is live, to show: "starting" until the connection has
+ * another status to show, and `undefined` without live updates.
  */
 export function useLiveStatus(): LiveStatus | undefined {
   return useContext(LiveStatusContext);
