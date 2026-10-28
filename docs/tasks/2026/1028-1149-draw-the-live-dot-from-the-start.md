@@ -89,5 +89,5 @@ because the dot is drawn from the start, and add the two points above.
 
 ### Before merge (verified outside the check command)
 
-- [ ] With `make dev` and the API mock, the header shows no dot and nothing
+- [x] With `make dev` and the API mock, the header shows no dot and nothing
       else in it moves, at a wide and at a 390px width
