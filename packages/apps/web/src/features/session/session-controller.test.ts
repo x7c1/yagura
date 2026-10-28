@@ -119,7 +119,6 @@ describe("SessionController.handleCallback", () => {
     await controller.handleCallback("?code=abc&state=s1");
 
     const [request] = mock.requestsTo("POST", `${sessionApi}/session`);
-    expect(request?.credentials).toBe("include");
     expect(request?.body).toEqual({
       code: "abc",
       code_verifier: "verifier",

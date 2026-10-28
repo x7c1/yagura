@@ -81,11 +81,14 @@ export interface ApiMockOptions {
   readonly now?: Date;
 }
 
-/** A request the mock answered, for assertions on what the app sent. */
+/**
+ * A request the mock answered, for assertions on what the app sent. It has
+ * no `credentials`: MSW cannot observe them in Node, so the gateway
+ * clients' own tests check them.
+ */
 export interface RecordedRequest {
   readonly method: string;
   readonly url: string;
-  readonly credentials: RequestCredentials;
   /** The `Authorization` header, or `null` when the request had none. */
   readonly authorization: string | null;
   /** The JSON body, or `undefined` when the request had none. */
@@ -351,7 +354,6 @@ export class ApiMock {
     const recorded: RecordedRequest = {
       method: request.method,
       url: request.url,
-      credentials: request.credentials,
       authorization: request.headers.get("Authorization"),
       body,
     };

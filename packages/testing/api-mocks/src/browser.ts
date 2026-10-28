@@ -24,7 +24,7 @@ export async function startBrowserApiMock(
     ...options,
   });
   await setupWorker(...mock.handlers).start({
-    onUnhandledRequest: "bypass",
+    onUnhandledFrame: "bypass",
   });
   return mock;
 }
