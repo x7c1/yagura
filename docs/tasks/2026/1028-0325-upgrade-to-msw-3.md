@@ -104,7 +104,7 @@ Update `docs/guides/development.md` if anything it says about MSW changes
 - [ ] Under the load above (4 parallel × 10 rounds of the web tests), the
       branch has 0 failing runs, and `main` (MSW 2) is measured the same way
       on the same day for comparison; both counts are recorded in the PR
-- [ ] With `VITE_API_MOCK=1 make dev`, the app signs in with the mock and
+- [x] With `VITE_API_MOCK=1 make dev`, the app signs in with the mock and
       shows `mock-labs`'s members and pull requests (the regenerated browser
       worker works)
 
