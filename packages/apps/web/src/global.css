@@ -111,31 +111,31 @@
   --color-chart-3: light-dark(#0862cb, #4896f8);
   --color-chart-4: light-dark(#074ea3, #80b6fa);
   /*
-   * The kinds of merged pull requests the chart's bars are split into:
-   * blues for feat and the third kind, a yellow for fix, and the rest in
-   * grey, the quietest. feat, a welcome change, is the brightest blue, a
-   * cyan, and fix, the repair of something that went wrong, stands apart
-   * from the blues in a yellow. The third kind is a mid blue in the light
-   * theme, and in the dark theme a deep blue, the darkest of the four, as
-   * a light blue sits too close to feat's cyan there. A kind without
-   * merges that day takes no space, so any two can end up next to each
-   * other in a stack: every pair, not only neighbours in the stacking
-   * order, stays apart under protanopia, deuteranopia and tritanopia as
-   * well as in full colour, in both themes. In the light theme feat's cyan
-   * and the grey are the closest pair, apart in full colour and only just
-   * apart under deuteranopia. Three colours fall below the 3:1 contrast
-   * against the card that the chart's other marks keep: in the light theme
-   * feat's cyan, about 2.6:1, and fix's yellow, about 2.2:1, and in the
-   * dark theme the third kind's deep blue, about 2.8:1. The legend names
-   * each kind, and each bar's accessible name and tooltip spell out its
-   * breakdown, so the colour is never the only way to read a segment. None
-   * of the four is the green, purple, red or grey of the list's state
-   * badges.
+   * The kinds of merged pull requests the chart's bars are split into, in
+   * soft, pastel tones in both themes: blues for feat and the third kind, a
+   * yellow for fix, and the rest in grey, the quietest. feat, a welcome
+   * change, is a light cyan, and fix, the repair of something that went
+   * wrong, stands apart from the blues in a yellow. The third kind is a
+   * mid blue, the deepest of the four in the light theme, as a lighter blue
+   * sits too close to feat's cyan there. A kind without merges that day
+   * takes no space, so any two can end up next to each other in a stack:
+   * every pair, not only neighbours in the stacking order, stays apart
+   * under protanopia, deuteranopia and tritanopia as well as in full
+   * colour, in both themes. The closest pairs are feat's cyan and the grey
+   * in the light theme and feat's cyan and fix's yellow in the dark one.
+   * In the dark theme all four have at least 3:1 contrast against the
+   * card. In the light theme the soft tones fall below it on white: feat's
+   * cyan about 1.7:1, fix's yellow about 1.9:1 and the grey about 2.7:1.
+   * The legend names each kind, and each bar's accessible name and tooltip
+   * spell out its breakdown, so the colour is never the only way to read a
+   * segment. None of the four is the green, purple, red or grey of the
+   * list's state badges, though the third kind's blue is the nearest to
+   * the merged purple.
    */
-  --color-kind-feat: light-dark(#18b1cd, #0ed4f6);
-  --color-kind-fix: light-dark(#d4a72c, #e3b341);
-  --color-kind-third: light-dark(#3280dd, #0754c6);
-  --color-kind-other: light-dark(#8c959f, #5d6670);
+  --color-kind-feat: light-dark(#50d9ef, #7de8f3);
+  --color-kind-fix: light-dark(#deb95c, #efcd79);
+  --color-kind-third: light-dark(#3c7ebe, #6dabdf);
+  --color-kind-other: light-dark(#9a9fa6, #6d7279);
   --color-closed: light-dark(#cf222e, #f85149);
   --color-additions: light-dark(#1a7f37, #3fb950);
   --color-deletions: light-dark(#cf222e, #f85149);
