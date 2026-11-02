@@ -475,6 +475,24 @@ describe("MembersActivity", () => {
     ).not.toBeInTheDocument();
   });
 
+  it("draws no legend of kinds under the chart's heading while the chart is loading", async () => {
+    open(
+      testPreferences(),
+      // The activity never arrives.
+      http.get(activityUrl, () => new Promise<never>(() => {})),
+    );
+
+    const heading = await screen.findByRole("heading", {
+      level: 2,
+      name: "Merged PRs",
+    });
+    const card = heading.closest("section") as HTMLElement;
+    expect(within(card).getByText("Loading…")).toBeInTheDocument();
+    expect(
+      screen.queryByRole("list", { name: "Kinds of merged pull requests" }),
+    ).not.toBeInTheDocument();
+  });
+
   it("names in the chart's legend only the kinds merged in the period", async () => {
     const { from, to } = requestRange(periodEndingAt(now));
     const response = mockActivityResponse(mockActivityFixtures(now), from, to);

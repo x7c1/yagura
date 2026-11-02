@@ -1,6 +1,4 @@
 import {
-  kindGroupName,
-  kindGroups,
   type DayCounts,
   type DayHourCounts,
   type KindGroup,
@@ -27,6 +25,7 @@ import {
 } from "./format";
 import { heatmapGeometry } from "./heatmap-geometry";
 import { HeatDescription, HourlyHeatmap } from "./HourlyHeatmap";
+import { kindClasses } from "./KindLegend";
 import { weekLines } from "./week-lines";
 import { WeekLineMarks } from "./WeekLineMarks";
 
@@ -35,14 +34,6 @@ function placed({ x, y, anchor }: TextSpot) {
   return { x, y, textAnchor: anchor, dominantBaseline: "middle" } as const;
 }
 
-/** The class that gives a group of kinds its colour. */
-const kindClasses: Readonly<Record<KindGroup, string | undefined>> = {
-  feat: styles.kindFeat,
-  fix: styles.kindFix,
-  third: styles.kindThird,
-  other: styles.kindOther,
-};
-
 /** A day without merges of any kind. */
 const noKinds: Readonly<Record<KindGroup, number>> = {
   feat: 0,
@@ -50,33 +41,6 @@ const noKinds: Readonly<Record<KindGroup, number>> = {
   third: 0,
   other: 0,
 };
-
-/**
- * The key to the colours of the bars' groups of kinds, in the order the
- * bars draw them, with only the groups that have a merge in the period;
- * nothing without merges.
- */
-function KindLegend({ kinds }: { readonly kinds: MergedKinds }) {
-  const shown = kindGroups.filter((group) =>
-    kinds.days.some((day) => day.merged[group] > 0),
-  );
-  if (shown.length === 0) {
-    return null;
-  }
-  return (
-    <ul className={styles.legend} aria-label="Kinds of merged pull requests">
-      {shown.map((group) => (
-        <li
-          key={group}
-          className={`${styles.legendItem} ${kindClasses[group] ?? ""}`}
-        >
-          <span className={styles.swatch} aria-hidden="true" />
-          {kindGroupName(group, kinds.third)}
-        </li>
-      ))}
-    </ul>
-  );
-}
 
 /** Runs `choose` on Enter or Space, as a button does. */
 function onButtonKey(choose: () => void) {
@@ -92,11 +56,12 @@ function onButtonKey(choose: () => void) {
  * A bar chart of the merged count of each day: a bar per day, with its
  * count written past its end. Its bars count merges, as they are what tell
  * how often changes landed. Each bar is a stack of the day's merges by the
- * kind of their pull requests, in the groups of `kinds` (`feat`, `fix`,
- * the period's third kind and `other`, from the end of the bar toward the
- * axis), each group in a colour of its own, with a thin gap in the card's
- * colour between neighbouring segments; a legend above the bars names the
- * groups the period has merges of. A row labelled "Pushes" holds a circle per
+ * kind of their pull requests, in `mergedGroups`: those of `feat`, `fix`,
+ * the period's third kind and `other` that the period has merges of, from
+ * the end of the bar toward the axis, each group in a colour of its own, with a 1px gap in the card's colour between
+ * neighbouring segments. The legend that names the groups is drawn beside
+ * the card's heading, from the same `mergedGroups` (see `KindLegend`).
+ * A row labelled "Pushes" holds a circle per
  * day with the members' pushes of that day, so that days spent iterating on
  * a pull request show too; a day without pushes has no circle. Pushes are drawn apart from the bars, on no axis, as they are
  * counted on a scale of their own. The chart is drawn to the width it is
@@ -119,11 +84,12 @@ function onButtonKey(choose: () => void) {
 export function DailyChart(props: {
   readonly days: readonly DayCounts[];
   readonly kinds: MergedKinds;
+  readonly mergedGroups: readonly KindGroup[];
   readonly hours: readonly DayHourCounts[];
   readonly selected: Narrowing | null;
   readonly onSelect: (selection: Narrowing | null) => void;
 }) {
-  const { days, kinds, hours, selected, onSelect } = props;
+  const { days, kinds, mergedGroups, hours, selected, onSelect } = props;
   const kindsOfDay = new Map(kinds.days.map((day) => [day.day, day.merged]));
   // A bar or a circle is chosen only when no hour is.
   const chosenDay = selected?.kind === "hour" ? null : selected;
@@ -153,13 +119,13 @@ export function DailyChart(props: {
     if (pressed) {
       classes.push(styles.pressed);
     }
-    const groups = kindsOfDay.get(day.day) ?? noKinds;
+    const merged = kindsOfDay.get(day.day) ?? noKinds;
     const segments = stackSegments(
       layout,
       rect,
-      kindGroups.map((group) => groups[group]),
+      mergedGroups.map((group) => merged[group]),
     );
-    const label = formatMergedDay(day.day, groups, kinds.third);
+    const label = formatMergedDay(day.day, merged, kinds.third);
     return (
       <g
         key={day.day}
@@ -171,7 +137,7 @@ export function DailyChart(props: {
           <rect
             key={index}
             {...rect}
-            className={`${styles.segment} ${kindClasses[kindGroups[index] ?? "other"] ?? ""}`}
+            className={`${styles.segment} ${kindClasses[mergedGroups[index] ?? "other"] ?? ""}`}
           />
         ))}
         {segmentGaps(layout, segments).map((line, index) => (
@@ -342,7 +308,6 @@ export function DailyChart(props: {
 
   return (
     <figure className={styles.figure}>
-      <KindLegend kinds={kinds} />
       <div ref={ref} className={styles.frame}>
         {width !== null && chart(width)}
       </div>

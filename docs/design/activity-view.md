@@ -84,7 +84,8 @@ The activity page names no period: the chart's axis shows the days. The
 members page names it ("Last 14 days · Oct 1 – Oct 14"), muted, at the
 left of its card's top row, as nothing else there tells what the table
 covers. The "Updating…" note sits at the right of the first card's top
-row: beside the "Merged PRs" heading, or across from the period. An
+row: just left of the legend of kinds beside the "Merged PRs" heading, or
+across from the period. An
 update's failure shows above the cards (below).
 
 While signed in, the header shows a tab per page on the left, the current
@@ -221,9 +222,9 @@ and only just apart under deuteranopia. The cyan of `feat` in the light
 theme has about 2.6:1 contrast against the card, and the deep blue of the
 third group in the dark theme about 2.8:1, both below 3:1; the legend names
 each kind, and each bar's accessible name and tooltip spell out its
-breakdown, so the colour is never the only way to read a segment. A thin
-gap in the card's colour between segments keeps neighbours apart without
-relying on colour alone. A bar's count is written past its end, so that a count is
+breakdown, so the colour is never the only way to read a segment. A gap of
+1px in the card's colour between segments, as wide as the gaps between the
+heatmap's cells, keeps neighbours apart without relying on colour alone. A bar's count is written past its end, so that a count is
 read rather than estimated from the axis. It is written in the text colour,
 not in the colour of `feat`: right above the `feat` segment, a total in that
 colour would read as the day's count of features. A zero is not written,
@@ -234,10 +235,11 @@ pressed and dimmed styles apply to the whole stack. A bar's accessible name
 carries its count and its breakdown, the groups without merges left out, in
 the order they are drawn ("Oct 13, merged: 7 (feat 3, fix 2, docs 1, other
 1)"); a day with none is named by its count alone ("Oct 12, merged: 0").
-The bars as a whole are named "Merged pull requests per day". Above the
-bars, in the same card, a legend shows each group with its colour and name,
-in the same order, only the groups with a merge in the period, wrapping on a
-narrow screen rather than widening the page; it is named "Kinds of merged
+The bars as a whole are named "Merged pull requests per day". At the right
+of the card's top row, a legend beside the "Merged PRs" heading shows each
+group with its colour and name, in the same order, only the groups with a
+merge in the period; on a narrow screen it wraps under the heading, and its
+items wrap onto more lines rather than widening the page; it is named "Kinds of merged
 pull requests" for assistive technology, and with no merges in the period
 it is not drawn.
 
