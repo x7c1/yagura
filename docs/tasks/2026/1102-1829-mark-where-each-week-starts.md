@@ -69,6 +69,6 @@ between Saturday and Sunday is drawn in both layouts.
 - [x] With `VITE_API_MOCK=1 make dev`, a line separates each Saturday from
       the next Sunday through the bars, the heatmap and the push row, in
       both layouts and both themes, without moving anything else
-- [ ] The line's look is approved by eye, adjusting its colour and width
+- [x] The line's look is approved by eye, adjusting its colour and width
       as needed — needs a person: whether it reads well is a judgement of
       taste, and the user asked to tune it on the screen before merging
