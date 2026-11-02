@@ -206,22 +206,23 @@ the third kind, `other`: where the days are columns `feat` is on top and
 `other` on the axis, where they are rows `feat` is at the right end. A group
 without merges that day takes no space. Each group has a colour of its own,
 the same in every bar, the third group's the same whatever kind it holds:
-blues for `feat` and the third group, a yellow for `fix`, and for `other` a
-grey, the quietest. `feat`, a welcome change, is the brightest blue, a cyan,
-and `fix`, the repair of something that went wrong, stands apart from the
-blues in a yellow. The third group is a mid blue in the light theme, and in
-the dark theme a deep blue, the darkest of the four, as a light blue sits
+soft, pastel tones in both themes: blues for `feat` and the third group, a
+yellow for `fix`, and for `other` a grey, the quietest. `feat`, a welcome
+change, is a light cyan, and `fix`, the repair of something that went
+wrong, stands apart from the blues in a yellow. The third group is a mid
+blue, the deepest of the four in the light theme, as a lighter blue sits
 too close to the cyan of `feat` there. As a group without merges takes no
 space, any two can end up next to each other, so every pair, not only
 neighbours in the stacking order, stays apart under the common colour
-vision deficiencies as well as in full colour, in both themes, and all four
-stay apart from the list's state badges in full colour. In the light theme
-the cyan of `feat` and the grey of `other` are the closest pair, apart in
-full colour and only just apart under deuteranopia. In the light theme the
-cyan of `feat` has about 2.6:1 contrast against the card and the yellow of
-`fix` about 2.2:1, and in the dark theme the deep blue of the third group
-about 2.8:1, all below 3:1; the legend names each kind, and each bar's
-accessible name and tooltip spell out its breakdown, so the colour is never the only way to read a segment. A gap of
+vision deficiencies as well as in full colour, in both themes; none of the
+four is the colour of a state badge in the list, though the third group's
+blue is the nearest to the merged purple. The closest pairs are the cyan of
+`feat` and the grey of `other` in the light theme, and the cyan of `feat`
+and the yellow of `fix` in the dark theme. In the dark theme all four have
+at least 3:1 contrast against the card. In the light theme the soft tones
+fall below it on white: the cyan of `feat` about 1.7:1, the yellow of `fix`
+about 1.9:1 and the grey of `other` about 2.7:1; the legend names each
+kind, and each bar's accessible name and tooltip spell out its breakdown, so the colour is never the only way to read a segment. A gap of
 1px in the card's colour between segments, as wide as the gaps between the
 heatmap's cells, keeps neighbours apart without relying on colour alone. A bar's count is written past its end, so that a count is
 read rather than estimated from the axis. It is written in the text colour,
