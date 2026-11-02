@@ -272,3 +272,18 @@
 .hourLines {
   pointer-events: none;
 }
+
+/*
+ * The lines between each Saturday and the Sunday after it, which tell the
+ * weeks apart. Their colour and width are set here alone, in the bars' grid
+ * lines' style to begin with, so that they are easy to tune. They are
+ * decoration, and a click passes through them to the mark under them.
+ */
+.weekLines {
+  pointer-events: none;
+}
+
+.weekLine {
+  stroke: var(--color-border-subtle);
+  stroke-width: var(--border-width);
+}

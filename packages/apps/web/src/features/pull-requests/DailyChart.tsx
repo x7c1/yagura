@@ -27,6 +27,8 @@ import {
 } from "./format";
 import { heatmapGeometry } from "./heatmap-geometry";
 import { HeatDescription, HourlyHeatmap } from "./HourlyHeatmap";
+import { weekLines } from "./week-lines";
+import { WeekLineMarks } from "./WeekLineMarks";
 
 /** The attributes that place a piece of text at `spot`. */
 function placed({ x, y, anchor }: TextSpot) {
@@ -101,7 +103,9 @@ function onButtonKey(choose: () => void) {
  * given: a column per day when the columns have room for their counts,
  * with the push circles in a row of their own under the heatmap, each
  * under its day's column, else a row per day, the push circle next to the
- * date. Each bar or circle
+ * date. A line between each Saturday and the Sunday after it, through the
+ * bars, the heatmap and the push row, tells the weeks apart (see
+ * {@link weekLines}). Each bar or circle
  * with a count is a button that chooses that day's merges or pushes;
  * choosing the chosen one again clears the choice.
  *
@@ -239,6 +243,8 @@ export function DailyChart(props: {
   const chart = (width: number) => {
     const geometry = chartGeometry(days, width);
     const { layout, height, ticks, groups, pushLabel, pushRow } = geometry;
+    const heatmap = heatmapGeometry(geometry);
+    const weeks = weekLines(geometry, heatmap);
     const dayLabels = formatDayLabels(
       groups
         .filter((group) => group.label !== null)
@@ -288,6 +294,7 @@ export function DailyChart(props: {
               ),
           )}
         </g>
+        <WeekLineMarks lines={weeks.bars} />
         <g role="group" aria-label="Merged pull requests per day">
           {groups.map((group) => bar(group.day, group.bar, layout))}
         </g>
@@ -317,13 +324,15 @@ export function DailyChart(props: {
       <>
         {bars}
         <HourlyHeatmap
-          geometry={heatmapGeometry(geometry)}
+          geometry={heatmap}
+          weekLines={weeks.heatmap}
           hours={hours}
           selected={selected}
           onSelect={onSelect}
         />
         {pushRow !== null && (
           <svg width={width} height={pushRow.height} className={chartClass}>
+            <WeekLineMarks lines={weeks.pushRow} />
             {pushes}
           </svg>
         )}

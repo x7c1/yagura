@@ -5,6 +5,7 @@ import {
   type Narrowing,
 } from "@yagura/activity";
 import { useRef, useState, type KeyboardEvent } from "react";
+import type { Line } from "./chart-geometry";
 import styles from "./DailyChart.module.css";
 import { formatDay, formatDayLabels, formatHour, formatPushes } from "./format";
 import {
@@ -13,6 +14,7 @@ import {
   type HeatmapGeometry,
   type HeatGroup,
 } from "./heatmap-geometry";
+import { WeekLineMarks } from "./WeekLineMarks";
 
 /**
  * The class of each strength of a cell, from the empty cell's up to the
@@ -46,7 +48,8 @@ function hourCount(day: DayHourCounts | undefined, hour: number): number {
  * The heatmap of the hours of each day the members pushed and the pull
  * requests were merged in, the two counted together, drawn under the bar
  * chart as laid out by `geometry`, with the counts of `hours`, a day per
- * group of `geometry` in the same order. Each cell with a count chooses
+ * group of `geometry` in the same order, and the parts of the week lines
+ * that run through it, `weekLines`. Each cell with a count chooses
  * its day and hour, as a bar chooses its day; choosing the chosen one
  * again clears the choice.
  *
@@ -58,11 +61,12 @@ function hourCount(day: DayHourCounts | undefined, hour: number): number {
  */
 export function HourlyHeatmap(props: {
   readonly geometry: HeatmapGeometry<DayCounts>;
+  readonly weekLines: readonly Line[];
   readonly hours: readonly DayHourCounts[];
   readonly selected: Narrowing | null;
   readonly onSelect: (selection: Narrowing | null) => void;
 }) {
-  const { geometry, hours, selected, onSelect } = props;
+  const { geometry, weekLines, hours, selected, onSelect } = props;
   const grid = useRef<SVGSVGElement>(null);
   const [moved, setMoved] = useState<CellPosition | null>(null);
   const max = busiestHour(hours);
@@ -247,6 +251,7 @@ export function HourlyHeatmap(props: {
           <line key={hour} {...line} className={styles.gridLine} />
         ))}
       </g>
+      <WeekLineMarks lines={weekLines} />
       <g aria-hidden="true">
         {geometry.hourLabels.map(({ hour, spot }) => (
           <text
