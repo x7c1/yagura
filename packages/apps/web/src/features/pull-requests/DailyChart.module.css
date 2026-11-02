@@ -33,8 +33,8 @@
 }
 
 /*
- * A bar's count, past its end, in the text colour rather than the blue of
- * feat, so that a day's total does not read as its count of features; a
+ * A bar's count, past its end, in the text colour rather than the colour
+ * of feat, so that a day's total does not read as its count of features; a
  * zero is not written.
  * A count takes clicks too, for a short bar is hard to hit; the keyboard and
  * assistive technology reach the bar itself.
@@ -99,7 +99,7 @@
 
 /*
  * The gap between two segments of a bar, in the card's colour, so that
- * neighbouring segments are told apart by more than their hue.
+ * neighbouring segments are told apart by more than their colour.
  */
 .segmentGap {
   stroke: var(--color-bg);
@@ -170,9 +170,10 @@
 
 /*
  * With a bar chosen, the others step back so that it stands out, all of
- * their segments alike. 0.75 keeps the colours of feat, fix and the third
- * kind above 3:1 against the background in both themes; other, the
- * quietest, falls below it while it steps back.
+ * their segments alike. At 0.75 only fix, and feat in the dark theme,
+ * stay above 3:1 against the background; the other colours fall below it
+ * while they step back, and the bars' names and tooltips still spell out
+ * their breakdown.
  */
 .chosen .stack:not(.pressedStack) {
   opacity: 0.75;
