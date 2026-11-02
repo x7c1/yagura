@@ -228,7 +228,8 @@ describe("DailyChart", () => {
     ).not.toBeInTheDocument();
     // The figure's caption only describes the heatmap's strengths to
     // assistive technology, and what is counted is said by the card's
-    // heading; the only legend is the one of the kinds (below).
+    // heading; the only legend is the one of the kinds, beside the heading
+    // rather than in the figure (below).
     const figure = screen
       .getByRole("group", { name: chartName })
       .closest("figure");
@@ -500,7 +501,7 @@ describe("The kinds of merged pull requests", () => {
     },
   );
 
-  it("draw a legend above the bars of the groups with merges, in the order the bars draw them", async () => {
+  it("draw a legend of the groups with merges beside the card's heading, in the order the bars draw them", async () => {
     await renderChart();
     const legend = screen.getByRole("list", {
       name: "Kinds of merged pull requests",
@@ -511,10 +512,21 @@ describe("The kinds of merged pull requests", () => {
         .getAllByRole("listitem")
         .map((item) => item.textContent),
     ).toEqual(["feat", "fix", "build", "other"]);
-    const bars = screen.getByRole("group", { name: chartName });
+    // In the heading's row, after the "Updating…" note's room, but not in
+    // the heading itself nor in the chart's figure.
+    const heading = screen.getByRole("heading", { level: 2 });
+    expect(heading).toHaveTextContent(/^Merged PRs$/);
+    expect(heading).not.toContainElement(legend);
+    const row = heading.parentElement as HTMLElement;
+    expect(row).toContainElement(legend);
+    const note = within(row).getByRole("status");
     expect(
-      legend.compareDocumentPosition(bars) & Node.DOCUMENT_POSITION_FOLLOWING,
+      note.compareDocumentPosition(legend) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
+    const figure = screen
+      .getByRole("group", { name: chartName })
+      .closest("figure");
+    expect(figure).not.toContainElement(legend);
   });
 });
 

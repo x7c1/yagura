@@ -4,7 +4,9 @@ import styles from "./SectionHeading.module.css";
 
 /**
  * A section's heading, with `aside` at its right, which wraps under the
- * heading when the two do not fit on one line.
+ * heading when the two do not fit on one line. What `aside` holds is kept
+ * on one line, in its order, flush with the section's right edge, and
+ * aligned with the heading's text.
  */
 export function SectionHeading(props: {
   readonly children: ReactNode;
@@ -13,7 +15,7 @@ export function SectionHeading(props: {
   return (
     <div className={sectionStyles.headingRow}>
       <h2 className={sectionStyles.heading}>{props.children}</h2>
-      {props.aside}
+      <div className={styles.aside}>{props.aside}</div>
     </div>
   );
 }

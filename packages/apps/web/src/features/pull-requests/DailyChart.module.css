@@ -48,14 +48,17 @@
 }
 
 /*
- * The key to the bars' colours, above them: a swatch and a name per group
- * of kinds, wrapping onto more lines rather than widening the page.
+ * The key to the bars' colours, at the right of the card's heading: a
+ * swatch and a name per group of kinds, flush with the card's right edge,
+ * wrapping onto more lines rather than widening the page.
  */
 .legend {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-end;
   gap: var(--space-1) var(--space-3);
-  margin: 0 0 var(--space-2);
+  min-width: 0;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
@@ -65,7 +68,16 @@
   align-items: center;
   gap: var(--space-1);
   /* The name in the axes' colour, the swatch beside it in the group's. */
+  color: var(--color-text-muted);
   font-size: var(--font-size-sm);
+}
+
+/*
+ * The name gives the item its baseline, so that the legend lines up with
+ * the heading's text, while the swatch stays centred beside it.
+ */
+.legendName {
+  align-self: baseline;
 }
 
 .swatch {
@@ -99,11 +111,13 @@
 
 /*
  * The gap between two segments of a bar, in the card's colour, so that
- * neighbouring segments are told apart by more than their colour.
+ * neighbouring segments are told apart by more than their colour. It is
+ * 1px wide, as the heatmap's cells under the bars are apart, and placed on
+ * a whole pixel by its geometry, so that it is drawn crisp.
  */
 .segmentGap {
   stroke: var(--color-bg);
-  stroke-width: var(--border-width-strong);
+  stroke-width: var(--border-width);
 }
 
 /*
@@ -170,7 +184,7 @@
 
 /*
  * With a bar chosen, the others step back so that it stands out, all of
- * their segments alike. At 0.75 only fix, and feat in the dark theme,
+ * their segments alike. At 0.75 only feat and fix in the dark theme
  * stay above 3:1 against the background; the other colours fall below it
  * while they step back, and the bars' names and tooltips still spell out
  * their breakdown.

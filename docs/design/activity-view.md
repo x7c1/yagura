@@ -84,7 +84,8 @@ The activity page names no period: the chart's axis shows the days. The
 members page names it ("Last 14 days · Oct 1 – Oct 14"), muted, at the
 left of its card's top row, as nothing else there tells what the table
 covers. The "Updating…" note sits at the right of the first card's top
-row: beside the "Merged PRs" heading, or across from the period. An
+row: just left of the legend of kinds beside the "Merged PRs" heading, or
+across from the period. An
 update's failure shows above the cards (below).
 
 While signed in, the header shows a tab per page on the left, the current
@@ -205,25 +206,24 @@ the third kind, `other`: where the days are columns `feat` is on top and
 `other` on the axis, where they are rows `feat` is at the right end. A group
 without merges that day takes no space. Each group has a colour of its own,
 the same in every bar, the third group's the same whatever kind it holds:
-one family of blues told apart by their lightness, and for `other` a grey,
-the quietest. The lightness carries a meaning: `feat`, a welcome change, is
-the brightest, a cyan, and `fix`, the repair of something that went wrong,
-an indigo darker than it. The third group is a mid blue between them in the
-light theme, and in the dark theme a deep blue, the darkest of the four, as
-a light blue sits too close to the cyan of `feat` there. The four are
-therefore deliberately uneven in lightness. As a group without merges takes
-no space, any two can end up next to each other, so every pair, not only
+blues for `feat` and the third group, a yellow for `fix`, and for `other` a
+grey, the quietest. `feat`, a welcome change, is the brightest blue, a cyan,
+and `fix`, the repair of something that went wrong, stands apart from the
+blues in a yellow. The third group is a mid blue in the light theme, and in
+the dark theme a deep blue, the darkest of the four, as a light blue sits
+too close to the cyan of `feat` there. As a group without merges takes no
+space, any two can end up next to each other, so every pair, not only
 neighbours in the stacking order, stays apart under the common colour
 vision deficiencies as well as in full colour, in both themes, and all four
-stay apart from the list's state badges. In the light theme the cyan of
-`feat` and the grey of `other` are the closest pair, apart in full colour
-and only just apart under deuteranopia. The cyan of `feat` in the light
-theme has about 2.6:1 contrast against the card, and the deep blue of the
-third group in the dark theme about 2.8:1, both below 3:1; the legend names
-each kind, and each bar's accessible name and tooltip spell out its
-breakdown, so the colour is never the only way to read a segment. A thin
-gap in the card's colour between segments keeps neighbours apart without
-relying on colour alone. A bar's count is written past its end, so that a count is
+stay apart from the list's state badges in full colour. In the light theme
+the cyan of `feat` and the grey of `other` are the closest pair, apart in
+full colour and only just apart under deuteranopia. In the light theme the
+cyan of `feat` has about 2.6:1 contrast against the card and the yellow of
+`fix` about 2.2:1, and in the dark theme the deep blue of the third group
+about 2.8:1, all below 3:1; the legend names each kind, and each bar's
+accessible name and tooltip spell out its breakdown, so the colour is never the only way to read a segment. A gap of
+1px in the card's colour between segments, as wide as the gaps between the
+heatmap's cells, keeps neighbours apart without relying on colour alone. A bar's count is written past its end, so that a count is
 read rather than estimated from the axis. It is written in the text colour,
 not in the colour of `feat`: right above the `feat` segment, a total in that
 colour would read as the day's count of features. A zero is not written,
@@ -234,10 +234,11 @@ pressed and dimmed styles apply to the whole stack. A bar's accessible name
 carries its count and its breakdown, the groups without merges left out, in
 the order they are drawn ("Oct 13, merged: 7 (feat 3, fix 2, docs 1, other
 1)"); a day with none is named by its count alone ("Oct 12, merged: 0").
-The bars as a whole are named "Merged pull requests per day". Above the
-bars, in the same card, a legend shows each group with its colour and name,
-in the same order, only the groups with a merge in the period, wrapping on a
-narrow screen rather than widening the page; it is named "Kinds of merged
+The bars as a whole are named "Merged pull requests per day". At the right
+of the card's top row, a legend beside the "Merged PRs" heading shows each
+group with its colour and name, in the same order, only the groups with a
+merge in the period; on a narrow screen it wraps under the heading, and its
+items wrap onto more lines rather than widening the page; it is named "Kinds of merged
 pull requests" for assistive technology, and with no merges in the period
 it is not drawn.
 

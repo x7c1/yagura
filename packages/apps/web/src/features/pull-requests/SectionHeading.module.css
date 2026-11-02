@@ -1,10 +1,47 @@
 /*
+ * What sits at the right of a heading, on its baseline. It stays at the
+ * right when it wraps under the heading, and keeps its parts on one line:
+ * a part that holds a list, such as the legend of kinds, wraps its items
+ * instead, so that the page is not widened.
+ *
+ * Aligned on the baseline, the heading's line and the note's smaller one
+ * stick out of each other by a fraction of a pixel, above and below, and
+ * would leave the row a height such as 21.5px, so that the chart under it
+ * starts between pixels and its 1px lines blur at a device pixel ratio of
+ * 1. The 1px of padding above lifts the top of the aside above the
+ * heading's line, so that the aside, with the note's line always there
+ * (see below), alone sets the row's height to whole pixels.
+ */
+.aside {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-top: 1px;
+  margin-left: auto;
+}
+
+/*
  * Room for the "Updating…" note, kept while it is absent. The note sits at
- * the right of its room, so that it stays flush with the card's edge.
+ * the right of its room, so that it stays flush with what follows it, the
+ * legend of kinds beside the "Merged PRs" heading, or with the card's edge.
  */
 .updatingNote {
   display: inline-block;
+  flex-shrink: 0;
   min-width: var(--note-min-width);
   color: var(--color-text-muted);
   text-align: right;
+}
+
+/*
+ * A zero-width space, unheard by screen readers, that gives the room a line
+ * of text while the note is absent, so that the row has the same height
+ * and baseline with or without it, and the card's content below does not
+ * move when the note comes and goes.
+ */
+.updatingNote::before {
+  content: "\200b";
+  content: "\200b" / "";
 }

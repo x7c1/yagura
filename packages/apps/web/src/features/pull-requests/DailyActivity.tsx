@@ -13,6 +13,7 @@ import { useState } from "react";
 import { buttonStyles, sectionStyles, useStoredSwitch } from "../../shared";
 import styles from "./DailyActivity.module.css";
 import { DailyChart } from "./DailyChart";
+import { KindLegend, mergedKindGroups } from "./KindLegend";
 import { PullRequestList } from "./PullRequestList";
 import { SectionHeading, UpdatingNote } from "./SectionHeading";
 import { describeSelection, selectionKey } from "./selection";
@@ -34,7 +35,8 @@ export const showBotsKey = "yagura.show-bot-pull-requests";
  * cell of the heatmap to those merged or pushed to within that hour of the
  * day, until it is chosen again, another is chosen, or the narrowing is
  * cleared. While the list is narrowed, its pushes and dates are those of
- * the chosen day or hour rather than of the period. While `updating`, a note at the right of the chart's heading
+ * the chosen day or hour rather than of the period. A legend of the bars' kinds sits at the right of the
+ * chart's heading, and while `updating`, a note just left of the legend
  * says so.
  *
  * Bots' pull requests are left out of the list unless the viewer chooses
@@ -56,6 +58,8 @@ export function DailyActivity(props: {
 }) {
   const { org, events, listed, period, updating } = props;
   const [selected, setSelected] = useState<Narrowing | null>(null);
+  const kinds = countKindsByDay(events, period);
+  const mergedGroups = mergedKindGroups(kinds);
   const [showBots, setShowBots] = useStoredSwitch(showBotsKey);
   const narrowed =
     selected === null ? listed : narrowList(listed, events, selected);
@@ -65,12 +69,20 @@ export function DailyActivity(props: {
   return (
     <>
       <section className={sectionStyles.section}>
-        <SectionHeading aside={<UpdatingNote updating={updating} />}>
+        <SectionHeading
+          aside={
+            <>
+              <UpdatingNote updating={updating} />
+              <KindLegend groups={mergedGroups} third={kinds.third} />
+            </>
+          }
+        >
           Merged PRs
         </SectionHeading>
         <DailyChart
           days={countByDay(events, period)}
-          kinds={countKindsByDay(events, period)}
+          kinds={kinds}
+          mergedGroups={mergedGroups}
           hours={countByHour(events, period)}
           selected={selected}
           onSelect={setSelected}

@@ -501,9 +501,20 @@ export function stackSegments(
 }
 
 /**
+ * The middle of the whole pixel that `edge` falls in, where a line 1px
+ * wide covers that pixel alone rather than blurring over two: at a device
+ * pixel ratio of 1 it fills one device pixel, at 2 two whole ones.
+ */
+function pixelMiddle(edge: number): number {
+  return Math.floor(edge) + 0.5;
+}
+
+/**
  * The lines where neighbouring `segments` of a bar of `layout` meet, which
- * the chart draws in the card's colour as gaps between them, so that they
- * are told apart by more than their hue.
+ * the chart draws 1px wide in the card's colour as gaps between them, so
+ * that they are told apart by more than their hue. As the segments' edges
+ * fall anywhere between pixels, each line is moved to the middle of the
+ * pixel its edge falls in, so that it is drawn crisp.
  */
 export function segmentGaps(
   layout: ChartLayout,
@@ -511,14 +522,12 @@ export function segmentGaps(
 ): Line[] {
   // Each segment but the first meets the one before it, nearer the end of
   // the bar, at its edge away from the axis.
-  return segments.slice(1).map(({ rect }) =>
-    layout === "columns"
-      ? { x1: rect.x, x2: rect.x + rect.width, y1: rect.y, y2: rect.y }
-      : {
-          x1: rect.x + rect.width,
-          x2: rect.x + rect.width,
-          y1: rect.y,
-          y2: rect.y + rect.height,
-        },
-  );
+  return segments.slice(1).map(({ rect }) => {
+    if (layout === "columns") {
+      const y = pixelMiddle(rect.y);
+      return { x1: rect.x, x2: rect.x + rect.width, y1: y, y2: y };
+    }
+    const x = pixelMiddle(rect.x + rect.width);
+    return { x1: x, x2: x, y1: rect.y, y2: rect.y + rect.height };
+  });
 }

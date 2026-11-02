@@ -288,8 +288,8 @@ describe("stackSegments", () => {
       { index: 3, rect: { x: 10, y: 60, width: 6, height: 20 } },
     ]);
     expect(segmentGaps("columns", segments)).toEqual([
-      { x1: 10, x2: 16, y1: 50, y2: 50 },
-      { x1: 10, x2: 16, y1: 60, y2: 60 },
+      { x1: 10, x2: 16, y1: 50.5, y2: 50.5 },
+      { x1: 10, x2: 16, y1: 60.5, y2: 60.5 },
     ]);
   });
 
@@ -302,8 +302,27 @@ describe("stackSegments", () => {
       { index: 3, rect: { x: 50, y: 4, width: 60, height: 14 } },
     ]);
     expect(segmentGaps("rows", segments)).toEqual([
-      { x1: 150, x2: 150, y1: 4, y2: 18 },
-      { x1: 110, x2: 110, y1: 4, y2: 18 },
+      { x1: 150.5, x2: 150.5, y1: 4, y2: 18 },
+      { x1: 110.5, x2: 110.5, y1: 4, y2: 18 },
+    ]);
+  });
+
+  it("puts each gap in the middle of the pixel its edge falls in", () => {
+    const columns = stackSegments("columns", column, [1, 2]);
+    const rows = stackSegments("rows", row, [1, 2]);
+
+    // The column's segments meet at y 40, the row's at x 130, and those of
+    // a column of 1, 3 and 3 at y 28.57 and 54.29, within pixels.
+    expect(
+      segmentGaps("columns", columns).map(({ y1, y2 }) => [y1, y2]),
+    ).toEqual([[40.5, 40.5]]);
+    expect(
+      segmentGaps("columns", stackSegments("columns", column, [1, 3, 3])).map(
+        ({ y1 }) => y1,
+      ),
+    ).toEqual([28.5, 54.5]);
+    expect(segmentGaps("rows", rows).map(({ x1, x2 }) => [x1, x2])).toEqual([
+      [130.5, 130.5],
     ]);
   });
 
