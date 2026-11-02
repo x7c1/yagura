@@ -286,6 +286,21 @@ ruled figure. Where the days are rows, the hours are not ruled: the cells sit
 from assistive technology, and a click passes through them. The bars' plot
 is 120px tall, short enough to leave the heatmap room on a laptop's screen.
 
+A week runs from Sunday to Saturday, and a line between each Saturday and
+the Sunday after it tells the weeks apart, so that a reader need not count
+days to find where a week began. Where the days are columns, it runs down
+the middle of the space between the Saturday's column and the Sunday's,
+through the bars' plot, the heatmap and the push row, as one line through
+the figure, broken only across the dates so that it never runs through
+one. Where the days are rows, it runs across the width between the
+Saturday's row and the Sunday's, through the bars' rows and the heatmap's.
+There is no line before the first day or after the last, so the 14 days
+have one or two, depending on the weekday they start on. Each day's
+weekday is that of the local day it is counted on. The line is in the
+style of the bars' grid lines, its colour and width set in one place; like
+the hours' lines it is decoration only, hidden from assistive technology,
+a click passes through it, and it moves no bar, cell, count or date.
+
 An empty hour is drawn plainly, in the subtle border colour, apart from the
 card's background but quiet. An hour with something takes the chart's blue
 in four strengths, scaled to the busiest hour of the period, which takes

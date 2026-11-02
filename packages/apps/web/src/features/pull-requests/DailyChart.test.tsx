@@ -29,6 +29,7 @@ import {
   titlesOf,
 } from "../../test-support";
 import { minColumnsWidth } from "./chart-geometry";
+import styles from "./DailyChart.module.css";
 import { dayFormat } from "./format";
 import { labelledHours } from "./heatmap-geometry";
 
@@ -752,7 +753,7 @@ describe("The hours' heatmap", () => {
   it("rules the labelled hours behind the cells, hidden from assistive technology, where the days are columns", async () => {
     await renderChart(testWidths(1000));
     const heatmap = screen.getByRole("grid", { name: heatmapName });
-    const lines = heatmap.querySelectorAll("line");
+    const lines = heatmap.querySelectorAll(`line.${styles.gridLine}`);
 
     expect(lines).toHaveLength(4);
     const [first] = lines as unknown as [SVGLineElement];
@@ -770,7 +771,7 @@ describe("The hours' heatmap", () => {
     await renderChart(testWidths(340));
     const heatmap = screen.getByRole("grid", { name: heatmapName });
 
-    expect(heatmap.querySelectorAll("line")).toHaveLength(0);
+    expect(heatmap.querySelectorAll(`line.${styles.gridLine}`)).toHaveLength(0);
   });
 
   it.each([1000, 340])(
@@ -973,6 +974,69 @@ describe("The hours' heatmap", () => {
     expect(
       screen.queryByRole("button", { name: "Show all" }),
     ).not.toBeInTheDocument();
+  });
+});
+
+describe("The week lines", () => {
+  /** The week lines drawn in `svg`. */
+  const weekLinesIn = (svg: Element) =>
+    [...svg.querySelectorAll(`line.${styles.weekLine}`)] as SVGLineElement[];
+
+  /** The chart's SVGs: the bars, the heatmap, and the push row if apart. */
+  const chartSvgs = () => [
+    ...(chartFigure().closest("figure")?.querySelectorAll("svg") ?? []),
+  ];
+
+  it.each([
+    [1000, 3],
+    [340, 2],
+  ])(
+    "separate the two Sundays of the period from the Saturdays before them, in each drawing, at %ipx",
+    async (width, drawings) => {
+      await renderChart(testWidths(width));
+      const svgs = chartSvgs();
+
+      expect(svgs).toHaveLength(drawings);
+      for (const svg of svgs) {
+        expect(weekLinesIn(svg)).toHaveLength(2);
+      }
+    },
+  );
+
+  it.each([1000, 340])(
+    "are hidden from assistive technology, and pass clicks through, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+
+      for (const svg of chartSvgs()) {
+        for (const line of weekLinesIn(svg)) {
+          const group = line.parentElement as Element;
+          expect(group).toHaveAttribute("aria-hidden", "true");
+          expect(getComputedStyle(group).pointerEvents).toBe("none");
+        }
+      }
+    },
+  );
+
+  it("lie between the Saturday's bar and the Sunday's, where the days are columns", async () => {
+    await renderChart(testWidths(1000));
+    const [saturday, sunday] = ["2026-10-10", "2026-10-11"].map((day) => {
+      const counts = expectedDays.find((entry) => entry.day === day);
+      if (counts === undefined) {
+        throw new Error(`No ${day} in the period`);
+      }
+      const bar = screen.getByRole("button", { name: barName(counts) });
+      return {
+        left: Number(bar.getAttribute("x")),
+        right:
+          Number(bar.getAttribute("x")) + Number(bar.getAttribute("width")),
+      };
+    });
+    const bars = screen.getByRole("group", { name: figureName });
+    const x = Number(weekLinesIn(bars)[1]?.getAttribute("x1"));
+
+    expect(x).toBeGreaterThan(saturday?.right ?? Infinity);
+    expect(x).toBeLessThan(sunday?.left ?? -Infinity);
   });
 });
 
