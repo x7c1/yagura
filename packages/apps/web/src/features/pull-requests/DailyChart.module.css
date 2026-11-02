@@ -184,7 +184,7 @@
 
 /*
  * With a bar chosen, the others step back so that it stands out, all of
- * their segments alike. At 0.75 only fix, and feat in the dark theme,
+ * their segments alike. At 0.75 only feat and fix in the dark theme
  * stay above 3:1 against the background; the other colours fall below it
  * while they step back, and the bars' names and tooltips still spell out
  * their breakdown.
