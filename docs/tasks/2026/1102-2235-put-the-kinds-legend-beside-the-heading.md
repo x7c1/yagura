@@ -94,5 +94,5 @@ between segments, say it is 1px, as the heatmap's cells are apart.
       "Merged PRs" heading on its line, the "Updating…" note's room does
       not push it out of place, and on a narrow window the legend wraps
       under the heading without widening the page
-- [ ] The gaps between a bar's segments look as wide as the gaps between
+- [x] The gaps between a bar's segments look as wide as the gaps between
       the heatmap's cells (a person confirms on the screen before merge)
