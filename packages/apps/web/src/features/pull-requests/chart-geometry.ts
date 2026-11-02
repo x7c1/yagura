@@ -444,3 +444,81 @@ function rowsGeometry<T extends Counts>(
     }),
   };
 }
+
+/** One part of a stacked bar: which of the counts it draws, and where. */
+export interface Segment {
+  /** The index of its count in the counts the bar was split by. */
+  readonly index: number;
+  readonly rect: Rect;
+}
+
+/**
+ * The bar `rect` of `layout` split into a segment per count of `counts`,
+ * each as long as its share of their sum, the first at the end of the bar
+ * and the last at its axis: at the top of a column, at the right end of a
+ * row. A zero count takes no segment, and with nothing to split, there are
+ * none. The segments meet edge to edge; the gaps between them are drawn
+ * over them.
+ */
+export function stackSegments(
+  layout: ChartLayout,
+  rect: Rect,
+  counts: readonly number[],
+): Segment[] {
+  const total = counts.reduce((sum, count) => sum + count, 0);
+  if (total === 0) {
+    return [];
+  }
+  const length = layout === "columns" ? rect.height : rect.width;
+  const segments: Segment[] = [];
+  // Measured from the axis, toward the end of the bar.
+  let start = 0;
+  for (let index = counts.length - 1; index >= 0; index -= 1) {
+    const count = counts[index] ?? 0;
+    if (count > 0) {
+      const size = (count / total) * length;
+      segments.unshift({
+        index,
+        rect:
+          layout === "columns"
+            ? {
+                x: rect.x,
+                y: rect.y + rect.height - start - size,
+                width: rect.width,
+                height: size,
+              }
+            : {
+                x: rect.x + start,
+                y: rect.y,
+                width: size,
+                height: rect.height,
+              },
+      });
+      start += size;
+    }
+  }
+  return segments;
+}
+
+/**
+ * The lines where neighbouring `segments` of a bar of `layout` meet, which
+ * the chart draws in the card's colour as gaps between them, so that they
+ * are told apart by more than their hue.
+ */
+export function segmentGaps(
+  layout: ChartLayout,
+  segments: readonly Segment[],
+): Line[] {
+  // Each segment but the first meets the one before it, nearer the end of
+  // the bar, at its edge away from the axis.
+  return segments.slice(1).map(({ rect }) =>
+    layout === "columns"
+      ? { x1: rect.x, x2: rect.x + rect.width, y1: rect.y, y2: rect.y }
+      : {
+          x1: rect.x + rect.width,
+          x2: rect.x + rect.width,
+          y1: rect.y,
+          y2: rect.y + rect.height,
+        },
+  );
+}

@@ -1,6 +1,7 @@
 import {
   countByDay,
   countByHour,
+  countKindsByDay,
   narrowList,
   periodDays,
   type CountedEvent,
@@ -69,6 +70,7 @@ export function DailyActivity(props: {
         </SectionHeading>
         <DailyChart
           days={countByDay(events, period)}
+          kinds={countKindsByDay(events, period)}
           hours={countByHour(events, period)}
           selected={selected}
           onSelect={setSelected}

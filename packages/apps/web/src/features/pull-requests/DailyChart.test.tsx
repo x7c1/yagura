@@ -1,6 +1,7 @@
 import {
   countByDay,
   countByHour,
+  countKindsByDay,
   countedEvents,
   hoursPerDay,
   listPullRequests,
@@ -61,8 +62,30 @@ const chartName = "Merged pull requests per day";
 
 const dayName = (day: string) => dayFormat.format(startOfDay(day));
 
-const barName = (day: DayCounts) =>
-  `${dayName(day.day)}, merged: ${day.merged}`;
+/** The fixtures' merges per day split by kind, as the bars should stack them. */
+const expectedKinds = countKindsByDay(events, period);
+
+/** The groups of kinds, in the order a bar draws and names them. */
+const groupOrder = ["feat", "fix", "third", "other"] as const;
+
+/**
+ * A bar's accessible name: its count, and the count of each group of
+ * kinds it has merges of, in the order it draws them, for example "Oct
+ * 13, merged: 7 (feat 3, fix 2, docs 1, other 1)".
+ */
+const barName = (day: DayCounts) => {
+  const groups = expectedKinds.days.find(
+    (entry) => entry.day === day.day,
+  )?.merged;
+  const parts = groupOrder
+    .filter((group) => (groups?.[group] ?? 0) > 0)
+    .map(
+      (group) =>
+        `${group === "third" ? expectedKinds.third : group} ${groups?.[group]}`,
+    );
+  const name = `${dayName(day.day)}, merged: ${day.merged}`;
+  return parts.length === 0 ? name : `${name} (${parts.join(", ")})`;
+};
 
 const pushName = (day: DayCounts) =>
   `${dayName(day.day)}, ${day.pushed === 1 ? "1 push" : `${day.pushed} pushes`}`;
@@ -188,7 +211,7 @@ describe("DailyChart", () => {
     await renderChart();
 
     const bars = screen.getAllByRole("button", {
-      name: /^[A-Z][a-z]{2} \d{1,2}, merged: \d+$/,
+      name: /^[A-Z][a-z]{2} \d{1,2}, merged: \d+( \(.+\))?$/,
     });
     expect(expectedDays).toHaveLength(14);
     expect(bars.map((bar) => bar.getAttribute("aria-label"))).toEqual(
@@ -200,9 +223,9 @@ describe("DailyChart", () => {
     expect(
       screen.queryByRole("gridcell", { name: /opened/ }),
     ).not.toBeInTheDocument();
-    // The figure draws no legend: its caption only describes the heatmap's
-    // strengths to assistive technology, and what is counted is said by
-    // the card's heading.
+    // The figure's caption only describes the heatmap's strengths to
+    // assistive technology, and what is counted is said by the card's
+    // heading; the only legend is the one of the kinds (below).
     const figure = screen
       .getByRole("group", { name: chartName })
       .closest("figure");
@@ -401,6 +424,97 @@ describe("DailyChart", () => {
   });
 });
 
+describe("The kinds of merged pull requests", () => {
+  /** The day `daysBack` days before {@link now}. */
+  const dayBack = (daysBack: number) => {
+    const day = expectedDays.at(-1 - daysBack);
+    if (day === undefined) {
+      throw new Error(`No day ${daysBack} days back in the period`);
+    }
+    return day;
+  };
+
+  it("choose build, the most merged kind but feat and fix, as the third in the fixtures", () => {
+    expect(expectedKinds.third).toBe("build");
+    const totals = Object.fromEntries(
+      groupOrder.map((group) => [
+        group,
+        expectedKinds.days.reduce((sum, day) => sum + day.merged[group], 0),
+      ]),
+    );
+    for (const group of groupOrder) {
+      expect(totals[group]).toBeGreaterThan(0);
+    }
+  });
+
+  it.each([1000, 340])(
+    "name each bar with its breakdown in the order it is drawn, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const day = dayBack(8);
+
+      expect(
+        screen.getByRole("button", {
+          name: `${dayName(day.day)}, merged: 3 (feat 1, fix 1, build 1)`,
+        }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", {
+          name: `${dayName(dayBack(10).day)}, merged: 2 (build 1, other 1)`,
+        }),
+      ).toBeInTheDocument();
+    },
+  );
+
+  it.each([1000, 340])(
+    "stack each bar's segments to its whole length, from feat at its end to other at the axis, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const rows = width < 600;
+      for (const day of daysWithMerges()) {
+        const bar = screen.getByRole("button", { name: barName(day) });
+        const segments = [
+          ...(bar.parentElement?.querySelectorAll("rect:not([role])") ?? []),
+        ];
+        const groups = expectedKinds.days.find(
+          (entry) => entry.day === day.day,
+        )?.merged;
+        expect(segments).toHaveLength(
+          groupOrder.filter((group) => (groups?.[group] ?? 0) > 0).length,
+        );
+        const size = (element: Element) =>
+          Number(element.getAttribute(rows ? "width" : "height"));
+        const start = (element: Element) =>
+          Number(element.getAttribute(rows ? "x" : "y"));
+        const total = segments.reduce((sum, segment) => sum + size(segment), 0);
+        expect(total).toBeCloseTo(size(bar));
+        // Toward the axis: down a column, left along a row.
+        const starts = segments.map(start);
+        expect(starts).toEqual(
+          [...starts].sort((a, b) => (rows ? b - a : a - b)),
+        );
+      }
+    },
+  );
+
+  it("draw a legend above the bars of the groups with merges, in the order the bars draw them", async () => {
+    await renderChart();
+    const legend = screen.getByRole("list", {
+      name: "Kinds of merged pull requests",
+    });
+
+    expect(
+      within(legend)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["feat", "fix", "build", "other"]);
+    const bars = screen.getByRole("group", { name: chartName });
+    expect(
+      legend.compareDocumentPosition(bars) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+});
+
 describe("The push circles", () => {
   const pushDays = () => expectedDays.filter((day) => day.pushed > 0);
 
@@ -539,33 +653,33 @@ describe("A narrowed list's Pushes and Date", () => {
   it("are those of the chosen day, and of the period again once cleared", async () => {
     await renderChart();
     // Four pushes in the period, the last one an hour ago.
-    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+    expect(await pushesAndDate("feat(web): draw the activity chart")).toEqual([
       "4 pushes",
       "Pushed 2026-10-12 14:30",
     ]);
     // Pushed to two days ago, merged yesterday.
-    expect(await pushesAndDate("Document the API mock")).toEqual([
+    expect(await pushesAndDate("docs: document the API mock")).toEqual([
       "1 push",
       "Merged 2026-10-11 11:30",
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: pushName(yesterday) }));
 
-    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+    expect(await pushesAndDate("feat(web): draw the activity chart")).toEqual([
       "1 push",
       "Pushed 2026-10-11 10:05",
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: barName(yesterday) }));
 
-    expect(await pushesAndDate("Document the API mock")).toEqual([
+    expect(await pushesAndDate("docs: document the API mock")).toEqual([
       "0 pushes",
       "Merged 2026-10-11 11:30",
     ]);
 
     fireEvent.click(screen.getByRole("button", { name: "Show all" }));
 
-    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+    expect(await pushesAndDate("feat(web): draw the activity chart")).toEqual([
       "4 pushes",
       "Pushed 2026-10-12 14:30",
     ]);
@@ -581,7 +695,7 @@ describe("A narrowed list's Pushes and Date", () => {
       heatmapCell({ day: "2026-10-11", hour: 10, pushed, merged }),
     );
 
-    expect(await pushesAndDate("Draw the activity chart")).toEqual([
+    expect(await pushesAndDate("feat(web): draw the activity chart")).toEqual([
       "1 push",
       "Pushed 2026-10-11 10:05",
     ]);
@@ -608,7 +722,7 @@ describe("Bots' pull requests in a narrowed list", () => {
     );
 
     expect(await pullRequestTitles()).toEqual([
-      "Bump vite from 8.3.4 to 8.3.5",
+      "build(deps): bump vite from 8.3.4 to 8.3.5",
     ]);
     fireEvent.click(screen.getByRole("button", { name: "Show all" }));
     expect(

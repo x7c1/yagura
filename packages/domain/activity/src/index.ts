@@ -14,6 +14,13 @@ export type { DayCounts, DayHourCounts } from "./daily";
 export { dayKeyOf, startOfDay } from "./days";
 export { countedEvents, isPerson } from "./events";
 export type { CountedEvent, EventKind } from "./events";
+export {
+  countKindsByDay,
+  kindGroupName,
+  kindGroups,
+  kindOfTitle,
+} from "./kinds";
+export type { DayKinds, KindGroup, MergedKinds } from "./kinds";
 export { listPullRequests } from "./list";
 export type { ListedPullRequest, ShownState } from "./list";
 export { narrowList } from "./narrowing";

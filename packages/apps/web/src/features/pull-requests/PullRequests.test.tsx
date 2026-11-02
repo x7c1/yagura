@@ -1,7 +1,14 @@
-import { mockBotLogin, mockOrganization } from "@yagura/api-mocks";
+import {
+  mockActivityFixtures,
+  mockActivityResponse,
+  mockBotLogin,
+  mockOrganization,
+} from "@yagura/api-mocks";
 import { MemoryStore } from "@yagura/browser";
 import {
   dayKeyOf,
+  periodEndingAt,
+  requestRange,
   type ListedPullRequest,
   type PullRequest,
 } from "@yagura/activity";
@@ -113,13 +120,15 @@ describe("MembersActivity", () => {
 
     expect(titles).toEqual(titlesOf(mockListedPullRequests(mock, now)));
     // Pushed to by its author in the period, then closed: listed.
-    expect(titles).toContain("Try another GraphQL client");
+    expect(titles).toContain("refactor(api): try another GraphQL client");
     // Opened before the period, pushed to and merged in it: listed.
-    expect(titles).toContain("Paginate the members endpoint");
+    expect(titles).toContain("feat(api): paginate the members endpoint");
     // Opened and merged before the period: not listed.
-    expect(titles).not.toContain("Split the session module");
+    expect(titles).not.toContain("refactor(api): split the session module");
     // Bots' pull requests are hidden by default.
-    expect(titles.filter((title) => title.startsWith("Bump"))).toEqual([]);
+    expect(
+      titles.filter((title) => title.startsWith("build(deps): bump")),
+    ).toEqual([]);
     // The chart's axis shows the days, so the activity page names no period.
     expect(screen.queryByText(/^Last 14 days/)).not.toBeInTheDocument();
   });
@@ -127,9 +136,11 @@ describe("MembersActivity", () => {
   it("shows a pull request's details and links to it", async () => {
     open();
 
-    expect(await rowCells("Fix the sign-out redirect")).toEqual([
+    expect(
+      await rowCells("fix(web): return to sign-in after signing out"),
+    ).toEqual([
       // The title, with its author on the line under it.
-      "Fix the sign-out redirectmock-alice",
+      "fix(web): return to sign-in after signing outmock-alice",
       "mock-org/web#2",
       "merged",
       "1 push",
@@ -137,7 +148,7 @@ describe("MembersActivity", () => {
       expect.stringMatching(/^Merged \d{4}-\d{2}-\d{2} \d{2}:\d{2}$/),
     ]);
     const link = screen.getByRole("link", {
-      name: "Fix the sign-out redirect",
+      name: "fix(web): return to sign-in after signing out",
     });
     expect(link).toHaveAttribute(
       "href",
@@ -150,7 +161,7 @@ describe("MembersActivity", () => {
     open();
 
     const [, , state, pushes, , date] = await rowCells(
-      "Draw the activity chart",
+      "feat(web): draw the activity chart",
     );
 
     expect(state).toBe("draft");
@@ -162,7 +173,9 @@ describe("MembersActivity", () => {
   it("dates a pull request merged without pushes by its merge, with no pushes", async () => {
     open();
 
-    const cells = await rowCells("Name the chart for screen readers");
+    const cells = await rowCells(
+      "feat(web): name the chart for screen readers",
+    );
     expect(cells.at(-1)).toBe("Merged 2026-10-03 10:25");
     expect(cells[3]).toBe("0 pushes");
   });
@@ -182,9 +195,13 @@ describe("MembersActivity", () => {
       titlesOf(mockListedPullRequests(mock, now), { bots: true }),
     );
     expect(preferences.get(showBotsKey)).toBe("true");
-    const [title] = await rowCells("Bump vite from 8.3.4 to 8.3.5");
+    const [title] = await rowCells(
+      "build(deps): bump vite from 8.3.4 to 8.3.5",
+    );
     // The bot alone, marked as one before its login, under the title.
-    expect(title).toBe(`Bump vite from 8.3.4 to 8.3.5bot${mockBotLogin}`);
+    expect(title).toBe(
+      `build(deps): bump vite from 8.3.4 to 8.3.5bot${mockBotLogin}`,
+    );
     // The label says what the button does next, with no pressed state
     // beside it to contradict it.
     expect(
@@ -195,7 +212,7 @@ describe("MembersActivity", () => {
     cleanup();
     open(preferences);
     expect(await pullRequestTitles()).toContain(
-      "Bump vite from 8.3.4 to 8.3.5",
+      "build(deps): bump vite from 8.3.4 to 8.3.5",
     );
     fireEvent.click(
       screen.getByRole("button", { name: "Hide 3 bot pull requests" }),
@@ -449,6 +466,44 @@ describe("MembersActivity", () => {
         `No pull requests by ${mockOrganization}'s members in the last 14 days.`,
       ),
     ).toBeInTheDocument();
+    // The chart is drawn, its bars empty, with no legend of kinds.
+    expect(
+      screen.getByRole("group", { name: "Merged pull requests per day" }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("list", { name: "Kinds of merged pull requests" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("names in the chart's legend only the kinds merged in the period", async () => {
+    const { from, to } = requestRange(periodEndingAt(now));
+    const response = mockActivityResponse(mockActivityFixtures(now), from, to);
+    // Only the pull requests whose titles are feat or have no type.
+    const pullRequests = response.pullRequests.filter(
+      ({ title }) => title.startsWith("feat") || !title.includes(":"),
+    );
+    const ids = new Set(pullRequests.map(({ id }) => id));
+    open(
+      testPreferences(),
+      http.get(activityUrl, () =>
+        HttpResponse.json({
+          ...response,
+          pullRequests,
+          activities: response.activities.filter(({ pullRequestId }) =>
+            ids.has(pullRequestId),
+          ),
+        }),
+      ),
+    );
+
+    const legend = await screen.findByRole("list", {
+      name: "Kinds of merged pull requests",
+    });
+    expect(
+      within(legend)
+        .getAllByRole("listitem")
+        .map((item) => item.textContent),
+    ).toEqual(["feat", "other"]);
   });
 
   it("shows an error when the activity request fails, and retries", async () => {

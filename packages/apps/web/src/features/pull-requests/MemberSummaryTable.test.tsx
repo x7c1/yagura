@@ -105,7 +105,7 @@ describe("MemberSummaryTable", () => {
       screen.getByRole("group", { name: "Merged pull requests per day" }),
     ).getAllByRole("button");
     const merged = bars
-      .map((bar) => Number(/merged: (\d+)$/.exec(bar.ariaLabel ?? "")?.[1]))
+      .map((bar) => Number(/merged: (\d+)/.exec(bar.ariaLabel ?? "")?.[1]))
       .reduce((sum, count) => sum + count, 0);
     expect(rows.at(-1)?.[2]).toBe(String(merged));
   });

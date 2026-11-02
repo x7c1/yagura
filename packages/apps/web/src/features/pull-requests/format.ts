@@ -1,7 +1,10 @@
 import {
+  kindGroupName,
+  kindGroups,
   periodDays,
   startOfDay,
   type EventKind,
+  type KindGroup,
   type Period,
 } from "@yagura/activity";
 
@@ -56,4 +59,24 @@ export const eventWords: Readonly<Record<EventKind, string>> = {
 /** A count of pushes, for example "1 push" or "5 pushes". */
 export function formatPushes(count: number): string {
   return count === 1 ? "1 push" : `${count} pushes`;
+}
+
+/**
+ * A day's bar's name: its day and merged count, then, when it has merges,
+ * how many of each group of kinds, in the order the bar draws them and
+ * without the groups it has none of, for example "Oct 13, merged: 7 (feat
+ * 3, fix 2, docs 1, other 1)" or "Oct 12, merged: 0". `third` is the kind
+ * the third group holds.
+ */
+export function formatMergedDay(
+  day: string,
+  kinds: Readonly<Record<KindGroup, number>>,
+  third: string | null,
+): string {
+  const merged = kindGroups.reduce((sum, group) => sum + kinds[group], 0);
+  const parts = kindGroups
+    .filter((group) => kinds[group] > 0)
+    .map((group) => `${kindGroupName(group, third)} ${kinds[group]}`);
+  const name = `${formatDay(day)}, merged: ${merged}`;
+  return parts.length === 0 ? name : `${name} (${parts.join(", ")})`;
 }
