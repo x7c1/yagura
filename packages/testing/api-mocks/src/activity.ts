@@ -128,10 +128,16 @@ interface Fixture {
  * are never in the future. The times are spread over the day, from early
  * morning to late at night, with the late morning and the early afternoon
  * busier than the rest, so that the chart's hours have something to show.
+ *
+ * The titles take the Conventional Commits form, Dependabot's as it writes
+ * them, `build(deps): bump …`, so that the chart's merges in the period
+ * fall into every group of kinds: `feat` and `fix`, then `build`, merged
+ * more often than `docs`, `chore` and `refactor`, which go into `other`
+ * with a title that has no type.
  */
 const fixtures: readonly Fixture[] = [
   {
-    title: "Draw the activity chart",
+    title: "feat(web): draw the activity chart",
     repository: "mock-org/web",
     author: "mock-alice",
     created: on(3, "10:15"),
@@ -145,7 +151,7 @@ const fixtures: readonly Fixture[] = [
     draft: true,
   },
   {
-    title: "Fix the sign-out redirect",
+    title: "fix(web): return to sign-in after signing out",
     repository: "mock-org/web",
     author: "mock-alice",
     created: on(1, "16:40"),
@@ -156,7 +162,7 @@ const fixtures: readonly Fixture[] = [
     lines: [18, 4],
   },
   {
-    title: "Show the push counts",
+    title: "feat(web): show the push counts",
     repository: "mock-org/web",
     author: mockLogin,
     created: on(1, "09:00"),
@@ -169,7 +175,7 @@ const fixtures: readonly Fixture[] = [
     draft: true,
   },
   {
-    title: "Document the API mock",
+    title: "docs: document the API mock",
     repository: "mock-org/web",
     author: "mock-carol",
     created: on(2, "14:10"),
@@ -180,7 +186,7 @@ const fixtures: readonly Fixture[] = [
     lines: [46, 30],
   },
   {
-    title: "Bump eslint from 10.12.0 to 10.13.0",
+    title: "build(deps): bump eslint from 10.12.0 to 10.13.0",
     repository: "mock-org/api",
     author: mockBotLogin,
     created: on(2, "05:10"),
@@ -188,7 +194,7 @@ const fixtures: readonly Fixture[] = [
     lines: [12, 12],
   },
   {
-    title: "Paginate the members endpoint",
+    title: "feat(api): paginate the members endpoint",
     repository: "mock-org/api",
     author: "mock-bob",
     created: on(20, "11:00"),
@@ -199,7 +205,7 @@ const fixtures: readonly Fixture[] = [
     lines: [96, 31],
   },
   {
-    title: "Handle a revoked token",
+    title: "fix: handle a revoked token",
     repository: "mock-org/web",
     author: mockLogin,
     created: on(6, "14:00"),
@@ -211,7 +217,7 @@ const fixtures: readonly Fixture[] = [
   },
   {
     title:
-      "Retry a search that timed out with backoff, and give up after three attempts instead of waiting forever",
+      "feat(api): retry a search that timed out with backoff, and give up after three attempts instead of waiting forever",
     repository: "mock-org/api",
     author: "mock-alice",
     created: on(7, "10:00"),
@@ -223,7 +229,7 @@ const fixtures: readonly Fixture[] = [
     lines: [33, 8],
   },
   {
-    title: "Tidy the shell aliases",
+    title: "chore: tidy the shell aliases",
     repository: "mock-alice/dotfiles",
     author: "mock-alice",
     created: on(5, "22:15"),
@@ -231,7 +237,7 @@ const fixtures: readonly Fixture[] = [
     lines: [7, 9],
   },
   {
-    title: "Bump vite from 8.3.4 to 8.3.5",
+    title: "build(deps): bump vite from 8.3.4 to 8.3.5",
     repository: "mock-org/web",
     author: mockBotLogin,
     created: on(6, "05:00"),
@@ -243,7 +249,7 @@ const fixtures: readonly Fixture[] = [
     lines: [3, 3],
   },
   {
-    title: "Rename the session hook",
+    title: "refactor(api): rename the session hook",
     repository: "mock-org/api",
     author: "mock-carol",
     created: on(8, "09:15"),
@@ -251,7 +257,7 @@ const fixtures: readonly Fixture[] = [
     lines: [22, 18],
   },
   {
-    title: "Try another GraphQL client",
+    title: "refactor(api): try another GraphQL client",
     repository: "mock-org/api",
     author: "mock-bob",
     created: on(9, "14:35"),
@@ -263,7 +269,7 @@ const fixtures: readonly Fixture[] = [
     lines: [410, 120],
   },
   {
-    title: "Count the lines once per pull request",
+    title: "fix(api): count the lines once per pull request",
     repository: "mock-org/api",
     author: "mock-bob",
     created: on(8, "09:20"),
@@ -274,7 +280,7 @@ const fixtures: readonly Fixture[] = [
     lines: [19, 7],
   },
   {
-    title: "Add a dark theme",
+    title: "feat(web): add a dark theme",
     repository: "mock-org/web",
     author: "mock-alice",
     created: on(10, "21:10"),
@@ -286,7 +292,7 @@ const fixtures: readonly Fixture[] = [
     lines: [205, 66],
   },
   {
-    title: "Bump msw from 2.14.0 to 2.15.0",
+    title: "build(deps): bump msw from 2.14.0 to 2.15.0",
     repository: "mock-org/web",
     author: mockBotLogin,
     created: on(9, "05:00"),
@@ -294,7 +300,7 @@ const fixtures: readonly Fixture[] = [
     lines: [4, 4],
   },
   {
-    title: "Name the chart for screen readers",
+    title: "feat(web): name the chart for screen readers",
     repository: "mock-org/web",
     author: "mock-carol",
     created: on(9, "07:15"),
@@ -302,7 +308,7 @@ const fixtures: readonly Fixture[] = [
     lines: [14, 2],
   },
   {
-    title: "Cache the installations",
+    title: "perf(web): cache the installations",
     repository: "mock-org/web",
     author: "mock-carol",
     created: on(11, "10:45"),
@@ -314,7 +320,7 @@ const fixtures: readonly Fixture[] = [
     lines: [64, 2],
   },
   {
-    title: "Write the session API's design",
+    title: "docs(api): write the session API's design",
     repository: "mock-org/api",
     author: mockLogin,
     created: on(10, "08:30"),
@@ -322,7 +328,7 @@ const fixtures: readonly Fixture[] = [
     lines: [140, 0],
   },
   {
-    title: "Pin the Node version",
+    title: "build: pin the Node version",
     repository: "mock-org/api",
     author: "mock-bob",
     created: on(11, "20:30"),
@@ -330,7 +336,7 @@ const fixtures: readonly Fixture[] = [
     lines: [2, 2],
   },
   {
-    title: "Measure the chart's labels",
+    title: "feat(web)!: measure the chart's labels",
     repository: "mock-org/web",
     author: mockLogin,
     created: on(12, "13:10"),
@@ -352,7 +358,7 @@ const fixtures: readonly Fixture[] = [
     lines: [9, 4],
   },
   {
-    title: "Split the session module",
+    title: "refactor(api): split the session module",
     repository: "mock-org/api",
     author: "mock-bob",
     created: on(25, "15:10"),

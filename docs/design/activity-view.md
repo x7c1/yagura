@@ -182,12 +182,51 @@ for every day of the period, a day with nothing included, so that a quiet
 day shows as a gap rather than going missing. A pull request counts on the
 local day it was merged.
 
-Each bar is solid, in a blue of the chart's own, apart from the colours of
-the list's state badges, and has its count written past its end, so that a
-count is read rather than estimated from the axis. A zero is not written, its
-empty bar shows it. A bar's accessible name carries its count too, a zero
-included ("Oct 13, merged: 7", "Oct 12, merged: 0"), and the bars as a
-whole are named "Merged pull requests per day".
+Each bar is split by the kind of the pull requests merged that day, so
+that a day of fixes reads differently from a day of features. A pull
+request's kind is the type its title starts with in the
+[Conventional Commits](https://www.conventionalcommits.org/) form: the word
+before an optional `(scope)`, an optional `!` and the colon (`feat(web): …`
+is `feat`, `fix!: …` is `fix`), compared in lower case; a title without that
+form has no kind. The kind is read from the title the view already has; the
+API carries no kind of its own. The merges fall into four groups: `feat`,
+`fix`, a third kind, and `other`. The third kind is chosen once for the
+whole period, not per day: the kind, other than `feat` and `fix`, with the
+most merges in the period, a tie going to the name that sorts first; a pull
+request without a kind is never chosen, and with no such kind merged there
+is no third group. `other` takes every merge in none of the first three,
+those without a kind included. As merges arrive while the page is open, the
+third kind may change, and the bars and the legend follow it on the next
+count.
+
+A bar is a stack of its groups' segments, its total length the day's merged
+count, from the end of the bar toward the axis in the order `feat`, `fix`,
+the third kind, `other`: where the days are columns `feat` is on top and
+`other` on the axis, where they are rows `feat` is at the right end. A group
+without merges that day takes no space. Each group has a colour of its own,
+the same in every bar, the third group's the same whatever kind it holds:
+blue, orange, magenta, and for `other` a grey, the quietest. Each has 3:1
+contrast against the card in both themes, the three hues stay apart under
+the common colour vision deficiencies, the grey apart from them by its
+lightness, and all four apart from the list's state badges. A thin gap in
+the card's colour between segments keeps neighbours apart without relying on
+hue alone. A bar's count is written past its end, so that a count is read
+rather than estimated from the axis. It is written in the text colour, not
+in the blue of `feat`: right above the `feat` segment, a total in that blue
+would read as the day's count of features. A zero is not written, its empty
+bar shows it.
+
+The bar stays one button: a segment is not chosen on its own, and the
+pressed and dimmed styles apply to the whole stack. A bar's accessible name
+carries its count and its breakdown, the groups without merges left out, in
+the order they are drawn ("Oct 13, merged: 7 (feat 3, fix 2, docs 1, other
+1)"); a day with none is named by its count alone ("Oct 12, merged: 0").
+The bars as a whole are named "Merged pull requests per day". Above the
+bars, in the same card, a legend shows each group with its colour and name,
+in the same order, only the groups with a merge in the period, wrapping on a
+narrow screen rather than widening the page; it is named "Kinds of merged
+pull requests" for assistive technology, and with no merges in the period
+it is not drawn.
 
 The chart fills the width of the page and is drawn at that width, its text
 at the small type size whatever the width, never scaled down. Where each day
@@ -203,11 +242,11 @@ that starts at zero, so that their lengths compare across days.
 
 Under the heatmap, one row, labelled "Pushes" at its left where the axis's
 labels are, holds each day's number of pushes by members, right under that
-day's bar and column of cells, written in the bars' blue as their counts
-are; a day without pushes leaves its place empty. Each count is a button, a
-circle without paint around it that shows its outline only when the count
-is chosen or focused. The circles are all one size, wide enough for the
-largest count, so that clicking a count is as easy whatever its digits.
+day's bar and column of cells, written in the text colour as the bars'
+counts are; a day without pushes leaves its place empty. Each count is a
+button, a circle without paint around it that shows its outline only when
+the count is chosen or focused. The circles are all one size, wide enough
+for the largest count, so that clicking a count is as easy whatever its digits.
 Where the days are rows, each day's count sits next to its date, between
 the date and the bar, and the "Pushes" label heads the counts above the
 first row. Pushes and merges are drawn differently on purpose: they are
@@ -243,12 +282,13 @@ the strongest: each step covers a quarter of the busiest count, so that up
 to a quarter of it takes the weakest step and over three quarters the
 strongest. The weakest step has 3:1 contrast against the card in both
 themes, as the chart's other marks do, and the light theme strengthens
-toward dark, the dark theme toward light. The chart draws no key: the
+toward dark, the dark theme toward light. The heatmap draws no key: the
 cells' shades show which hours were busier, and a key would list every
 step, even those no cell takes. The figure's caption, read out but not drawn,
 describes the strengths ("Hours shaded in 4 steps, from 1 up to the
 busiest hour's 4"). No legend names what is counted, as the card's heading
-says it; the accessible names of the bars and the heatmap spell it out.
+says it, beyond the legend of the bars' kinds; the accessible names of the
+bars and the heatmap spell it out.
 
 The heatmap is one tab stop, a grid that the arrow keys move through as it
 is drawn (Home and End to the ends of a line), with Enter or Space choosing

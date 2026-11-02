@@ -33,26 +33,87 @@
 }
 
 /*
- * A bar's count, past its end, in the bar's colour; a zero is not written.
+ * A bar's count, past its end, in the text colour rather than the blue of
+ * feat, so that a day's total does not read as its count of features; a
+ * zero is not written.
  * A count takes clicks too, for a short bar is hard to hit; the keyboard and
  * assistive technology reach the bar itself.
  */
 .count {
-  fill: var(--color-chart);
+  fill: var(--color-text);
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
   cursor: pointer;
   user-select: none;
 }
 
-/* A bar, solid in the chart's colour. */
-.mark {
-  fill: var(--color-chart);
-  stroke: var(--color-chart);
+/*
+ * The key to the bars' colours, above them: a swatch and a name per group
+ * of kinds, wrapping onto more lines rather than widening the page.
+ */
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1) var(--space-3);
+  margin: 0 0 var(--space-2);
+  padding: 0;
+  list-style: none;
 }
 
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  /* The name in the axes' colour, the swatch beside it in the group's. */
+  font-size: var(--font-size-sm);
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+  background: var(--kind-color);
+}
+
+/* The colour of each group of kinds, for its segments and its swatch. */
+.kindFeat {
+  --kind-color: var(--color-kind-feat);
+}
+
+.kindFix {
+  --kind-color: var(--color-kind-fix);
+}
+
+.kindThird {
+  --kind-color: var(--color-kind-third);
+}
+
+.kindOther {
+  --kind-color: var(--color-kind-other);
+}
+
+/* A part of a bar, in its group's colour. */
+.segment {
+  fill: var(--kind-color);
+}
+
+/*
+ * The gap between two segments of a bar, in the card's colour, so that
+ * neighbouring segments are told apart by more than their hue.
+ */
+.segmentGap {
+  stroke: var(--color-bg);
+  stroke-width: var(--border-width-strong);
+}
+
+/*
+ * A bar's button, over its segments and as large as the whole bar: it is
+ * unpainted, but takes the clicks, and its outline shows when the bar is
+ * chosen or focused.
+ */
 .bar {
-  stroke-width: var(--border-width);
+  fill: transparent;
+  stroke: none;
 }
 
 .bar[tabindex] {
@@ -75,7 +136,7 @@
 }
 
 .pushCount {
-  fill: var(--color-chart);
+  fill: var(--color-text);
   stroke: none;
   font-variant-numeric: tabular-nums;
   font-weight: var(--font-weight-semibold);
@@ -108,11 +169,12 @@
 }
 
 /*
- * With a bar chosen, the others step back so that it stands out. 0.75 keeps
- * the bar colour above 3:1 against the background in both themes with some
- * margin (the light one is barely 3:1 at 0.7).
+ * With a bar chosen, the others step back so that it stands out, all of
+ * their segments alike. 0.75 keeps the colours of feat, fix and the third
+ * kind above 3:1 against the background in both themes; other, the
+ * quietest, falls below it while it steps back.
  */
-.chosen .bar:not(.pressed) {
+.chosen .stack:not(.pressedStack) {
   opacity: 0.75;
 }
 
@@ -132,7 +194,7 @@
   stroke-width: var(--focus-ring-width);
 }
 
-.chosen .bar:focus-visible {
+.chosen .stack:has(.bar:focus-visible) {
   opacity: 1;
 }
 

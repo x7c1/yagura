@@ -6,6 +6,8 @@ import {
   digitWidth,
   minColumnsWidth,
   pushDiameter,
+  segmentGaps,
+  stackSegments,
   yAxis,
   type DayGroup,
 } from "./chart-geometry";
@@ -270,5 +272,46 @@ describe("the push circles", () => {
       anchor: "middle",
     });
     expect(pushLabel.y).toBeLessThan(plot.y);
+  });
+});
+
+describe("stackSegments", () => {
+  const column = { x: 10, y: 20, width: 6, height: 60 };
+  const row = { x: 50, y: 4, width: 120, height: 14 };
+
+  it("stacks a column's counts from its top down to the axis, skipping zeros", () => {
+    const segments = stackSegments("columns", column, [3, 0, 1, 2]);
+
+    expect(segments).toEqual([
+      { index: 0, rect: { x: 10, y: 20, width: 6, height: 30 } },
+      { index: 2, rect: { x: 10, y: 50, width: 6, height: 10 } },
+      { index: 3, rect: { x: 10, y: 60, width: 6, height: 20 } },
+    ]);
+    expect(segmentGaps("columns", segments)).toEqual([
+      { x1: 10, x2: 16, y1: 50, y2: 50 },
+      { x1: 10, x2: 16, y1: 60, y2: 60 },
+    ]);
+  });
+
+  it("stacks a row's counts from its right end back to the axis", () => {
+    const segments = stackSegments("rows", row, [1, 2, 0, 3]);
+
+    expect(segments).toEqual([
+      { index: 0, rect: { x: 150, y: 4, width: 20, height: 14 } },
+      { index: 1, rect: { x: 110, y: 4, width: 40, height: 14 } },
+      { index: 3, rect: { x: 50, y: 4, width: 60, height: 14 } },
+    ]);
+    expect(segmentGaps("rows", segments)).toEqual([
+      { x1: 150, x2: 150, y1: 4, y2: 18 },
+      { x1: 110, x2: 110, y1: 4, y2: 18 },
+    ]);
+  });
+
+  it("fills the bar with its segments, and draws none for nothing", () => {
+    const segments = stackSegments("columns", column, [2, 1, 1, 3]);
+    const height = segments.reduce((sum, { rect }) => sum + rect.height, 0);
+
+    expect(height).toBeCloseTo(column.height);
+    expect(stackSegments("columns", column, [0, 0, 0, 0])).toEqual([]);
   });
 });
