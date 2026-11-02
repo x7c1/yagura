@@ -205,16 +205,29 @@ the third kind, `other`: where the days are columns `feat` is on top and
 `other` on the axis, where they are rows `feat` is at the right end. A group
 without merges that day takes no space. Each group has a colour of its own,
 the same in every bar, the third group's the same whatever kind it holds:
-blue, orange, magenta, and for `other` a grey, the quietest. Each has 3:1
-contrast against the card in both themes, the three hues stay apart under
-the common colour vision deficiencies, the grey apart from them by its
-lightness, and all four apart from the list's state badges. A thin gap in
-the card's colour between segments keeps neighbours apart without relying on
-hue alone. A bar's count is written past its end, so that a count is read
-rather than estimated from the axis. It is written in the text colour, not
-in the blue of `feat`: right above the `feat` segment, a total in that blue
-would read as the day's count of features. A zero is not written, its empty
-bar shows it.
+one family of blues told apart by their lightness, and for `other` a grey,
+the quietest. The lightness carries a meaning: `feat`, a welcome change, is
+the brightest, a cyan, and `fix`, the repair of something that went wrong,
+an indigo darker than it. The third group is a mid blue between them in the
+light theme, and in the dark theme a deep blue, the darkest of the four, as
+a light blue sits too close to the cyan of `feat` there. The four are
+therefore deliberately uneven in lightness. As a group without merges takes
+no space, any two can end up next to each other, so every pair, not only
+neighbours in the stacking order, stays apart under the common colour
+vision deficiencies as well as in full colour, in both themes, and all four
+stay apart from the list's state badges. In the light theme the cyan of
+`feat` and the grey of `other` are the closest pair, apart in full colour
+and only just apart under deuteranopia. The cyan of `feat` in the light
+theme has about 2.6:1 contrast against the card, and the deep blue of the
+third group in the dark theme about 2.8:1, both below 3:1; the legend names
+each kind, and each bar's accessible name and tooltip spell out its
+breakdown, so the colour is never the only way to read a segment. A thin
+gap in the card's colour between segments keeps neighbours apart without
+relying on colour alone. A bar's count is written past its end, so that a count is
+read rather than estimated from the axis. It is written in the text colour,
+not in the colour of `feat`: right above the `feat` segment, a total in that
+colour would read as the day's count of features. A zero is not written,
+its empty bar shows it.
 
 The bar stays one button: a segment is not chosen on its own, and the
 pressed and dimmed styles apply to the whole stack. A bar's accessible name
