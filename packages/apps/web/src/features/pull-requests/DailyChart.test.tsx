@@ -28,7 +28,9 @@ import {
   testPreferences,
   titlesOf,
 } from "../../test-support";
+import { minColumnsWidth } from "./chart-geometry";
 import { dayFormat } from "./format";
+import { labelledHours } from "./heatmap-geometry";
 
 /** 15:30 local time, so that the fixtures of the last hours fall on today. */
 const now = new Date(2026, 9, 12, 15, 30);
@@ -972,4 +974,88 @@ describe("The hours' heatmap", () => {
       screen.queryByRole("button", { name: "Show all" }),
     ).not.toBeInTheDocument();
   });
+});
+
+describe("The dates along the chart", () => {
+  /**
+   * The bars' date labels, as written: the texts drawn straight in the
+   * first hidden group of the bars' drawing, after the axis's ticks, which
+   * are grouped each with its line.
+   */
+  const barDates = () =>
+    [
+      ...(chartFigure().querySelector(':scope > g[aria-hidden="true"]')
+        ?.children ?? []),
+    ]
+      .filter((element) => element.tagName === "text")
+      .map(({ textContent }) => textContent);
+
+  /**
+   * The heatmap's date labels, as written: the texts of its hidden labels
+   * after the labelled hours.
+   */
+  const heatmapDates = () =>
+    [
+      ...screen
+        .getByRole("grid", { name: heatmapName })
+        .querySelectorAll(':scope > g[aria-hidden="true"] > text'),
+    ]
+      .slice(labelledHours.length)
+      .map(({ textContent }) => textContent);
+
+  /** Every day of the period, Sep 29 to Oct 12, as the labels write them. */
+  const everyDay = [
+    "Sep 29",
+    "30",
+    "Oct 1",
+    ...Array.from({ length: 11 }, (_, index) => String(index + 2)),
+  ];
+
+  it("write the month only on the first and where it changes, where the days are columns", async () => {
+    await renderChart(testWidths(1000));
+
+    expect(chartLayout()).toBe("columns");
+    expect(barDates()).toEqual(everyDay);
+    // Under the columns, the dates head the heatmap too, and are drawn once.
+    expect(heatmapDates()).toEqual([]);
+  });
+
+  it("write the month on the first date drawn in a month whose 1st is not labelled", async () => {
+    await renderChart(testWidths(Math.ceil(minColumnsWidth(expectedDays))));
+
+    expect(chartLayout()).toBe("columns");
+    // Every other day is labelled, counting back from today, Oct 12.
+    expect(barDates()).toEqual(["Sep 30", "Oct 2", "4", "6", "8", "10", "12"]);
+  });
+
+  it("write the month only on the first and where it changes, where the days are rows", async () => {
+    await renderChart(testWidths(340));
+
+    expect(chartLayout()).toBe("rows");
+    expect(barDates()).toEqual(everyDay);
+    expect(heatmapDates()).toEqual(everyDay);
+  });
+
+  it.each([1000, 340])(
+    "leave the full date in the names of the bars, push circles and cells, at %ipx",
+    async (width) => {
+      await renderChart(testWidths(width));
+      const fullDate = /^[A-Z][a-z]{2} \d{1,2}, /;
+
+      const bars = within(
+        screen.getByRole("group", { name: chartName }),
+      ).getAllByRole("button");
+      expect(bars).toHaveLength(14);
+      const pushes = within(
+        screen.getByRole("group", { name: "Pushes per day" }),
+      ).getAllByRole("button");
+      expect(pushes.length).toBeGreaterThan(1);
+      const cells = within(
+        screen.getByRole("grid", { name: heatmapName }),
+      ).getAllByRole("gridcell");
+      for (const element of [...bars, ...pushes, ...cells]) {
+        expect(element).toHaveAccessibleName(fullDate);
+      }
+    },
+  );
 });

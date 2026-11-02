@@ -19,7 +19,12 @@ import {
   type TextSpot,
 } from "./chart-geometry";
 import styles from "./DailyChart.module.css";
-import { formatDay, formatMergedDay, formatPushes } from "./format";
+import {
+  formatDay,
+  formatDayLabels,
+  formatMergedDay,
+  formatPushes,
+} from "./format";
 import { heatmapGeometry } from "./heatmap-geometry";
 import { HeatDescription, HourlyHeatmap } from "./HourlyHeatmap";
 
@@ -234,6 +239,11 @@ export function DailyChart(props: {
   const chart = (width: number) => {
     const geometry = chartGeometry(days, width);
     const { layout, height, ticks, groups, pushLabel, pushRow } = geometry;
+    const dayLabels = formatDayLabels(
+      groups
+        .filter((group) => group.label !== null)
+        .map((group) => group.day.day),
+    );
     const pushes = (
       <>
         <text {...placed(pushLabel)} className={styles.pushLabel}>
@@ -273,7 +283,7 @@ export function DailyChart(props: {
                   {...placed(label)}
                   className={styles.axisLabel}
                 >
-                  {formatDay(day.day)}
+                  {dayLabels.get(day.day)}
                 </text>
               ),
           )}
