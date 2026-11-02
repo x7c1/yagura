@@ -19,6 +19,37 @@ export function formatDay(day: string): string {
   return dayFormat.format(startOfDay(day));
 }
 
+/** A day as its day of the month alone, for example "21". */
+const dateFormat = new Intl.DateTimeFormat("en-US", { day: "numeric" });
+
+/**
+ * The texts of the date labels drawn along the chart, keyed by day, for the
+ * labelled days in the order they are drawn. As a calendar writes them, the
+ * month is written only where it is new: on the first label, and on each
+ * label whose month differs from the label drawn before it, for example
+ * "Oct 30, 31, Nov 1, 2". A label that is not drawn does not count, so
+ * where the 1st of a month has none, the first label drawn in that month
+ * carries the month. Text read on its own, such as an accessible name, keeps
+ * the full date of {@link formatDay}.
+ */
+export function formatDayLabels(
+  days: readonly string[],
+): ReadonlyMap<string, string> {
+  const labels = new Map<string, string>();
+  let month: number | null = null;
+  for (const day of days) {
+    const date = startOfDay(day);
+    labels.set(
+      day,
+      date.getMonth() === month
+        ? dateFormat.format(date)
+        : dayFormat.format(date),
+    );
+    month = date.getMonth();
+  }
+  return labels;
+}
+
 /**
  * A moment as its date and 24-hour time in the local time zone, every part
  * padded to a fixed width so that a column of them lines up, for example

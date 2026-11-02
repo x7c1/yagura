@@ -240,6 +240,17 @@ two), the days are rows, oldest at the top, with the date left of the bar,
 growing right on an axis below. Either way, all the bars share one axis
 that starts at zero, so that their lengths compare across days.
 
+The dates write the month only where it is new, as a calendar does:
+"Oct 30, 31, Nov 1, 2". Of the dates drawn, the first and each whose month
+differs from the date drawn before it carry the month; the others are the
+day alone. Where only every other date is drawn, the first date drawn in a
+month carries its month when the 1st is not drawn. This holds for the dates
+under the columns and for the dates of the rows, of the bars and of the
+heatmap alike. Each date still has room for its month, since any of them
+may carry one. The accessible names and other text read on their own, such
+as the bars' and cells' names, the narrowing's description and the period,
+keep the full date, as each is read without its neighbours.
+
 Under the heatmap, one row, labelled "Pushes" at its left where the axis's
 labels are, holds each day's number of pushes by members, right under that
 day's bar and column of cells, written in the text colour as the bars'

@@ -6,7 +6,7 @@ import {
 } from "@yagura/activity";
 import { useRef, useState, type KeyboardEvent } from "react";
 import styles from "./DailyChart.module.css";
-import { formatDay, formatHour, formatPushes } from "./format";
+import { formatDay, formatDayLabels, formatHour, formatPushes } from "./format";
 import {
   heatStep,
   heatSteps,
@@ -218,6 +218,12 @@ export function HourlyHeatmap(props: {
           ),
         );
 
+  const dayLabels = formatDayLabels(
+    geometry.groups
+      .filter((group) => group.label !== null)
+      .map((group) => group.day.day),
+  );
+
   return (
     <svg
       ref={grid}
@@ -265,7 +271,7 @@ export function HourlyHeatmap(props: {
                 dominantBaseline="middle"
                 className={styles.axisLabel}
               >
-                {formatDay(day.day)}
+                {dayLabels.get(day.day)}
               </text>
             ),
         )}

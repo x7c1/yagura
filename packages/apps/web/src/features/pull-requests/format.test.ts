@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { periodEndingAt } from "@yagura/activity";
 import {
   formatDateTime,
+  formatDayLabels,
   formatMergedDay,
   formatPeriod,
   formatPushes,
@@ -17,6 +18,42 @@ describe("formatDateTime", () => {
   it("pads the month, day, hour and minute, and shows midnight as 00:00", () => {
     expect(formatDateTime(new Date(2026, 0, 3, 0, 0))).toBe("2026-01-03 00:00");
     expect(formatDateTime(new Date(2026, 8, 3, 9, 7))).toBe("2026-09-03 09:07");
+  });
+});
+
+describe("formatDayLabels", () => {
+  const texts = (days: readonly string[]) => [
+    ...formatDayLabels(days).values(),
+  ];
+
+  it("writes the month on the first label of a month alone", () => {
+    expect(texts(["2026-10-20", "2026-10-21", "2026-10-22"])).toEqual([
+      "Oct 20",
+      "21",
+      "22",
+    ]);
+  });
+
+  it("writes the month again on the 1st of a new month", () => {
+    expect(
+      texts(["2026-10-30", "2026-10-31", "2026-11-01", "2026-11-02"]).join(
+        ", ",
+      ),
+    ).toBe("Oct 30, 31, Nov 1, 2");
+  });
+
+  it("writes it on the first label drawn in the new month when the 1st has none", () => {
+    expect(texts(["2026-10-29", "2026-10-31", "2026-11-02"])).toEqual([
+      "Oct 29",
+      "31",
+      "Nov 2",
+    ]);
+  });
+
+  it("keys each text by its day", () => {
+    expect(
+      formatDayLabels(["2026-10-31", "2026-11-01"]).get("2026-11-01"),
+    ).toBe("Nov 1");
   });
 });
 
