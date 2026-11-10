@@ -13,7 +13,7 @@
   },
   "dependencies": {
     "@yagura/browser": "workspace:*",
-    "msw": "^3.0.3"
+    "msw": "^3.0.4"
   },
   "devDependencies": {
     "typescript": "^6.0.3"
