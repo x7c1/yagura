@@ -1,25 +1,43 @@
+# Weekly update pull requests, on Monday morning (Asia/Tokyo).
+#
+# Minor and patch updates of each ecosystem arrive as one grouped pull
+# request, since they rarely break anything and one CI run covers them all.
+# Major updates stay one pull request each, so a failing one points at the
+# dependency that broke. Security updates are not grouped.
+#
 # The workflows pin actions to commit SHAs, so that a moved tag cannot change
 # what runs. Dependabot proposes the updates that a tag would have brought.
+# pnpm workspaces share the lockfile at the root, so one npm entry covers
+# every package.
 version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: weekly
-  # pnpm workspaces share the lockfile at the root, so one entry covers every
-  # package. Minor and patch updates come as one pull request to keep the
-  # weekly volume low; a major update gets its own, since it may need code
-  # changes.
+      day: monday
+      time: "04:00"
+      timezone: Asia/Tokyo
+    groups:
+      github-actions-minor-and-patch:
+        applies-to: version-updates
+        update-types: [minor, patch]
+
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+      day: monday
+      time: "04:00"
+      timezone: Asia/Tokyo
     groups:
       # react and react-dom must be on the same version, and their type
       # packages follow them, so a major update to one alone cannot pass.
       # Listed first: a dependency goes to the first group that matches.
       react:
+        applies-to: version-updates
         patterns: [react, react-dom, "@types/react", "@types/react-dom"]
         update-types: [major, minor, patch]
-      minor-and-patch:
+      npm-minor-and-patch:
+        applies-to: version-updates
         update-types: [minor, patch]
